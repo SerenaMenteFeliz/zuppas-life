@@ -6,24 +6,37 @@ import Ajustes from "@/components/Ajustes";
 import Linha from "@/components/Linha";
 import Pendencias from "@/components/Pendencias";
 import Popup from "@/components/Popup";
-import { Rotulo } from "@/components/ui";
-import { Anel, CabecalhoBloco } from "@/components/visual";
+import Placar from "@/components/Placar";
+import { Rotulo, Vazio } from "@/components/ui";
+import { Anel, CabecalhoFaixa } from "@/components/visual";
 import { Filtro } from "@/components/icones";
-import { corrente, ehDe, estadoDa, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import {
+  corrente,
+  ehComigo,
+  emAberto,
+  estadoDa,
+  indexar,
+  ocorrenciasDoDia,
+  quemFez,
+  quemPegou,
+  type Marcas,
+} from "@/lib/agenda";
 import { horaDoDia, porExtenso } from "@/lib/datas";
 import {
   alternarConclusao,
   definirPessoa,
   desagendar,
+  pegar,
   pular,
   useHoje,
   useZuppas,
 } from "@/lib/store";
 import {
-  BLOCOS,
+  FAIXAS,
   PESSOAS,
   blocoDaHora,
-  type Bloco,
+  faixaDe,
+  type Faixa,
   type Ocorrencia,
 } from "@/lib/types";
 
@@ -40,14 +53,30 @@ import {
    - **Anel de progresso no topo.** Um número seco não diz se o dia está indo
      bem; o anel diz antes de alguém ler o número.
    - **Pendências agrupadas por projeto e recolhíveis**, porque 22 numa coluna
-     única viram uma parede de texto que o olho pula. */
+     única viram uma parede de texto que o olho pula.
+
+   Revisão de 25/07, depois de a casa virar mural:
+
+   - **O padrão passou a ser "a casa toda".** Com quase nada tendo dono, "só o
+     que é meu" mostraria três linhas e esconderia justamente o dia da casa, que
+     é o que o painel existe pra tornar visível. O filtro continua ali, e agora
+     quer dizer "meu, mais o que eu peguei ou fiz".
+   - **Uma faixa a mais: a qualquer hora.** Pro que precisa acontecer no dia e
+     não precisa acontecer numa hora, como a meditação.
+   - **Faixa vazia some.** Quatro cabeçalhos fixos com "nada aqui" embaixo
+     empurravam o conteúdo real pra fora da primeira tela do celular.
+   - **Placar da semana na coluna de contexto.** É a contrapartida de ter tirado
+     os nomes das tarefas: sem ver quem fez, o mural vira terra de ninguém. */
 
 export default function Hoje() {
   const estado = useZuppas();
   const hoje = useHoje();
 
-  const [bloco, setBloco] = useState<Bloco | "tudo">("tudo");
-  const [soMeu, setSoMeu] = useState(true);
+  const [faixa, setFaixa] = useState<Faixa | "tudo">("tudo");
+  /* Padrão virou a casa toda em 25/07. Com quase tudo no mural, "só o que é
+     meu" mostraria três linhas e esconderia o dia da casa, que é justamente o
+     que o painel existe pra tornar visível. */
+  const [soMeu, setSoMeu] = useState(false);
 
   const marcas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
 
@@ -57,15 +86,19 @@ export default function Hoje() {
   );
 
   const doEscopo = useMemo(
-    () => (soMeu ? ocorrencias.filter((o) => ehDe(o, estado.eu)) : ocorrencias),
-    [ocorrencias, soMeu, estado.eu]
+    () =>
+      soMeu
+        ? ocorrencias.filter((o) => ehComigo(o, estado.eu, marcas))
+        : ocorrencias,
+    [ocorrencias, soMeu, estado.eu, marcas]
   );
 
-  const visiveis = bloco === "tudo" ? doEscopo : doEscopo.filter((o) => o.bloco === bloco);
+  const visiveis =
+    faixa === "tudo" ? doEscopo : doEscopo.filter((o) => faixaDe(o) === faixa);
 
   const feitasNoEscopo = doEscopo.filter((o) => marcas.feitas.has(o.chave)).length;
-  const abertasNoEscopo = doEscopo.filter(
-    (o) => estadoDa(o.chave, marcas) === "aberto"
+  const abertasNoEscopo = doEscopo.filter((o) =>
+    emAberto(estadoDa(o.chave, marcas))
   ).length;
 
   const ancoras = ocorrencias.filter((o) => o.ancora);
@@ -75,7 +108,7 @@ export default function Hoje() {
     [hoje, estado.itens, marcas.feitas, estado.preferencias.folgaSemanal]
   );
 
-  const blocoAgora = blocoDaHora(horaDoDia());
+  const faixaAgora: Faixa = blocoDaHora(horaDoDia());
   const minhasPendencias = estado.pendencias.filter(
     (p) => p.status !== "concluida" && (!soMeu || p.responsavel === estado.eu)
   );
@@ -89,7 +122,11 @@ export default function Hoje() {
   function acoes(o: Ocorrencia) {
     return {
       estado: estadoDa(o.chave, marcas),
+      fez: quemFez(o.chave, marcas),
+      pegou: quemPegou(o.chave, marcas),
+      eu: estado.eu,
       aoMarcar: () => alternarConclusao(o.id, hoje, estado.eu),
+      aoPegar: () => pegar(o.id, hoje, estado.eu),
       aoPular: () => pular(o.id, hoje, estado.eu),
       aoRemover: o.removivel ? () => desagendar(o.id) : undefined,
     };
@@ -148,15 +185,6 @@ export default function Hoje() {
             {(fechar) => (
               <div className="flex w-52 flex-col gap-1">
                 <ItemPopup
-                  ativo={soMeu}
-                  aoEscolher={() => {
-                    setSoMeu(true);
-                    fechar();
-                  }}
-                >
-                  Só o que é meu
-                </ItemPopup>
-                <ItemPopup
                   ativo={!soMeu}
                   aoEscolher={() => {
                     setSoMeu(false);
@@ -165,12 +193,21 @@ export default function Hoje() {
                 >
                   A casa toda
                 </ItemPopup>
+                <ItemPopup
+                  ativo={soMeu}
+                  aoEscolher={() => {
+                    setSoMeu(true);
+                    fechar();
+                  }}
+                >
+                  Só o que é meu
+                </ItemPopup>
               </div>
             )}
           </Popup>
 
-          {bloco !== "tudo" && (
-            <button className="aba aba-ativa" onClick={() => setBloco("tudo")}>
+          {faixa !== "tudo" && (
+            <button className="aba aba-ativa" onClick={() => setFaixa("tudo")}>
               ver o dia todo ×
             </button>
           )}
@@ -188,22 +225,30 @@ export default function Hoje() {
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] lg:items-start lg:gap-9">
           {/* O dia, em faixas */}
           <div className="flex flex-col gap-7">
-            {bloco === "tudo" ? (
-              BLOCOS.map((b) => (
-                <FaixaDoBloco
-                  key={b}
-                  bloco={b}
-                  agora={b === blocoAgora}
-                  ocorrencias={visiveis.filter((o) => o.bloco === b)}
+            {visiveis.length === 0 && (
+              <Vazio>
+                {soMeu
+                  ? "Nada é só seu hoje. Trocar pra “a casa toda” mostra o mural."
+                  : "Nada previsto pra hoje."}
+              </Vazio>
+            )}
+
+            {faixa === "tudo" ? (
+              FAIXAS.map((f) => (
+                <FaixaDoDia
+                  key={f}
+                  faixa={f}
+                  agora={f === faixaAgora}
+                  ocorrencias={visiveis.filter((o) => faixaDe(o) === f)}
                   marcas={marcas}
                   acoes={acoes}
-                  aoFocar={() => setBloco(b)}
+                  aoFocar={() => setFaixa(f)}
                 />
               ))
             ) : (
-              <FaixaDoBloco
-                bloco={bloco}
-                agora={bloco === blocoAgora}
+              <FaixaDoDia
+                faixa={faixa}
+                agora={faixa === faixaAgora}
                 ocorrencias={visiveis}
                 marcas={marcas}
                 acoes={acoes}
@@ -235,6 +280,11 @@ export default function Hoje() {
               </section>
             )}
 
+            <section className="so-modo-cheio">
+              <Rotulo>A semana da casa</Rotulo>
+              <Placar hoje={hoje} conclusoes={estado.conclusoes} />
+            </section>
+
             <section>
               <Rotulo>
                 {soMeu ? "Suas pendências" : "Pendências da casa"} (
@@ -253,44 +303,49 @@ export default function Hoje() {
   );
 }
 
-/** Uma faixa do dia: manhã, tarde ou noite.
+/** Uma faixa do dia: a qualquer hora, manhã, tarde ou noite.
 
-    A faixa do bloco atual ganha um contorno de acento. É a única pista de
-    "onde estamos agora" que a tela dá, e ela some quando o dia vira. */
-function FaixaDoBloco({
-  bloco,
+    A faixa da hora atual ganha um contorno de acento. É a única pista de "onde
+    estamos agora" que a tela dá, e ela some quando o dia vira.
+
+    A faixa "a qualquer hora" fica sempre no topo e nunca é a faixa "de agora":
+    ela não pertence a um momento, é o que está disponível o dia inteiro. */
+function FaixaDoDia({
+  faixa,
   ocorrencias,
   marcas,
   acoes,
   agora,
   aoFocar,
 }: {
-  bloco: Bloco;
+  faixa: Faixa;
   ocorrencias: Ocorrencia[];
-  marcas: ReturnType<typeof indexar>;
-  acoes: (o: Ocorrencia) => {
-    estado: "feito" | "pulado" | "aberto";
-    aoMarcar: () => void;
-    aoPular: () => void;
-    aoRemover?: () => void;
-  };
+  marcas: Marcas;
+  acoes: (o: Ocorrencia) => Omit<
+    React.ComponentProps<typeof Linha>,
+    "ocorrencia"
+  >;
   agora: boolean;
   aoFocar?: () => void;
 }) {
+  /* Faixa vazia some, porque o dia da casa quase nunca usa as quatro e uma
+     fileira de "nada aqui" empurra o conteúdo real pra baixo da dobra. */
+  if (ocorrencias.length === 0) return null;
+
   const feitas = ocorrencias.filter((o) => marcas.feitas.has(o.chave)).length;
 
   return (
     <section
       className="faixa-bloco"
       style={{
-        borderColor: agora ? "var(--accent)" : "transparent",
+        borderColor: agora && faixa !== "solto" ? "var(--accent)" : "transparent",
       }}
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <CabecalhoBloco bloco={bloco} feitas={feitas} total={ocorrencias.length} />
+          <CabecalhoFaixa faixa={faixa} feitas={feitas} total={ocorrencias.length} />
         </div>
-        {aoFocar && ocorrencias.length > 0 && (
+        {aoFocar && (
           <button
             onClick={aoFocar}
             className="mt-0.5 flex-none text-[0.68rem] underline underline-offset-4"
@@ -301,17 +356,11 @@ function FaixaDoBloco({
         )}
       </div>
 
-      {ocorrencias.length === 0 ? (
-        <p className="pl-1 text-sm" style={{ color: "var(--ink-soft)", opacity: 0.7 }}>
-          Nada aqui.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {ocorrencias.map((o) => (
-            <Linha key={o.chave} ocorrencia={o} {...acoes(o)} />
-          ))}
-        </ul>
-      )}
+      <ul className="flex flex-col gap-2">
+        {ocorrencias.map((o) => (
+          <Linha key={o.chave} ocorrencia={o} {...acoes(o)} />
+        ))}
+      </ul>
     </section>
   );
 }

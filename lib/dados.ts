@@ -1,10 +1,4 @@
-import type {
-  Compromisso,
-  ItemCasa,
-  ItemRecorrente,
-  NumeroNegocio,
-  Pendencia,
-} from "./types";
+import type { Compromisso, ItemCasa, ItemRecorrente, Pendencia } from "./types";
 
 /* Dado semente do Zuppas Life.
 
@@ -14,19 +8,24 @@ import type {
    tinha entrado no app. As pendências vêm de `memoria-negocio.md` e do
    `Painel - Hoje.md`.
 
+   Revisado item por item com o Yan em 25/07/2026. Duas coisas saíram daqui por
+   serem invenção minha e não dado da família (uma tarefa de trilha atribuída ao
+   André e uma data de reunião de rotina): palpite com cara de dado real é pior
+   que campo vazio num painel que a casa vai usar pra se organizar.
+
    Isto é a semente, não o estado. O que a família marca é gravado por cima
    (ver `store.ts`), e na fase 2 esta constante vira o `seed` de uma migration
    do Supabase, não some. */
 
 /* ── Itens recorrentes ────────────────────────────────────────────────────── */
 
-/** Data em que as aulas voltam.
+/** Volta às aulas, confirmada pelo Yan em 25/07/2026.
 
-    A [[Rotina - Família (Semana 1)]] diz "férias escolares até final de julho"
-    e nunca registrou o dia exato. Esta data é uma estimativa e existe uma
-    pendência aberta pra confirmar com a escola (ver `p22` abaixo). Enquanto
-    não for confirmada, os itens de escola só aparecem a partir daqui. */
-export const VOLTA_AS_AULAS = "2026-07-27";
+    São duas datas, não uma. O André volta uma semana antes da Akiane, e tratar
+    isso como uma data só faria a Liz ver na tela dela, já na primeira segunda,
+    dois horários de escola quando ela só tem um. */
+export const VOLTA_ANDRE = "2026-07-27";
+export const VOLTA_AKIANE = "2026-08-03";
 
 export const ITENS: ItemRecorrente[] = [
   /* ── Âncoras ────────────────────────────────────────────────────────────
@@ -36,26 +35,26 @@ export const ITENS: ItemRecorrente[] = [
   {
     id: "a1",
     titulo: "Alongamento ao acordar",
-    detalhe: "Todos menos a Akiane. Camilla se acordar cedo",
     categoria: "ancora",
     bloco: "manha",
     horario: "07:00",
     recorrencia: { tipo: "diario" },
     dono: "Casa",
     ancora: true,
-    exceto: ["Akiane"],
+    akiane: true,
     vaultNota: "Rotina - Família (Semana 1)",
   },
   {
+    /* Sem bloco de propósito (25/07): precisa acontecer todo dia e não precisa
+       acontecer de manhã. Cai na faixa "a qualquer hora". */
     id: "a2",
     titulo: "Meditação guiada pela Liz",
-    detalhe: "Hábito novo. Pratica pras gravações e co-regula a Akiane",
+    detalhe: "Quando der no dia. Pratica pras gravações e co-regula a Akiane",
     categoria: "ancora",
-    bloco: "manha",
-    horario: "07:30",
     recorrencia: { tipo: "diario" },
     dono: "Casa",
     ancora: true,
+    akiane: true,
     vaultNota: "Rotina - Família (Semana 1)",
   },
   {
@@ -67,34 +66,44 @@ export const ITENS: ItemRecorrente[] = [
     recorrencia: { tipo: "diario" },
     dono: "Casa",
     ancora: true,
+    akiane: true,
     vaultNota: "Rotina - Família (Semana 1)",
   },
 
   /* ── Biro ───────────────────────────────────────────────────────────────
-     3 a 4 passeios por dia, dono por turno. É o item mais recorrente e mais
-     binário da casa, e o que mais gera "achei que você tinha levado". */
+     Quatro por dia, e não três: ele bebe muita água (Yan, 25/07). Todos no
+     mural, porque este é o item que mais gera "achei que você tinha levado" e
+     é exatamente pra isso que existe o "peguei". */
   {
     id: "b1",
-    titulo: "Biro, passeio da manhã",
+    titulo: "Biro, manhã",
     categoria: "biro",
     bloco: "manha",
     recorrencia: { tipo: "diario" },
-    dono: "Liz",
+    dono: "Casa",
     ancora: false,
   },
   {
     id: "b2",
-    titulo: "Biro, passeio da tarde",
+    titulo: "Biro, depois do almoço",
     categoria: "biro",
     bloco: "tarde",
     recorrencia: { tipo: "diario" },
-    dono: "André",
+    dono: "Casa",
     ancora: false,
   },
   {
     id: "b3",
-    titulo: "Biro, passeio da noite",
-    detalhe: "Yan, Ge e Camilla juntos",
+    titulo: "Biro, fim da tarde",
+    categoria: "biro",
+    bloco: "tarde",
+    recorrencia: { tipo: "diario" },
+    dono: "Casa",
+    ancora: false,
+  },
+  {
+    id: "b4",
+    titulo: "Biro, noite",
     categoria: "biro",
     bloco: "noite",
     recorrencia: { tipo: "diario" },
@@ -103,18 +112,32 @@ export const ITENS: ItemRecorrente[] = [
   },
 
   /* ── Escola ─────────────────────────────────────────────────────────────
-     Horários confirmados em 30/06. Só valem a partir da volta às aulas. */
+     Horários confirmados em 30/06, datas de volta confirmadas em 25/07. O
+     André é levado e buscado pela casa; a Akiane é com a Liz. */
   {
     id: "e1",
-    titulo: "André sai pra escola",
-    detalhe: "Sai andando ~6:35, entra 6:50",
+    titulo: "Levar o André na escola",
+    detalhe: "Entra 6:50",
     categoria: "escola",
     bloco: "manha",
     horario: "06:35",
     recorrencia: { tipo: "dias-uteis" },
-    dono: "André",
+    dono: "Casa",
+    envolve: ["André"],
     ancora: false,
-    valeDe: VOLTA_AS_AULAS,
+    valeDe: VOLTA_ANDRE,
+  },
+  {
+    id: "e4",
+    titulo: "Buscar o André",
+    categoria: "escola",
+    bloco: "tarde",
+    horario: "14:00",
+    recorrencia: { tipo: "dias-uteis" },
+    dono: "Casa",
+    envolve: ["André"],
+    ancora: false,
+    valeDe: VOLTA_ANDRE,
   },
   {
     id: "e2",
@@ -127,7 +150,8 @@ export const ITENS: ItemRecorrente[] = [
     dono: "Liz",
     ancora: false,
     envolve: ["Akiane"],
-    valeDe: VOLTA_AS_AULAS,
+    akiane: true,
+    valeDe: VOLTA_AKIANE,
   },
   {
     id: "e3",
@@ -140,39 +164,33 @@ export const ITENS: ItemRecorrente[] = [
     dono: "Liz",
     ancora: false,
     envolve: ["Akiane"],
-    valeDe: VOLTA_AS_AULAS,
-  },
-  {
-    id: "e4",
-    titulo: "André volta da escola",
-    categoria: "escola",
-    bloco: "tarde",
-    horario: "14:00",
-    recorrencia: { tipo: "dias-uteis" },
-    dono: "André",
-    ancora: false,
-    valeDe: VOLTA_AS_AULAS,
+    akiane: true,
+    valeDe: VOLTA_AKIANE,
   },
 
   /* ── Casa ───────────────────────────────────────────────────────────────
-     Donos fixos e rodízios, exatamente como decidido em 16/06. O rodízio de
-     varrer/pano e banheiros existe pra tirar isso da Liz, que está
-     sobrecarregada nessa parte. */
+     Mural, decidido em 25/07: tarefa de casa não tem nome antes de acontecer,
+     e quem marcar pegou aquela. O rodízio semanal de varrer e banheiro entre
+     Yan, Ge e Camilla, que vinha de 16/06, foi desligado aqui: escala fixa só
+     funciona quando a semana de todo mundo é igual.
+
+     A exceção é o André, que fica com louça e lixo. Os dois no bloco da tarde,
+     porque a noite dele muda quando as aulas voltam. */
   {
     id: "c1",
     titulo: "Cozinhar",
-    detalhe: "Liz, Camilla e Ge se ajudando",
+    detalhe: "Segue o cardápio da Liz",
     categoria: "casa",
     bloco: "tarde",
     recorrencia: { tipo: "diario" },
-    dono: "Liz",
+    dono: "Casa",
     ancora: false,
   },
   {
     id: "c2",
     titulo: "Louça",
     categoria: "casa",
-    bloco: "noite",
+    bloco: "tarde",
     recorrencia: { tipo: "diario" },
     dono: "André",
     ancora: false,
@@ -182,7 +200,7 @@ export const ITENS: ItemRecorrente[] = [
     titulo: "Lixo",
     detalhe: "Quando encher. A meta é virar autônomo, sem lembrar",
     categoria: "casa",
-    bloco: "noite",
+    bloco: "tarde",
     recorrencia: { tipo: "diario" },
     dono: "André",
     ancora: false,
@@ -194,7 +212,6 @@ export const ITENS: ItemRecorrente[] = [
     bloco: "tarde",
     recorrencia: { tipo: "semanal", dias: [1, 4] },
     dono: "Casa",
-    rodizio: ["Yan", "Ge", "Camilla"],
     ancora: false,
   },
   {
@@ -205,17 +222,15 @@ export const ITENS: ItemRecorrente[] = [
     bloco: "tarde",
     recorrencia: { tipo: "semanal", dias: [6] },
     dono: "Casa",
-    rodizio: ["Yan", "Ge", "Camilla"],
     ancora: false,
   },
   {
     id: "c6",
     titulo: "Roupa",
-    detalhe: "André ajuda",
     categoria: "casa",
     bloco: "tarde",
     recorrencia: { tipo: "semanal", dias: [2] },
-    dono: "Liz",
+    dono: "Casa",
     ancora: false,
   },
   {
@@ -234,7 +249,7 @@ export const ITENS: ItemRecorrente[] = [
     categoria: "casa",
     bloco: "tarde",
     recorrencia: { tipo: "semanal", dias: [5] },
-    dono: "Yan",
+    dono: "Casa",
     ancora: false,
   },
   {
@@ -280,15 +295,44 @@ export const ITENS: ItemRecorrente[] = [
     dono: "Casa",
     ancora: false,
   },
+
+  /* ── O dia da Akiane ────────────────────────────────────────────────────
+     Pouca coisa fixa, por pedido do Yan em 25/07. A sequência dela é
+     principalmente as âncoras (que ela faz junto com a casa) e a escola. Estes
+     dois existem porque uma agenda visual precisa ter o que a criança
+     reconhece como dela, não só o que os adultos combinaram. */
+  {
+    id: "ak1",
+    titulo: "Brincar",
+    categoria: "pessoal",
+    recorrencia: { tipo: "diario" },
+    dono: "Akiane",
+    ancora: false,
+    akiane: true,
+  },
+  {
+    id: "ak2",
+    titulo: "Ajudar em alguma coisa",
+    detalhe: "Escolher uma coisa da casa e fazer junto",
+    categoria: "casa",
+    recorrencia: { tipo: "diario" },
+    dono: "Akiane",
+    ancora: false,
+    akiane: true,
+  },
 ];
 
 /* ── Pendências ─────────────────────────────────────────────────────────────
-   As 21 reais do vault, mais a de confirmar a volta às aulas. `atualizado` é
-   o que alimenta o "parada há N dias": era gravado e nunca mostrado. */
+   As reais do vault. `atualizado` é o que alimenta o "parada há N dias".
+
+   Revisão de 25/07: saíram três. A das métricas do 1º post, porque o Yan matou
+   a tarefa. A da "próxima trilha", porque era invenção minha atribuída ao
+   André e nunca existiu no vault. E a de confirmar a volta às aulas, porque foi
+   confirmada e virou dado real lá em cima. */
 
 export const PENDENCIAS: Pendencia[] = [
   { id: "d1", projeto: "Lar Interior", titulo: "Revisar a copy da landing page", status: "aberta", responsavel: "Liz", atualizado: "2026-07-04", vaultNota: "Lar Interior - Visão Geral" },
-  { id: "d2", projeto: "Lar Interior", titulo: "Editar as fotos de Ubatuba e subir na landing", status: "aberta", responsavel: "Liz", nota: "Fotos tiradas em 28/06", atualizado: "2026-06-28" },
+  { id: "d2", projeto: "Lar Interior", titulo: "Editar as fotos de Ubatuba e subir na landing", status: "aberta", responsavel: "Yan", nota: "Fotos tiradas em 28/06. Passou pro Yan em 25/07", atualizado: "2026-07-25" },
   { id: "d3", projeto: "Lar Interior", titulo: "Trocar os links das bios pro domínio novo", status: "aberta", responsavel: "Yan", nota: "larinterior.serenamentefeliz.com no ar desde 20/07", atualizado: "2026-07-20" },
   { id: "d4", projeto: "Lar Interior", titulo: "Automação de boas-vindas no Brevo e hard bounce", status: "aberta", responsavel: "Yan", atualizado: "2026-06-23" },
   { id: "d5", projeto: "Lar Interior", titulo: "Definir a sequência de aquecimento no Brevo", status: "aberta", responsavel: "Yan", atualizado: "2026-06-23" },
@@ -298,7 +342,7 @@ export const PENDENCIAS: Pendencia[] = [
   { id: "d9", projeto: "Lar Interior", titulo: "Gravar os bônus (meditação, SOS, rastreador)", status: "aberta", responsavel: "Liz", atualizado: "2026-06-20" },
   { id: "d10", projeto: "Lar Interior", titulo: "Escrever o texto da Carta do Dia 14", status: "aberta", responsavel: "Liz", nota: "O mecanismo já está pronto no app", atualizado: "2026-07-12" },
 
-  { id: "d11", projeto: "Método Cálice", titulo: "Validar o conteúdo do quiz (8 perguntas, 4 resultados)", status: "aberta", responsavel: "Ge", nota: "O quiz já está público e testado. Falta só o aval", atualizado: "2026-07-20", prazo: "2026-07-26", vaultNota: "Quiz Diagnóstico - Estrutura e Copy" },
+  { id: "d11", projeto: "Método Cálice", titulo: "Validar o conteúdo do quiz (8 perguntas, 4 resultados)", status: "aberta", responsavel: "Ge", nota: "O quiz já está público e testado. Falta só o aval", atualizado: "2026-07-20", vaultNota: "Quiz Diagnóstico - Estrutura e Copy" },
   { id: "d12", projeto: "Método Cálice", titulo: "Gravar áudios (dias 3, 5, 9) e vídeo (dia 7)", status: "aberta", responsavel: "Ge", atualizado: "2026-07-08", vaultNota: "Método Cálice - Visão Geral" },
 
   { id: "d13", projeto: "App Serena", titulo: "Integrar o Asaas (webhook de pagamento)", status: "em-andamento", responsavel: "Yan", nota: "Sem ele não dá pra vender", atualizado: "2026-07-20", bloqueio: true, vaultNota: "App - Backlog Técnico e Funcionalidades" },
@@ -307,48 +351,30 @@ export const PENDENCIAS: Pendencia[] = [
   { id: "d16", projeto: "App Serena", titulo: "Definir a data de lançamento", status: "aberta", responsavel: "Yan", atualizado: "2026-07-08" },
 
   { id: "d17", projeto: "Consciente Momento", titulo: "Definir banco de imagens alinhado ao Serena", status: "aberta", responsavel: "Yan", atualizado: "2026-06-22" },
-  { id: "d18", projeto: "Consciente Momento", titulo: "Preencher as métricas do 1º post", status: "aberta", responsavel: "Yan", atualizado: "2026-06-22", vaultNota: "Registro de Conteúdo" },
 
   { id: "d19", projeto: "TikTok", titulo: "Mapear o produto próprio da Camilla", status: "aberta", responsavel: "Camilla", nota: "Satélite de tráfego ainda não mapeado", atualizado: "2026-07-08" },
 
-  { id: "d20", projeto: "Família", titulo: "Reagendar a revisão da rotina com todos", status: "bloqueada", responsavel: "Yan", nota: "Estava marcada pra 17/06", atualizado: "2026-06-17", vaultNota: "Rotina - Família (Semana 1)" },
-  { id: "d21", projeto: "Família", titulo: "Escolher o fim de semana da próxima trilha", status: "aberta", responsavel: "André", atualizado: "2026-07-14" },
-  { id: "d22", projeto: "Família", titulo: "Confirmar com a escola a data da volta às aulas", status: "aberta", responsavel: "Liz", nota: "O app assume 27/07 até ser confirmado. Os horários de escola só aparecem a partir dessa data", atualizado: "2026-07-24" },
+  /* Estava como "bloqueada" desde 24/07, e não está: ninguém depende de nada
+     pra marcar uma reunião de família. Bloqueio é o que espera terceiro, e usar
+     o rótulo pra "não fizemos ainda" esvazia o único status que a TV destaca. */
+  { id: "d20", projeto: "Família", titulo: "Marcar a revisão da rotina com todos", status: "aberta", responsavel: "Yan", nota: "Estava marcada pra 17/06 e não aconteceu. As aulas voltam 27/07", atualizado: "2026-06-17", vaultNota: "Rotina - Família (Semana 1)" },
 ];
 
 /* ── Compromissos e lembretes ───────────────────────────────────────────────
-   Semente curta de propósito: só o que existe de fato no vault. O resto a
-   família agenda pela tela, que é justamente o ponto da funcionalidade. */
+   Vazio, e é uma decisão, não um esquecimento.
 
-export const COMPROMISSOS: Compromisso[] = [
-  {
-    id: "k1",
-    titulo: "Ge dar o aval do quiz",
-    data: "2026-07-26",
-    bloco: "tarde",
-    para: "Ge",
-    tipo: "lembrete",
-  },
-  {
-    id: "k2",
-    titulo: "Review semanal do vault",
-    data: "2026-07-26",
-    horario: "20:00",
-    bloco: "noite",
-    para: "Yan",
-    tipo: "compromisso",
-  },
-  {
-    id: "k3",
-    titulo: "Reunião de rotina com a família",
-    detalhe: "Revisar a Semana 1 e escolher a data de início. Atrasado desde 17/06",
-    data: "2026-07-26",
-    horario: "19:00",
-    bloco: "noite",
-    para: "Casa",
-    tipo: "compromisso",
-  },
-];
+   Os três que existiam aqui foram removidos em 25/07. A reunião de rotina
+   tinha data e hora que eu inventei, e ela não está marcada. O lembrete do
+   aval da Ge era cópia de uma pendência que já existe (`d11`), com um prazo que
+   também era meu. O review semanal do vault é convenção do vault, não
+   compromisso da família na parede da sala.
+
+   Compromisso é a única coisa aqui que nasce inteira da família: quem digita
+   "terça 9h dentista da Akiane" na tela cria o dado certo em um segundo. Semear
+   isso com palpite ensina a casa a desconfiar do painel, que é o oposto do que
+   ele existe pra fazer. */
+
+export const COMPROMISSOS: Compromisso[] = [];
 
 /* ── Lista da casa ───────────────────────────────────────────────────────── */
 
@@ -358,14 +384,9 @@ export const LISTA_CASA: ItemCasa[] = [
   { id: "l3", titulo: "Pilha do controle", por: "Yan", feito: true, criadoEm: "2026-07-20" },
 ];
 
-/* ── Números do negócio ─────────────────────────────────────────────────────
-   Mockado. Na fase 2 vira leitura agregada do Supabase do serena-app: só o
-   contador atravessa, nunca as linhas de lead. */
-
-export const NUMEROS: NumeroNegocio[] = [
-  { rotulo: "Leads Lar Interior", valor: 0, detalhe: "desde 20/07" },
-  { rotulo: "Leads do quiz", valor: 0, detalhe: "Método Cálice" },
-];
+/* Os números do negócio saíram em 25/07. Estavam mockados em zero e ocupavam
+   um quarto da coluna direita da TV. Voltam quando puderem ser lidos de
+   verdade do Supabase do `serena-app`, agregados e nunca linha de lead. */
 
 export const CITACOES: string[] = [
   "A casa se constrói no que se repete.",

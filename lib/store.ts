@@ -46,8 +46,14 @@ const CHAVE = "zuppas-life";
 
 /** Sobe quando o formato do que é gravado muda de forma incompatível. O que
     estiver gravado em versão antiga é descartado em vez de ser migrado na
-    marra, que é como se perde dado sem perceber. */
-const VERSAO = 1;
+    marra, que é como se perde dado sem perceber.
+
+    2 (25/07): a revisão de atribuição renomeou e removeu itens da rotina (o
+    Biro virou quatro passeios, a escola virou duas datas, o rodízio saiu), e
+    conclusão passou a ser uma linha por pessoa. Registro velho apontaria pra
+    item que não existe mais e contaria gente errada no placar. O que se perde
+    é uma semana de marcação de teste num aparelho só. */
+const VERSAO = 2;
 
 /** Um passo atrás disponível.
 
@@ -263,12 +269,18 @@ export function definirPessoa(pessoa: Pessoa) {
   mudar({ eu: pessoa });
 }
 
-/** Resolve uma ocorrência do dia como feita ou pulada.
+/** Registra o que **esta** pessoa fez com esta ocorrência.
 
-    Um clique só cicla entre os três estados quando `tipo` não é informado, e
-    vai direto pro estado pedido quando é. Idempotente pela chave `id|data`:
-    marcar duas vezes não cria duas linhas, e marcar de dois aparelhos
-    diferentes converge no mesmo registro quando o banco entrar. */
+    Mudou em 25/07 e vale reler devagar, porque a regra de idempotência mudou de
+    lugar. Antes a linha era única por `id|data`: a Ge marcar o jantar apagava a
+    marca da Liz, e a tela dizia que uma pessoa cozinhou quando foram três.
+    Agora a linha é única por `id|data|pessoa`. Cada uma escreve a sua, ninguém
+    sobrescreve ninguém, e a ocorrência aconteceu se qualquer uma delas for
+    "feito".
+
+    Repetir o mesmo estado continua desfazendo, mas desfaz só a marca de quem
+    tocou. É como uma pessoa espera que um botão de marcar se comporte, e evita
+    ter que caçar um "desmarcar" separado. */
 export function resolver(
   itemId: string,
   data: string,
@@ -276,12 +288,11 @@ export function resolver(
   tipo: TipoConclusao = "feito"
 ) {
   const chave = chaveConclusao(itemId, data);
-  const atual = estado.conclusoes.find((c) => c.chave === chave);
+  const daPessoa = (c: Conclusao) => c.chave === chave && c.pessoa === pessoa;
+  const minha = estado.conclusoes.find(daPessoa);
 
-  /* Repetir o mesmo estado desfaz. É como uma pessoa espera que um botão de
-     marcar se comporte, e evita ter que caçar um "desmarcar" separado. */
-  if (atual && atual.tipo === tipo) {
-    mudar({ conclusoes: estado.conclusoes.filter((c) => c.chave !== chave) });
+  if (minha && minha.tipo === tipo) {
+    mudar({ conclusoes: estado.conclusoes.filter((c) => !daPessoa(c)) });
     return;
   }
 
@@ -295,7 +306,7 @@ export function resolver(
   };
   if (tipo === "feito") tremer();
   mudar({
-    conclusoes: [...estado.conclusoes.filter((c) => c.chave !== chave), nova],
+    conclusoes: [...estado.conclusoes.filter((c) => !daPessoa(c)), nova],
   });
 }
 
@@ -306,6 +317,16 @@ export function alternarConclusao(itemId: string, data: string, pessoa: Pessoa) 
 
 export function pular(itemId: string, data: string, pessoa: Pessoa) {
   resolver(itemId, data, pessoa, "pulado");
+}
+
+/** "Peguei essa." Assume sem ter terminado.
+
+    É a metade que faltava do mural. Sem dono atribuído, a única forma de duas
+    pessoas não fazerem a mesma tarefa (e ninguém fazer a outra) é alguém poder
+    avisar que está indo. Marcar como feito depois substitui o "pego" pela mesma
+    regra de sempre, porque é a mesma pessoa escrevendo na mesma linha. */
+export function pegar(itemId: string, data: string, pessoa: Pessoa) {
+  resolver(itemId, data, pessoa, "pego");
 }
 
 export function agendar(entrada: {

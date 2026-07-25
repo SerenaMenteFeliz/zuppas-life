@@ -2,11 +2,19 @@
 
 import Linha from "./Linha";
 import { Avatar } from "./ui";
-import { COR_BLOCO, ICONE_BLOCO, Marca } from "./visual";
+import { COR_FAIXA, ICONE_FAIXA, Marca } from "./visual";
 import { Relogio } from "./icones";
-import { estadoDa, type Marcas } from "@/lib/agenda";
+import { emAberto, estadoDa, quemFez, type Marcas } from "@/lib/agenda";
 import { curta, nomeDoDiaCurto, porExtenso } from "@/lib/datas";
-import { BLOCOS, BLOCO_LABEL, corDoDono, type Bloco, type Ocorrencia } from "@/lib/types";
+import {
+  FAIXAS,
+  FAIXA_LABEL,
+  INICIAL,
+  corDoDono,
+  faixaDe,
+  type Faixa,
+  type Ocorrencia,
+} from "@/lib/types";
 
 /* As três formas de olhar a semana.
 
@@ -78,13 +86,13 @@ export function VisaoBlocos({ hoje, porDia, marcas, aoAlternar, aoAbrirDia }: Pr
           );
         })}
 
-        {/* Uma linha por bloco do dia */}
-        {BLOCOS.map((bloco) => {
-          const Icone = ICONE_BLOCO[bloco];
+        {/* Uma linha por faixa do dia */}
+        {FAIXAS.map((faixa) => {
+          const Icone = ICONE_FAIXA[faixa];
           return (
-            <FragmentoBloco
-              key={bloco}
-              bloco={bloco}
+            <FragmentoFaixa
+              key={faixa}
+              faixa={faixa}
               Icone={Icone}
               porDia={porDia}
               hoje={hoje}
@@ -98,64 +106,83 @@ export function VisaoBlocos({ hoje, porDia, marcas, aoAlternar, aoAbrirDia }: Pr
   );
 }
 
-function FragmentoBloco({
-  bloco,
+function FragmentoFaixa({
+  faixa,
   Icone,
   porDia,
   hoje,
   marcas,
   aoAlternar,
 }: {
-  bloco: Bloco;
+  faixa: Faixa;
   Icone: (p: { className?: string }) => React.ReactElement;
   porDia: { dia: string; lista: Ocorrencia[] }[];
   hoje: string;
   marcas: Marcas;
   aoAlternar: (o: Ocorrencia, dia: string) => void;
 }) {
+  /* Faixa que não tem nada na semana inteira some. Quatro linhas fixas numa
+     grade de sete colunas custam metade da altura útil do celular. */
+  const vazia = porDia.every(({ lista }) =>
+    lista.every((o) => faixaDe(o) !== faixa)
+  );
+  if (vazia) return null;
+
   return (
     <>
-      <div className="grade-rotulo" style={{ borderLeftColor: COR_BLOCO[bloco] }}>
-        <span style={{ color: COR_BLOCO[bloco] }}>
+      <div className="grade-rotulo" style={{ borderLeftColor: COR_FAIXA[faixa] }}>
+        <span style={{ color: COR_FAIXA[faixa] }}>
           <Icone className="h-4 w-4" />
         </span>
-        <span className="text-[0.72rem]">{BLOCO_LABEL[bloco]}</span>
+        <span className="text-[0.72rem]">{FAIXA_LABEL[faixa]}</span>
       </div>
 
       {porDia.map(({ dia, lista }) => {
-        const doBloco = lista.filter((o) => o.bloco === bloco);
+        const daFaixa = lista.filter((o) => faixaDe(o) === faixa);
         return (
           <div
-            key={`${bloco}-${dia}`}
+            key={`${faixa}-${dia}`}
             className="grade-celula"
             style={{
               background: dia === hoje ? "var(--glass-strong)" : undefined,
             }}
           >
-            {doBloco.length === 0 ? (
+            {daFaixa.length === 0 ? (
               <span className="grade-vazio" aria-hidden="true">
                 ·
               </span>
             ) : (
-              doBloco.map((o) => {
+              daFaixa.map((o) => {
                 const est = estadoDa(o.chave, marcas);
+                const aberto = emAberto(est);
+                const fez = quemFez(o.chave, marcas);
                 return (
                   <button
                     key={o.chave}
                     onClick={() => aoAlternar(o, dia)}
                     className="grade-item"
                     style={{
-                      borderLeftColor: corDoDono(o.dono),
-                      opacity: est === "aberto" ? 1 : 0.42,
-                      textDecoration: est === "aberto" ? "none" : "line-through",
+                      borderLeftColor:
+                        est === "pego" ? "var(--accent)" : corDoDono(o.dono),
+                      opacity: aberto ? 1 : 0.42,
+                      textDecoration: aberto ? "none" : "line-through",
                     }}
-                    title={`${o.titulo} · ${o.dono}${o.horario ? ` · ${o.horario}` : ""}`}
+                    title={`${o.titulo} · ${o.dono}${o.horario ? ` · ${o.horario}` : ""}${
+                      fez.length ? ` · feito por ${fez.join(", ")}` : ""
+                    }`}
                     aria-label={`${o.titulo}, ${o.dono}, ${porExtenso(dia)}`}
                   >
                     {o.horario && (
                       <span className="grade-hora">{o.horario}</span>
                     )}
                     <span className="grade-titulo">{o.titulo}</span>
+                    {/* Quem fez cabe na célula como iniciais, e é o que faz a
+                        grade responder "quem" além de "quando". */}
+                    {fez.length > 0 && (
+                      <span className="grade-hora">
+                        {fez.map((p) => INICIAL[p]).join("")}
+                      </span>
+                    )}
                   </button>
                 );
               })
@@ -176,7 +203,7 @@ export function VisaoColunas({ hoje, porDia, marcas, aoAlternar, aoAbrirDia }: P
         const ehHoje = dia === hoje;
         const passou = dia < hoje;
         const feitas = lista.filter((o) => marcas.feitas.has(o.chave)).length;
-        const abertas = lista.filter((o) => estadoDa(o.chave, marcas) === "aberto").length;
+        const abertas = lista.filter((o) => emAberto(estadoDa(o.chave, marcas))).length;
         const fracao = lista.length === 0 ? 0 : feitas / lista.length;
 
         return (
@@ -231,24 +258,26 @@ export function VisaoColunas({ hoje, porDia, marcas, aoAlternar, aoAbrirDia }: P
                   livre
                 </p>
               ) : (
-                BLOCOS.map((bloco) => {
-                  const doBloco = lista.filter((o) => o.bloco === bloco);
-                  if (doBloco.length === 0) return null;
-                  const Icone = ICONE_BLOCO[bloco];
+                FAIXAS.map((faixa) => {
+                  const daFaixa = lista.filter((o) => faixaDe(o) === faixa);
+                  if (daFaixa.length === 0) return null;
+                  const Icone = ICONE_FAIXA[faixa];
 
                   return (
-                    <div key={bloco} className="mb-2.5 last:mb-0">
+                    <div key={faixa} className="mb-2.5 last:mb-0">
                       <p
                         className="mb-1 flex items-center gap-1 text-[0.6rem] uppercase tracking-widest"
-                        style={{ color: COR_BLOCO[bloco] }}
+                        style={{ color: COR_FAIXA[faixa] }}
                       >
                         <Icone className="h-3 w-3" />
-                        {BLOCO_LABEL[bloco]}
+                        {FAIXA_LABEL[faixa]}
                       </p>
 
                       <ul className="flex flex-col gap-1">
-                        {doBloco.map((o) => {
+                        {daFaixa.map((o) => {
                           const est = estadoDa(o.chave, marcas);
+                          const aberto = emAberto(est);
+                          const fez = quemFez(o.chave, marcas);
                           return (
                             <li key={o.chave}>
                               <button
@@ -262,19 +291,23 @@ export function VisaoColunas({ hoje, porDia, marcas, aoAlternar, aoAbrirDia }: P
                                   <span
                                     className="block text-[0.78rem] leading-snug"
                                     style={{
-                                      opacity: est === "aberto" ? 1 : 0.45,
-                                      textDecoration:
-                                        est === "aberto" ? "none" : "line-through",
+                                      opacity: aberto ? 1 : 0.45,
+                                      textDecoration: aberto ? "none" : "line-through",
                                     }}
                                   >
                                     {o.titulo}
                                   </span>
                                   <span
                                     className="flex items-center gap-1 text-[0.62rem]"
-                                    style={{ color: corDoDono(o.dono) }}
+                                    style={{
+                                      color:
+                                        fez.length > 0
+                                          ? "var(--ink-soft)"
+                                          : corDoDono(o.dono),
+                                    }}
                                   >
                                     {o.horario ? `${o.horario} · ` : ""}
-                                    {o.dono}
+                                    {fez.length > 0 ? fez.join(", ") : o.dono}
                                   </span>
                                 </span>
                               </button>
@@ -339,12 +372,17 @@ export function VisaoLista({ hoje, porDia, marcas, aoAlternar, aoAbrirDia }: Pro
           <ul className="flex flex-col gap-1.5">
             {lista.map((o) => {
               const est = estadoDa(o.chave, marcas);
+              const aberto = emAberto(est);
+              const fez = quemFez(o.chave, marcas);
               return (
                 <li key={o.chave}>
                   <button
                     onClick={() => aoAlternar(o, dia)}
                     className="glass-card flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left"
-                    style={{ opacity: est === "aberto" ? 1 : 0.5 }}
+                    style={{
+                      opacity: aberto ? 1 : 0.5,
+                      borderColor: est === "pego" ? "var(--accent)" : undefined,
+                    }}
                     aria-pressed={est === "feito"}
                   >
                     <Marca categoria={o.categoria} tamanho={26} />
@@ -352,20 +390,23 @@ export function VisaoLista({ hoje, porDia, marcas, aoAlternar, aoAbrirDia }: Pro
                       <span
                         className="block text-[0.92rem] leading-snug"
                         style={{
-                          textDecoration: est === "aberto" ? "none" : "line-through",
+                          textDecoration: aberto ? "none" : "line-through",
                         }}
                       >
                         {o.titulo}
                       </span>
-                      {o.horario && (
-                        <span
-                          className="flex items-center gap-1 text-[0.68rem]"
-                          style={{ color: "var(--ink-soft)" }}
-                        >
-                          <Relogio />
-                          {o.horario}
-                        </span>
-                      )}
+                      <span
+                        className="flex items-center gap-1.5 text-[0.68rem]"
+                        style={{ color: "var(--ink-soft)" }}
+                      >
+                        {o.horario && (
+                          <span className="flex items-center gap-1">
+                            <Relogio />
+                            {o.horario}
+                          </span>
+                        )}
+                        {fez.length > 0 && <span>{fez.join(", ")}</span>}
+                      </span>
                     </span>
                     <Avatar dono={o.dono} tamanho={24} />
                   </button>

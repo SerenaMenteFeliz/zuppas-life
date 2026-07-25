@@ -6,18 +6,27 @@ import Link from "next/link";
 import Agendar from "@/components/Agendar";
 import Linha from "@/components/Linha";
 import { Vazio } from "@/components/ui";
-import { Anel, CabecalhoBloco } from "@/components/visual";
+import { Anel, CabecalhoFaixa } from "@/components/visual";
 import { Seta } from "@/components/icones";
-import { estadoDa, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import {
+  emAberto,
+  estadoDa,
+  indexar,
+  ocorrenciasDoDia,
+  quemFez,
+  quemPegou,
+  type Marcas,
+} from "@/lib/agenda";
 import { porExtenso, somarDias } from "@/lib/datas";
 import {
   alternarConclusao,
   desagendar,
+  pegar,
   pular,
   useHoje,
   useZuppas,
 } from "@/lib/store";
-import { BLOCOS, type Bloco, type Ocorrencia } from "@/lib/types";
+import { FAIXAS, faixaDe, type Faixa, type Ocorrencia } from "@/lib/types";
 
 /* Um dia qualquer, aberto pela semana.
 
@@ -65,13 +74,17 @@ export default function Dia() {
   }
 
   const feitas = ocorrencias.filter((o) => marcas.feitas.has(o.chave)).length;
-  const abertas = ocorrencias.filter((o) => estadoDa(o.chave, marcas) === "aberto");
+  const abertas = ocorrencias.filter((o) => emAberto(estadoDa(o.chave, marcas)));
   const ehHoje = data === hoje;
 
   function acoes(o: Ocorrencia) {
     return {
       estado: estadoDa(o.chave, marcas),
+      fez: quemFez(o.chave, marcas),
+      pegou: quemPegou(o.chave, marcas),
+      eu: estado.eu,
       aoMarcar: () => alternarConclusao(o.id, data, estado.eu),
+      aoPegar: () => pegar(o.id, data, estado.eu),
       aoPular: () => pular(o.id, data, estado.eu),
       aoRemover: o.removivel ? () => desagendar(o.id) : undefined,
     };
@@ -128,11 +141,11 @@ export default function Dia() {
           <Vazio>Nada previsto pra este dia. Dá pra agendar aqui embaixo.</Vazio>
         ) : (
           <div className="flex flex-col gap-7">
-            {BLOCOS.map((bloco) => (
+            {FAIXAS.map((faixa) => (
               <FaixaDoDia
-                key={bloco}
-                bloco={bloco}
-                ocorrencias={ocorrencias.filter((o) => o.bloco === bloco)}
+                key={faixa}
+                faixa={faixa}
+                ocorrencias={ocorrencias.filter((o) => faixaDe(o) === faixa)}
                 marcas={marcas}
                 acoes={acoes}
               />
@@ -149,27 +162,22 @@ export default function Dia() {
 }
 
 function FaixaDoDia({
-  bloco,
+  faixa,
   ocorrencias,
   marcas,
   acoes,
 }: {
-  bloco: Bloco;
+  faixa: Faixa;
   ocorrencias: Ocorrencia[];
-  marcas: ReturnType<typeof indexar>;
-  acoes: (o: Ocorrencia) => {
-    estado: "feito" | "pulado" | "aberto";
-    aoMarcar: () => void;
-    aoPular: () => void;
-    aoRemover?: () => void;
-  };
+  marcas: Marcas;
+  acoes: (o: Ocorrencia) => Omit<React.ComponentProps<typeof Linha>, "ocorrencia">;
 }) {
   if (ocorrencias.length === 0) return null;
   const feitas = ocorrencias.filter((o) => marcas.feitas.has(o.chave)).length;
 
   return (
     <section className="faixa-bloco" style={{ borderColor: "transparent" }}>
-      <CabecalhoBloco bloco={bloco} feitas={feitas} total={ocorrencias.length} />
+      <CabecalhoFaixa faixa={faixa} feitas={feitas} total={ocorrencias.length} />
       <ul className="flex flex-col gap-2">
         {ocorrencias.map((o) => (
           <Linha key={o.chave} ocorrencia={o} {...acoes(o)} />

@@ -11,7 +11,8 @@ import { Rotulo } from "@/components/ui";
 import { Marca } from "@/components/visual";
 import { VisaoBlocos, VisaoColunas, VisaoLista } from "@/components/semana";
 import { Filtro, Semana as IconeSemana } from "@/components/icones";
-import { ehDe, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import Placar from "@/components/Placar";
+import { ehComigo, ehDoMural, indexar, ocorrenciasDoDia } from "@/lib/agenda";
 import { curta, diasDaSemana, inicioDaSemana, semanaISO } from "@/lib/datas";
 import { alternarConclusao, useHoje, useZuppas } from "@/lib/store";
 import {
@@ -69,19 +70,26 @@ export default function Semana() {
 
   const marcas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
 
+  /* O filtro por pessoa mudou de significado em 25/07, junto com o mural.
+
+     Antes "Ge" queria dizer "o que está atribuído à Ge", e depois que quase
+     nada tem dono isso responderia quase nada. Agora quer dizer "o que é dela
+     por desenho, mais o que ela pegou ou fez": olhar a semana de alguém passou
+     a ser olhar o que aquela pessoa realmente encostou, que é a pergunta certa
+     numa casa que divide por mural. "Casa" isola o mural em si. */
   const porDia = useMemo(() => {
     return dias.map((dia) => {
       let lista = ocorrenciasDoDia(dia, estado.itens, estado.compromissos);
       if (pessoa !== "Todos") {
         lista =
           pessoa === "Casa"
-            ? lista.filter((o) => o.dono === "Casa")
-            : lista.filter((o) => ehDe(o, pessoa));
+            ? lista.filter(ehDoMural)
+            : lista.filter((o) => ehComigo(o, pessoa, marcas));
       }
       if (categoria !== "Tudo") lista = lista.filter((o) => o.categoria === categoria);
       return { dia, lista };
     });
-  }, [dias, estado.itens, estado.compromissos, pessoa, categoria]);
+  }, [dias, estado.itens, estado.compromissos, pessoa, categoria, marcas]);
 
   const total = porDia.reduce((s, d) => s + d.lista.length, 0);
   const feitas = porDia.reduce(
@@ -251,15 +259,22 @@ export default function Semana() {
         </div>
 
         {verTracker && (
-          <section className="mb-6">
-            <Rotulo>Progresso das semanas</Rotulo>
-            <Tracker
-              hoje={hoje}
-              itens={estado.itens}
-              feitas={marcas.feitas}
-              folgaSemanal={estado.preferencias.folgaSemanal}
-            />
-          </section>
+          <div className="mb-6 flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_360px] lg:items-start">
+            <section>
+              <Rotulo>Progresso das semanas</Rotulo>
+              <Tracker
+                hoje={hoje}
+                itens={estado.itens}
+                feitas={marcas.feitas}
+                folgaSemanal={estado.preferencias.folgaSemanal}
+              />
+            </section>
+
+            <section>
+              <Rotulo>Divisão da casa</Rotulo>
+              <Placar hoje={hoje} conclusoes={estado.conclusoes} />
+            </section>
+          </div>
         )}
 
         {visao === "blocos" && <VisaoBlocos {...props} />}

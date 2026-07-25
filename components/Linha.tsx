@@ -1,35 +1,53 @@
 "use client";
 
-import { CATEGORIA_LABEL, type Ocorrencia } from "@/lib/types";
+import { CATEGORIA_LABEL, type Ocorrencia, type Pessoa } from "@/lib/types";
+import { type EstadoOcorrencia } from "@/lib/agenda";
 import { Avatar } from "./ui";
-import { Marca } from "./visual";
-import { Check, Lixeira, Pular, Relogio } from "./icones";
+import { Marca, Participantes } from "./visual";
+import { Check, Lixeira, Mao, Pular, Relogio } from "./icones";
 
 /* A linha: o componente mais repetido do app.
 
    Uma linha só serve pra âncora, passeio do Biro, tarefa de casa, horário de
    escola, compromisso e lembrete, porque no modelo eles são a mesma coisa.
 
-   Três coisas mudaram na revisão de UI de 24/07:
+   Revisão de 24/07: marca de categoria à esquerda (pra reconhecer o tipo antes
+   de ler), pular como estado próprio, e pulado visualmente diferente de feito
+   (feito risca e acende, pulado apaga sem riscar).
 
-   1. **Marca de categoria à esquerda.** O pedido era "fácil de entender o que é
-      cada coisa": a cor e o ícone dizem o tipo antes de qualquer texto.
-   2. **Pular.** Antes só existia feito ou nada, e ficar preso numa etapa que
-      não vai acontecer é o que faz alguém abandonar a lista inteira.
-   3. **Estado pulado é visualmente diferente de feito.** Feito risca e acende;
-      pulado apaga sem riscar. Um é conquista, o outro é só ter saído do caminho. */
+   Revisão de 25/07, depois de a casa virar mural:
+
+   1. **Quem fez aparece na linha.** Era o dado que já estava sendo gravado e
+      nunca mostrado. Sem nome atribuído antes, o nome depois é a única coisa
+      que impede o mural de virar terra de ninguém.
+   2. **"Eu também".** Cozinhar é três pessoas, o passeio da noite é três. Se a
+      linha já está feita e você não está nela, o toque principal soma você em
+      vez de desmarcar o trabalho de quem fez.
+   3. **"Peguei".** Assumir sem ter terminado, pro caso clássico de duas pessoas
+      saírem com o cachorro achando que a outra não ia. */
 
 export default function Linha({
   ocorrencia,
   estado,
+  fez = [],
+  pegou = [],
+  eu,
   aoMarcar,
+  aoPegar,
   aoPular,
   aoRemover,
   mostrarDono = true,
 }: {
   ocorrencia: Ocorrencia;
-  estado: "feito" | "pulado" | "aberto";
+  estado: EstadoOcorrencia;
+  /** Quem já marcou como feito. */
+  fez?: Pessoa[];
+  /** Quem assumiu e ainda não terminou. */
+  pegou?: Pessoa[];
+  /** Quem está com o aparelho na mão, pra saber se o toque soma ou desfaz. */
+  eu?: Pessoa;
   aoMarcar: () => void;
+  aoPegar?: () => void;
   aoPular?: () => void;
   aoRemover?: () => void;
   mostrarDono?: boolean;
@@ -37,17 +55,33 @@ export default function Linha({
   const o = ocorrencia;
   const feito = estado === "feito";
   const pulado = estado === "pulado";
+  const pego = estado === "pego";
+
+  const souUmDosQueFez = eu ? fez.includes(eu) : false;
+  const jaPeguei = eu ? pegou.includes(eu) : false;
+
+  /* Só desmarca quem participou. Pra quem está de fora, o toque entra na
+     tarefa: desmarcar o trabalho alheio com um toque acidental é o tipo de
+     coisa que faz alguém parar de usar um painel de família. */
+  const rotuloPrincipal = feito
+    ? souUmDosQueFez
+      ? `Desmarcar: ${o.titulo}`
+      : `Marcar que você também fez: ${o.titulo}`
+    : `Marcar como feito: ${o.titulo}`;
 
   return (
     <li
       className={`glass-card flex items-stretch ${feito ? "linha-feita" : ""}`}
-      style={{ opacity: pulado ? 0.5 : 1 }}
+      style={{
+        opacity: pulado ? 0.5 : 1,
+        borderColor: pego ? "var(--accent)" : undefined,
+      }}
     >
       <button
         onClick={aoMarcar}
         className="linha flex-1 items-center"
         aria-pressed={feito}
-        aria-label={`${feito ? "Desmarcar" : "Marcar como feito"}: ${o.titulo}`}
+        aria-label={rotuloPrincipal}
       >
         <span className="linha-marca">
           <Check />
@@ -82,7 +116,20 @@ export default function Linha({
                 {o.horario}
               </span>
             )}
-            <span>{CATEGORIA_LABEL[o.categoria]}</span>
+
+            {fez.length > 0 ? (
+              <Participantes pessoas={fez} verbo="fez" />
+            ) : pegou.length > 0 ? (
+              <span style={{ color: "var(--accent)" }}>
+                <Participantes pessoas={pegou} verbo="pegou" />
+              </span>
+            ) : (
+              <span>{CATEGORIA_LABEL[o.categoria]}</span>
+            )}
+
+            {feito && !souUmDosQueFez && (
+              <span style={{ color: "var(--accent)" }}>tocar pra somar você</span>
+            )}
             {pulado && <span>pulado hoje</span>}
           </span>
         </span>
@@ -90,11 +137,24 @@ export default function Linha({
         {mostrarDono && <Avatar dono={o.dono} />}
       </button>
 
-      {(aoPular || aoRemover) && (
+      {(aoPegar || aoPular || aoRemover) && (
         <span
           className="flex flex-none flex-col justify-center gap-1 border-l px-2"
           style={{ borderColor: "var(--line)" }}
         >
+          {aoPegar && !feito && (
+            <button
+              onClick={aoPegar}
+              className="rounded-lg p-1.5"
+              style={{ color: jaPeguei ? "var(--accent)" : "var(--ink-soft)" }}
+              aria-label={
+                jaPeguei ? `Largar: ${o.titulo}` : `Peguei essa: ${o.titulo}`
+              }
+              title={jaPeguei ? "Largar" : "Peguei essa"}
+            >
+              <Mao />
+            </button>
+          )}
           {aoPular && (
             <button
               onClick={aoPular}

@@ -6,7 +6,7 @@ import { porExtenso } from "@/lib/datas";
 import { interpretar } from "@/lib/texto";
 import {
   BLOCOS,
-  BLOCO_LABEL,
+  FAIXA_LABEL,
   PESSOAS,
   type Bloco,
   type Dono,
@@ -124,7 +124,7 @@ export default function Agendar({
             <span style={{ color: "var(--ink-soft)" }}>{porExtenso(final.data)}</span>
             <span style={{ color: "var(--ink-soft)" }}>·</span>
             <span style={{ color: "var(--ink-soft)" }}>
-              {final.horario ?? BLOCO_LABEL[final.bloco]}
+              {final.horario ?? FAIXA_LABEL[final.bloco]}
             </span>
             <span style={{ color: "var(--ink-soft)" }}>·</span>
             <span style={{ color: "var(--ink-soft)" }}>
@@ -185,7 +185,7 @@ export default function Agendar({
                   onClick={() => setBlocoManual(b)}
                   className={`aba ${b === final.bloco ? "aba-ativa" : ""}`}
                 >
-                  {BLOCO_LABEL[b]}
+                  {FAIXA_LABEL[b]}
                 </button>
               ))}
             </div>

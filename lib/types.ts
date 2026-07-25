@@ -15,10 +15,21 @@
       inviabilizava a notificação da fase 5.
    4. Akiane entrou em `PESSOAS`. É filha da casa e a razão do desenho de duas
       camadas da rotina existir; estava fora do app.
-   5. Rodízio, blocos do dia e vigência (`valeDe`/`valeAte`) entraram porque a
-      casa real usa os três: varrer/banheiro rodam entre três pessoas, o dia da
-      família é organizado por janela e não por horário, e os itens de escola
-      não valem durante as férias.
+   5. Blocos do dia e vigência (`valeDe`/`valeAte`) entraram porque a casa real
+      usa os dois: o dia da família é organizado por janela e não por horário, e
+      os itens de escola não valem durante as férias.
+
+   Revisão de 25/07/2026, depois de o Yan revisar item por item quem faz o quê.
+   A casa não funciona por atribuição, funciona por mural:
+
+   6. **Rodízio saiu.** Varrer e banheiro giravam entre Yan, Ge e Camilla por
+      semana ISO. Escala automática só funciona quando a semana de todo mundo é
+      igual, e não é. Virou mural: aberto, qualquer um pega.
+   7. **Participação virou uma linha por pessoa.** Ver `Conclusao`. Sem isso,
+      "cozinhar" tinha que ser de uma pessoa só, e são três.
+   8. **`bloco` virou opcional.** Ver `Faixa`.
+   9. **A tela da Akiane deixou de ser deduzida do dono** e passou a ser uma
+      marca explícita (`akiane`).
 
    Sem campo `workspace`: a Appyon saiu do escopo em 19/07. */
 
@@ -50,17 +61,35 @@ export type Bloco = "manha" | "tarde" | "noite";
 
 export const BLOCOS: Bloco[] = ["manha", "tarde", "noite"];
 
-export const BLOCO_LABEL: Record<Bloco, string> = {
+/* Nem tudo cabe num bloco.
+
+   A meditação da Liz é o caso que forçou isso em 25/07: ela precisa acontecer
+   todo dia e não precisa acontecer de manhã. Obrigar um horário a uma coisa que
+   é flexível faz a tela mentir duas vezes, porque ela cobra cedo e depois some
+   do lugar onde a pessoa ia procurar. Item sem bloco vira a faixa "a qualquer
+   hora", que fica no topo do dia e não sai de lá até ser resolvida. */
+
+export type Faixa = Bloco | "solto";
+
+export const FAIXAS: Faixa[] = ["solto", "manha", "tarde", "noite"];
+
+export const FAIXA_LABEL: Record<Faixa, string> = {
+  solto: "A qualquer hora",
   manha: "Manhã",
   tarde: "Tarde",
   noite: "Noite",
 };
 
-export const BLOCO_JANELA: Record<Bloco, string> = {
+export const FAIXA_JANELA: Record<Faixa, string> = {
+  solto: "quando der, no dia",
   manha: "até 12h",
-  tarde: "12h às 17h",
+  tarde: "12h às 18h",
   noite: "depois do jantar",
 };
+
+export function faixaDe(o: { bloco?: Bloco }): Faixa {
+  return o.bloco ?? "solto";
+}
 
 /** Em que bloco cai o relógio agora. Serve pra abrir a aba certa. */
 export function blocoDaHora(hora: number): Bloco {
@@ -113,23 +142,27 @@ export interface ItemRecorrente {
   titulo: string;
   detalhe?: string;
   categoria: Categoria;
-  bloco: Bloco;
+  /** Ausente = a qualquer hora do dia. Ver `Faixa` acima. */
+  bloco?: Bloco;
   /** Horário fixo, quando existe de verdade (escola tem, cozinhar não). */
   horario?: string;
   recorrencia: Recorrencia;
-  /** Dono fixo. Ignorado quando há `rodizio`. */
+  /** Dono. `"Casa"` quer dizer **mural**: a tarefa não é de ninguém até alguém
+      pegar, e quem pegar fica registrado. Ver `ehDoMural` em `agenda.ts`. */
   dono: Dono;
-  /** Quando preenchido, o dono roda por semana entre estas pessoas. */
-  rodizio?: Pessoa[];
-  /** Quem participa além do dono. "Liz leva a Akiane" é da Liz e é da Akiane:
-      sem isso, o dia da Akiane fica vazio na tela dela. */
+  /** Quem participa além do dono. "Liz leva a Akiane" é da Liz e é da Akiane. */
   envolve?: Pessoa[];
-  /** Quem não participa, mesmo sendo item da Casa. O alongamento é de todos
-      menos a Akiane, e mostrar pra ela uma coisa que não é dela quebra
-      justamente a previsibilidade que a tela existe pra dar. */
+  /** Quem não participa, mesmo sendo item da Casa. */
   exceto?: Pessoa[];
   /** Âncora define se o dia da casa contou. Ver a regra das 3 no vault. */
   ancora: boolean;
+  /** Entra na tela da Akiane.
+
+      É uma marca explícita e não uma dedução a partir do dono, porque desde
+      25/07 quase toda tarefa da casa é do mural, e deduzir faria a tela dela
+      listar mercado, banheiro e louça. A sequência da criança é curta por
+      desenho: o que ela reconhece, na mesma ordem, todo dia. */
+  akiane?: boolean;
   /** Vigência. Os itens de escola não valem durante as férias. */
   valeDe?: string;
   valeAte?: string;
@@ -193,13 +226,23 @@ export interface ItemCasa {
   criadoEm: string;
 }
 
-/* ── Conclusão ───────────────────────────────────────────────────────────────
-   A única linha que se grava de um item recorrente. Chave é `id|data`, o que
-   torna a marcação idempotente e a corrente uma contagem. */
+/* ── Participação ────────────────────────────────────────────────────────────
+   A única linha que se grava de um item recorrente.
 
-export type TipoConclusao = "feito" | "pulado";
+   Mudou em 25/07 e é a mudança mais importante desta rodada. Antes era **uma**
+   linha por ocorrência: quem marcasse por último era o dono do registro, e
+   marcar de novo desmarcava o do outro. Isso não descreve esta casa. Cozinhar é
+   a Liz, a Ge e a Camilla; o passeio da noite é o Yan, a Ge e a Camilla; e a
+   Akiane participa de coisa que ela não faz sozinha.
+
+   Agora é **uma linha por pessoa por ocorrência**. A ocorrência continua tendo
+   a chave `id|data`, e várias participações compartilham essa chave. Quem
+   entrou depois soma, não substitui. */
+
+export type TipoConclusao = "pego" | "feito" | "pulado";
 
 export interface Conclusao {
+  /** Da ocorrência: `id|data`. Repetida entre as pessoas que participaram. */
   chave: string;
   itemId: string;
   /** ISO YYYY-MM-DD */
@@ -207,18 +250,23 @@ export interface Conclusao {
   pessoa: Pessoa;
   /** ISO completo, com fuso */
   feitoEm: string;
-  /** "pulado" é resolvido, não é feito.
+  /** "pego" é assumir sem ter terminado.
 
-      Existe porque a Akiane precisa poder sair de uma etapa sem que a tela
-      fique cobrando: numa agenda visual, ficar preso numa etapa que não vai
-      acontecer é pior que não ter agenda nenhuma. Vale pra casa toda pelo
-      mesmo motivo, e a rotina já é desenhada em duas camadas justamente pra
-      que um dia ruim não vire fracasso.
+      Existe pelo problema mais comum de casa cheia, que a rotina no vault já
+      descrevia: "achei que você tinha levado". Com o mural, ninguém tem dono
+      atribuído, então avisar que pegou é o que impede duas pessoas fazerem a
+      mesma coisa e ninguém fazer a outra.
 
-      Pular não fecha o dia: só "feito" conta pra corrente. */
+      "pulado" é resolvido, não é feito. Existe porque a Akiane precisa poder
+      sair de uma etapa sem que a tela fique cobrando: ficar preso numa etapa
+      que não vai acontecer é pior que não ter agenda nenhuma. Vale pra casa
+      toda pelo mesmo motivo.
+
+      Só "feito" fecha o dia e conta pra corrente. */
   tipo: TipoConclusao;
 }
 
+/** Chave da ocorrência (o que aconteceu naquele dia), não da pessoa. */
 export function chaveConclusao(itemId: string, data: string): string {
   return `${itemId}|${data}`;
 }
@@ -270,16 +318,11 @@ export function corDoDono(dono: Dono): string {
   return dono === "Casa" ? "var(--ink-soft)" : COR_PESSOA[dono];
 }
 
-/* ── Número agregado do negócio, pra TV ──────────────────────────────────────
-   Só o agregado atravessa, nunca as linhas de lead. A decisão de 19/07 de
-   manter os bancos separados foi sobre não copiar dado de cliente pra um
-   painel que a família abre. Um contador não é dado de cliente. */
-
-export interface NumeroNegocio {
-  rotulo: string;
-  valor: number;
-  detalhe: string;
-}
+/* Os números do negócio saíram da TV em 25/07, a pedido do Yan. Estavam
+   mockados em zero desde sempre e ocupavam um quarto da coluna direita da
+   parede da sala. Número que não veio de lugar nenhum é pior que espaço vazio:
+   ensina a casa a não olhar pro painel. Voltam quando o Supabase do
+   `serena-app` puder ser lido de verdade. */
 
 /* ── Ocorrência ──────────────────────────────────────────────────────────────
    O que as telas realmente renderizam: um item recorrente ou um compromisso já
@@ -293,7 +336,8 @@ export interface Ocorrencia {
   titulo: string;
   detalhe?: string;
   categoria: Categoria;
-  bloco: Bloco;
+  /** Ausente = a qualquer hora. */
+  bloco?: Bloco;
   horario?: string;
   dono: Dono;
   ancora: boolean;
@@ -303,4 +347,5 @@ export interface Ocorrencia {
   vaultNota?: string;
   envolve?: Pessoa[];
   exceto?: Pessoa[];
+  akiane?: boolean;
 }

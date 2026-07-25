@@ -2,22 +2,24 @@
 
 import { useMemo, useState } from "react";
 import Linha from "@/components/Linha";
-import { Avatar, Rotulo, Vazio } from "@/components/ui";
+import Placar from "@/components/Placar";
+import { Rotulo, Vazio } from "@/components/ui";
 import { Check, Lixeira, Mais } from "@/components/icones";
 import {
-  donoNoDia,
   estadoDa,
   indexar,
   ocorrenciasDoDia,
-  proximoDono,
+  quemFez,
+  quemPegou,
   valeNoDia,
 } from "@/lib/agenda";
-import { curta, diasDaSemana, porExtenso, semanaISO } from "@/lib/datas";
+import { curta, diasDaSemana, porExtenso } from "@/lib/datas";
 import {
   adicionarNaLista,
   alternarConclusao,
   alternarItemDaLista,
   limparComprados,
+  pegar,
   pular,
   removerDaLista,
   useHoje,
@@ -25,17 +27,17 @@ import {
 } from "@/lib/store";
 import { type ItemRecorrente } from "@/lib/types";
 
-/* A casa: quem faz o quê, e a lista de compras.
+/* A casa: o mural do dia, quem está dividindo o quê, e a lista de compras.
 
-   Existe porque a [[Rotina - Família (Semana 1)]] já resolvia isso no papel
-   desde 16/06 e nada tinha chegado ao app: donos fixos (louça e lixo do André),
-   rodízio semanal de varrer/pano e banheiros entre Yan, Ge e Camilla, e os três
-   passeios do Biro com dono por turno.
+   Reescrita em 25/07. A tela nasceu em 24/07 mostrando a escala: rodízio
+   semanal de varrer e banheiro entre Yan, Ge e Camilla, com prévia de quem
+   pegava na semana seguinte. O Yan desligou a escala inteira: numa casa onde a
+   semana de cada um é diferente, "é a sua vez no sábado" só produz tarefa não
+   feita com nome de culpado.
 
-   A prévia de "semana que vem" não é enfeite. A pesquisa de rodízio é direta
-   nisso: saber o que vem evita a discussão de "por que sempre eu", e a tensão
-   familiar cresce justamente na lacuna entre "achei que estava feito" e "nunca
-   vi acontecer". */
+   No lugar entrou o modelo que ele descreveu: a tarefa fica aberta e quem
+   marcar pegou aquela. A escala virou placar, que é a mesma informação lida
+   depois em vez de decidida antes, e sem o efeito de escalar quem não podia. */
 
 export default function Casa() {
   const estado = useZuppas();
@@ -52,10 +54,20 @@ export default function Casa() {
   const biro = doDia.filter((o) => o.categoria === "biro");
   const tarefas = doDia.filter((o) => o.categoria === "casa");
 
-  const rodizios = estado.itens.filter((i) => i.rodizio && i.rodizio.length > 0);
-
   const abertos = estado.lista.filter((i) => !i.feito);
   const comprados = estado.lista.filter((i) => i.feito);
+
+  function acoes(o: (typeof doDia)[number]) {
+    return {
+      estado: estadoDa(o.chave, marcas),
+      fez: quemFez(o.chave, marcas),
+      pegou: quemPegou(o.chave, marcas),
+      eu: estado.eu,
+      aoMarcar: () => alternarConclusao(o.id, hoje, estado.eu),
+      aoPegar: () => pegar(o.id, hoje, estado.eu),
+      aoPular: () => pular(o.id, hoje, estado.eu),
+    };
+  }
 
   function adicionar() {
     const limpo = novo.trim();
@@ -79,37 +91,27 @@ export default function Casa() {
 
         <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
           <div className="flex flex-col gap-8">
-            {/* Rodízio da semana */}
+            {/* Como a casa está dividindo */}
             <section>
-              <Rotulo>De quem é a vez (semana {semanaISO(hoje)})</Rotulo>
-              <ul className="flex flex-col gap-2">
-                {rodizios.map((item) => (
-                  <LinhaRodizio key={item.id} item={item} hoje={hoje} />
-                ))}
-              </ul>
-              <p className="mt-2 text-xs" style={{ color: "var(--ink-soft)" }}>
-                Gira sozinho toda segunda. Ninguém precisa combinar.
-              </p>
+              <Rotulo>Como a casa está dividindo</Rotulo>
+              <Placar hoje={hoje} conclusoes={estado.conclusoes} />
             </section>
 
             {/* Biro */}
             <section>
-              <Rotulo>Biro, hoje</Rotulo>
+              <Rotulo>Biro, hoje ({biro.length} passeios)</Rotulo>
               {biro.length === 0 ? (
                 <Vazio>Nenhum passeio previsto.</Vazio>
               ) : (
                 <ul className="flex flex-col gap-2">
                   {biro.map((o) => (
-                    <Linha
-                      key={o.chave}
-                      ocorrencia={o}
-                      estado={estadoDa(o.chave, marcas)}
-                      aoMarcar={() => alternarConclusao(o.id, hoje, estado.eu)}
-                      aoPular={() => pular(o.id, hoje, estado.eu)}
-                    />
+                    <Linha key={o.chave} ocorrencia={o} {...acoes(o)} />
                   ))}
                 </ul>
               )}
+              <p className="mt-2 text-xs" style={{ color: "var(--ink-soft)" }}>
+                Nenhum tem dono. Quem for, toca na mão pra avisar que pegou.
+              </p>
             </section>
 
             {/* Tarefas de casa do dia */}
@@ -120,13 +122,7 @@ export default function Casa() {
               ) : (
                 <ul className="flex flex-col gap-2">
                   {tarefas.map((o) => (
-                    <Linha
-                      key={o.chave}
-                      ocorrencia={o}
-                      estado={estadoDa(o.chave, marcas)}
-                      aoMarcar={() => alternarConclusao(o.id, hoje, estado.eu)}
-                      aoPular={() => pular(o.id, hoje, estado.eu)}
-                    />
+                    <Linha key={o.chave} ocorrencia={o} {...acoes(o)} />
                   ))}
                 </ul>
               )}
@@ -236,24 +232,6 @@ export default function Casa() {
   );
 }
 
-function LinhaRodizio({ item, hoje }: { item: ItemRecorrente; hoje: string }) {
-  const dono = donoNoDia(item, hoje);
-  const proximo = proximoDono(item, hoje);
-
-  return (
-    <li className="glass-card flex items-center gap-3 p-4">
-      <Avatar dono={dono} tamanho={34} />
-      <span className="flex min-w-0 flex-col">
-        <span className="text-[1rem] leading-tight">{item.titulo}</span>
-        <span className="text-[0.75rem]" style={{ color: "var(--ink-soft)" }}>
-          {dono} esta semana
-          {proximo && proximo !== dono ? ` · ${proximo} na próxima` : ""}
-        </span>
-      </span>
-    </li>
-  );
-}
-
 /** O que a semana pede no fim: mercado, marmitas e os 30 minutos de domingo.
     Fica aqui e não na tela de hoje porque é planejamento, não execução. */
 function RitualDaSemana({ hoje, itens }: { hoje: string; itens: ItemRecorrente[] }) {
@@ -283,7 +261,7 @@ function RitualDaSemana({ hoje, itens }: { hoje: string; itens: ItemRecorrente[]
           </span>
           <span className="text-[0.95rem] leading-snug">{item.titulo}</span>
           <span className="ml-auto text-[0.7rem]" style={{ color: "var(--ink-soft)" }}>
-            {donoNoDia(item, dia)}
+            {item.dono === "Casa" ? "mural" : item.dono}
           </span>
         </li>
       ))}

@@ -3,17 +3,28 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   corrente,
-  donoNoDia,
-  ehDe,
+  emAberto,
   estadoDa,
   indexar,
   melhorCorrente,
   ocorrenciasDoDia,
+  placar,
+  quemFez,
+  quemPegou,
 } from "@/lib/agenda";
-import { CITACOES, NUMEROS } from "@/lib/dados";
+import { CITACOES } from "@/lib/dados";
 import { haQuantoTempo, horaDoDia, horaISO, porExtenso } from "@/lib/datas";
 import { useHoje, useZuppas } from "@/lib/store";
-import { INICIAL, PESSOAS, type Ocorrencia, type Pessoa } from "@/lib/types";
+import {
+  COR_PESSOA,
+  FAIXAS,
+  FAIXA_LABEL,
+  INICIAL,
+  PESSOAS,
+  faixaDe,
+  type Faixa,
+  type Ocorrencia,
+} from "@/lib/types";
 
 /* Modo TV: ambiente, sempre ligado.
 
@@ -92,19 +103,32 @@ export default function TV() {
     [hoje, estado.itens, estado.compromissos]
   );
 
-  /* Por pessoa: em aberto primeiro, e dentro disso a ordem natural do dia. O
-     que já foi feito não some, fica no fim e apagado, porque ver o que a casa
-     cumpriu é metade do valor da parede. */
-  const porPessoa = useMemo(() => {
-    const mapa = new Map<Pessoa, Ocorrencia[]>();
-    for (const pessoa of PESSOAS) {
-      const dela = doDia.filter((o) => ehDe(o, pessoa));
-      const abertas = dela.filter((o) => estadoDa(o.chave, marcas) === "aberto");
-      const resolvidas = dela.filter((o) => estadoDa(o.chave, marcas) !== "aberto");
-      mapa.set(pessoa, [...abertas, ...resolvidas]);
+  /* Por faixa do dia, e não mais por pessoa.
+
+     A parede mostrava seis colunas, uma por pessoa. Aquilo funcionava enquanto
+     cada tarefa tinha dono; depois que a casa virou mural em 25/07, "o que é da
+     Ge" passou a ser quase tudo, e as seis colunas mostrariam a mesma lista
+     repetida seis vezes.
+
+     A pergunta que a parede responde agora é a que a casa realmente faz ao
+     passar pela sala: o que falta hoje, e quem já pegou o quê. Dentro da faixa,
+     o que está em aberto vem primeiro; o que foi feito fica, apagado, porque
+     ver o que a casa cumpriu é metade do valor de ter a parede. */
+  const porFaixa = useMemo(() => {
+    const mapa = new Map<Faixa, Ocorrencia[]>();
+    for (const faixa of FAIXAS) {
+      const daFaixa = doDia.filter((o) => faixaDe(o) === faixa);
+      const abertas = daFaixa.filter((o) => emAberto(estadoDa(o.chave, marcas)));
+      const prontas = daFaixa.filter((o) => !emAberto(estadoDa(o.chave, marcas)));
+      mapa.set(faixa, [...abertas, ...prontas]);
     }
     return mapa;
   }, [doDia, marcas]);
+
+  const semana = useMemo(
+    () => placar(hoje, estado.conclusoes, PESSOAS).filter((l) => l.feitas > 0),
+    [hoje, estado.conclusoes]
+  );
 
   const ancoras = doDia.filter((o) => o.ancora);
   const dias = useMemo(
@@ -119,8 +143,6 @@ export default function TV() {
   const compromissos = doDia.filter(
     (o) => o.categoria === "compromisso" || o.categoria === "lembrete"
   );
-
-  const rodizios = estado.itens.filter((i) => i.rodizio && i.rodizio.length > 0);
 
   const bloqueio = estado.pendencias.find(
     (p) => p.bloqueio && p.status !== "concluida"
@@ -170,34 +192,38 @@ export default function TV() {
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-[1fr_25%] gap-[1.4vw]">
-        {/* Hoje da casa, por pessoa */}
+        {/* Hoje da casa, por faixa do dia */}
         <section className="glass-card flex min-h-0 flex-col p-[1.4vw]">
           <h2 className="tv-rotulo mb-[1.4vh]">Hoje da casa</h2>
 
-          <div className="grid min-h-0 flex-1 grid-cols-6 gap-[0.9vw]">
-            {PESSOAS.map((pessoa) => {
-              const itens = porPessoa.get(pessoa) ?? [];
-              const visiveis = itens.slice(0, 5);
+          <div className="grid min-h-0 flex-1 grid-cols-4 gap-[0.9vw]">
+            {FAIXAS.map((faixa) => {
+              const itens = porFaixa.get(faixa) ?? [];
+              const visiveis = itens.slice(0, 7);
               const resto = itens.length - visiveis.length;
+              const abertas = itens.filter((o) =>
+                emAberto(estadoDa(o.chave, marcas))
+              ).length;
 
               return (
-                <div key={pessoa} className="flex min-h-0 flex-col">
-                  <div className="mb-[1vh] flex items-center gap-1.5">
-                    <span
-                      className="flex h-[2vw] max-h-8 min-h-6 w-[2vw] min-w-6 max-w-8 items-center justify-center rounded-full text-xs font-semibold"
-                      style={{
-                        background: "var(--accent)",
-                        color: "var(--accent-foreground)",
-                      }}
-                    >
-                      {INICIAL[pessoa]}
-                    </span>
+                <div key={faixa} className="flex min-h-0 flex-col">
+                  <div className="mb-[1vh] flex items-baseline gap-1.5">
                     <span
                       className="truncate"
                       style={{ fontSize: "clamp(0.8rem, 1vw, 1.15rem)" }}
                     >
-                      {pessoa}
+                      {FAIXA_LABEL[faixa]}
                     </span>
+                    {abertas > 0 && (
+                      <span
+                        style={{
+                          fontSize: "clamp(0.62rem, 0.75vw, 0.9rem)",
+                          color: "var(--ink-soft)",
+                        }}
+                      >
+                        {abertas}
+                      </span>
+                    )}
                   </div>
 
                   {itens.length === 0 ? (
@@ -210,13 +236,17 @@ export default function TV() {
                   ) : (
                     <ul className="flex flex-col gap-[0.7vh]">
                       {visiveis.map((o) => {
-                        const feita = concluidas.has(o.chave);
+                        const fez = quemFez(o.chave, marcas);
+                        const pegou = quemPegou(o.chave, marcas);
+                        const feita = fez.length > 0;
+                        const gente = feita ? fez : pegou;
+
                         return (
                           <li
                             key={o.chave}
                             className="tv-item flex gap-1.5"
                             style={{
-                              opacity: feita ? 0.4 : 1,
+                              opacity: feita ? 0.45 : 1,
                               textDecoration: feita ? "line-through" : "none",
                             }}
                           >
@@ -230,7 +260,34 @@ export default function TV() {
                                     : "var(--line)",
                               }}
                             />
-                            <span className="line-clamp-2">{o.titulo}</span>
+                            <span className="line-clamp-2 min-w-0 flex-1">
+                              {o.titulo}
+                            </span>
+
+                            {/* Quem pegou, em iniciais coloridas. É a peça que
+                                faz a parede responder "quem" agora que a tarefa
+                                não tem mais nome antes de acontecer. */}
+                            {gente.length > 0 && (
+                              <span className="flex flex-none -space-x-1">
+                                {gente.map((p) => (
+                                  <span
+                                    key={p}
+                                    className="flex items-center justify-center rounded-full font-semibold"
+                                    style={{
+                                      width: "1.5em",
+                                      height: "1.5em",
+                                      fontSize: "0.62em",
+                                      background: COR_PESSOA[p],
+                                      color: "var(--bg)",
+                                      border: "1px solid var(--bg)",
+                                    }}
+                                    title={p}
+                                  >
+                                    {INICIAL[p]}
+                                  </span>
+                                ))}
+                              </span>
+                            )}
                           </li>
                         );
                       })}
@@ -289,41 +346,42 @@ export default function TV() {
             </section>
           )}
 
-          <section className="glass-card p-[1.1vw]">
-            <h2 className="tv-rotulo mb-[1vh]">Da vez esta semana</h2>
-            <ul className="flex flex-col gap-[0.7vh]">
-              {rodizios.map((item) => (
-                <li key={item.id} className="tv-item flex items-baseline gap-2">
-                  <span style={{ color: "var(--accent)" }}>
-                    {donoNoDia(item, hoje)}
-                  </span>
-                  <span
-                    className="line-clamp-1"
-                    style={{ color: "var(--ink-soft)" }}
-                  >
-                    {item.titulo}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          {/* O placar substituiu o rodízio aqui em 25/07.
 
-          <section className="so-modo-cheio glass-card flex flex-1 flex-col justify-around p-[1.1vw]">
-            {NUMEROS.map((n) => (
-              <div key={n.rotulo}>
-                <div className="tv-numero" style={{ color: "var(--accent)" }}>
-                  {n.valor}
-                </div>
-                <div
-                  style={{
-                    fontSize: "clamp(0.68rem, 0.85vw, 0.95rem)",
-                    color: "var(--ink-soft)",
-                  }}
-                >
-                  {n.rotulo} · {n.detalhe}
-                </div>
-              </div>
-            ))}
+              A parede mostrava "de quem é a vez esta semana", que era a escala
+              decidida antes. Com a escala desligada, o que sobra pra mostrar é
+              a mesma informação lida depois: quem de fato fez quanta coisa.
+              Numa TV que a casa passa na frente o dia inteiro, isso faz sozinho
+              o trabalho que a escala tentava fazer na marra. */}
+          <section className="glass-card flex flex-1 flex-col p-[1.1vw]">
+            <h2 className="tv-rotulo mb-[1vh]">A semana da casa</h2>
+
+            {semana.length === 0 ? (
+              <p className="tv-item" style={{ color: "var(--ink-soft)", opacity: 0.6 }}>
+                nada marcado ainda
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-[0.9vh]">
+                {semana.map((l) => (
+                  <li key={l.pessoa} className="tv-item flex items-center gap-2">
+                    <span
+                      className="flex flex-none items-center justify-center rounded-full font-semibold"
+                      style={{
+                        width: "1.7em",
+                        height: "1.7em",
+                        fontSize: "0.72em",
+                        background: COR_PESSOA[l.pessoa],
+                        color: "var(--bg)",
+                      }}
+                    >
+                      {INICIAL[l.pessoa]}
+                    </span>
+                    <span className="flex-1 truncate">{l.pessoa}</span>
+                    <span style={{ color: "var(--accent)" }}>{l.feitas}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
       </div>

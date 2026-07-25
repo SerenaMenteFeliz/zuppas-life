@@ -3,9 +3,10 @@
 import { useMemo } from "react";
 import { Check, Pular } from "@/components/icones";
 import { Marca } from "@/components/visual";
-import { ehDe, estadoDa, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import { ehDe, estadoDa, indexar, ocorrenciasDoDia, quemFez } from "@/lib/agenda";
 import { porExtenso } from "@/lib/datas";
 import { alternarConclusao, pular, useHoje, useZuppas } from "@/lib/store";
+import { type Ocorrencia } from "@/lib/types";
 
 /* O dia da Akiane: primeiro, depois.
 
@@ -23,12 +24,30 @@ import { alternarConclusao, pular, useHoje, useZuppas } from "@/lib/store";
    3. **Feedback claro de conclusão.** Marcar move a etapa pra "já foi",
       visível, sem animação de distração.
    4. **Poder sair da etapa.** Adicionado em 24/07 e é a correção mais
-      importante desta rodada: antes só existia "já fiz" ou nada, e uma etapa
+      importante daquela rodada: antes só existia "já fiz" ou nada, e uma etapa
       que não vai acontecer travava a sequência inteira. Ficar preso é pior que
       não ter agenda, e pular aqui não é falha, é seguir em frente.
 
+   5. **A sequência é marcada à mão, não deduzida.** Correção de 25/07, e sem
+      ela esta tela teria quebrado no mesmo dia. Ela montava o dia dela pegando
+      "o que é dela ou da casa"; quando a casa inteira virou mural, isso passaria
+      a listar mercado, banheiro e louça pra uma criança autista. Agora cada item
+      diz se é dela. São poucos de propósito.
+
+   6. **"Fiz junto".** Ela participa de coisa que não faz sozinha, e agora que
+      uma tarefa aceita várias pessoas, ela pode se somar ao que a casa já fez.
+      Fica no fim, quieto, e só mostra o que realmente aconteceu hoje: é uma
+      lista curta por construção, e cada linha é uma coisa boa que já rolou.
+
    Sem contagem de cobrança, sem porcentagem, sem vermelho. Se o dia foi ruim,
    a tela não briga: um dia salvo no caos ainda conta. */
+
+/** A sequência dela: o que foi marcado como dela no modelo, mais compromisso
+    agendado no nome dela (dentista, terapia). Fora do componente porque não
+    depende de nada da tela. */
+function daAkiane(o: Ocorrencia): boolean {
+  return Boolean(o.akiane) || ehDe(o, "Akiane");
+}
 
 export default function Akiane() {
   const estado = useZuppas();
@@ -36,14 +55,17 @@ export default function Akiane() {
 
   const marcas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
 
-  /* A sequência dela: o que é dela, o que envolve ela, e o que é da casa e ela
-     participa. O alongamento sai daqui sozinho, pelo `exceto`. */
-  const sequencia = useMemo(
-    () =>
-      ocorrenciasDoDia(hoje, estado.itens, estado.compromissos).filter((o) =>
-        ehDe(o, "Akiane")
-      ),
+  const doDia = useMemo(
+    () => ocorrenciasDoDia(hoje, estado.itens, estado.compromissos),
     [hoje, estado.itens, estado.compromissos]
+  );
+
+  const sequencia = useMemo(() => doDia.filter(daAkiane), [doDia]);
+
+  /* O que a casa já fez hoje e ela pode dizer que ajudou. */
+  const ajudou = useMemo(
+    () => doDia.filter((o) => !daAkiane(o) && marcas.feitas.has(o.chave)),
+    [doDia, marcas]
   );
 
   const pendentes = sequencia.filter((o) => estadoDa(o.chave, marcas) === "aberto");
@@ -207,6 +229,56 @@ export default function Akiane() {
                 {resolvidas} de {sequencia.length} já {resolvidas === 1 ? "resolvida" : "resolvidas"} hoje.
               </p>
             )}
+          </section>
+        )}
+
+        {ajudou.length > 0 && (
+          <section className="mt-9">
+            <p
+              className="mb-3 text-center text-xs uppercase tracking-[0.2em]"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              Ajudei nisso
+            </p>
+
+            <ul className="flex flex-col gap-1.5">
+              {ajudou.map((o) => {
+                const comigo = quemFez(o.chave, marcas).includes("Akiane");
+                return (
+                  <li key={o.chave}>
+                    <button
+                      onClick={() => alternarConclusao(o.id, hoje, "Akiane")}
+                      className="glass-card flex w-full items-center gap-3 px-4 py-3 text-left"
+                      aria-pressed={comigo}
+                      aria-label={
+                        comigo
+                          ? `Tirar você de ${o.titulo}`
+                          : `Eu ajudei em ${o.titulo}`
+                      }
+                    >
+                      <span
+                        className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2"
+                        style={{
+                          borderColor: comigo ? "var(--accent)" : "var(--line)",
+                          background: comigo ? "var(--accent)" : "transparent",
+                          color: "var(--accent-foreground)",
+                        }}
+                      >
+                        {comigo && <Check className="h-3.5 w-3.5" />}
+                      </span>
+
+                      <Marca categoria={o.categoria} tamanho={26} />
+
+                      <span className="flex-1 text-[1.05rem]">{o.titulo}</span>
+
+                      <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
+                        {comigo ? "ajudei" : "ajudei?"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </section>
         )}
       </div>

@@ -1,27 +1,21 @@
 import {
   chaveConclusao,
-  type Bloco,
+  faixaDe,
   type Compromisso,
   type Conclusao,
-  type Dono,
+  type Faixa,
   type ItemRecorrente,
   type Ocorrencia,
   type Pessoa,
 } from "./types";
-import {
-  diaDaSemana,
-  ehFimDeSemana,
-  inicioDaSemana,
-  semanaISO,
-  somarDias,
-} from "./datas";
+import { diaDaSemana, ehFimDeSemana, inicioDaSemana, somarDias } from "./datas";
 
 /* Motor de agenda: transforma regra em ocorrência.
 
-   O modelo guarda a regra ("varrer, segunda e quinta, rodízio entre Yan, Ge e
-   Camilla") e grava linha só quando alguém marca. Esta é a função que fecha a
-   distância entre as duas coisas: dada uma data, quais itens valem, de quem é
-   cada um naquela semana, e em que bloco do dia caem.
+   O modelo guarda a regra ("varrer, segunda e quinta, mural da casa") e grava
+   linha só quando alguém marca. Esta é a função que fecha a distância entre as
+   duas coisas: dada uma data, quais itens valem, de quem é cada um, e em que
+   faixa do dia caem.
 
    O padrão vem da pesquisa de 24/07: materializar uma linha por dia exigiria
    cron e uma tabela que só cresce, e quebra quando a regra muda. Gerar sob
@@ -46,23 +40,6 @@ export function valeNoDia(item: ItemRecorrente, data: string): boolean {
   }
 }
 
-/** De quem é o item nesta data.
-
-    Sem rodízio, é o dono fixo. Com rodízio, gira por semana ISO: quem varre
-    esta semana sai de `semana % tamanho`, sem precisar guardar estado nenhum.
-    Isso é o que faz "de quem é a vez" existir sem tabela de escala. */
-export function donoNoDia(item: ItemRecorrente, data: string): Dono {
-  if (!item.rodizio || item.rodizio.length === 0) return item.dono;
-  return item.rodizio[semanaISO(data) % item.rodizio.length];
-}
-
-/** Quem pega o item na próxima semana. Prévia importa: saber o que vem evita
-    a discussão de "por que sempre eu". */
-export function proximoDono(item: ItemRecorrente, data: string): Dono | null {
-  if (!item.rodizio || item.rodizio.length === 0) return null;
-  return donoNoDia(item, somarDias(data, 7));
-}
-
 function deItem(item: ItemRecorrente, data: string): Ocorrencia {
   return {
     chave: chaveConclusao(item.id, data),
@@ -72,13 +49,14 @@ function deItem(item: ItemRecorrente, data: string): Ocorrencia {
     categoria: item.categoria,
     bloco: item.bloco,
     horario: item.horario,
-    dono: donoNoDia(item, data),
+    dono: item.dono,
     ancora: item.ancora,
     data,
     removivel: false,
     vaultNota: item.vaultNota,
     envolve: item.envolve,
     exceto: item.exceto,
+    akiane: item.akiane,
   };
 }
 
@@ -98,15 +76,16 @@ function deCompromisso(c: Compromisso): Ocorrencia {
   };
 }
 
-/** Ordem dentro do dia: quem tem hora marcada vem primeiro, na hora; o resto
-    segue por bloco e depois por âncora. */
-const PESO_BLOCO: Record<Bloco, number> = { manha: 0, tarde: 1, noite: 2 };
+/** Ordem dentro do dia: o que não tem hora nenhuma abre (fica disponível o dia
+    todo), depois manhã, tarde e noite. Dentro da faixa, hora marcada primeiro,
+    âncora antes do resto. */
+const PESO_FAIXA: Record<Faixa, number> = { solto: 0, manha: 1, tarde: 2, noite: 3 };
 
 export function ordenar(ocorrencias: Ocorrencia[]): Ocorrencia[] {
   return [...ocorrencias].sort((a, b) => {
-    if (PESO_BLOCO[a.bloco] !== PESO_BLOCO[b.bloco]) {
-      return PESO_BLOCO[a.bloco] - PESO_BLOCO[b.bloco];
-    }
+    const fa = PESO_FAIXA[faixaDe(a)];
+    const fb = PESO_FAIXA[faixaDe(b)];
+    if (fa !== fb) return fa - fb;
     if (a.ancora !== b.ancora) return a.ancora ? -1 : 1;
     if (a.horario && b.horario) return a.horario.localeCompare(b.horario);
     if (a.horario) return -1;
@@ -126,13 +105,35 @@ export function ocorrenciasDoDia(
   return ordenar([...doDia, ...marcados]);
 }
 
-/** Filtro de "é meu". "Casa" aparece pra todo mundo de propósito: se é da
-    casa, é de quem estiver olhando, a menos que a pessoa esteja de fora. */
+/** É **explicitamente** desta pessoa: ela é a dona, ou participa por desenho
+    (a Akiane na escola).
+
+    Mudou em 25/07: antes, item da Casa respondia `true` pra todo mundo. Fazia
+    sentido quando "Casa" era exceção e quase tudo tinha nome. Depois que a
+    casa virou mural, isso passou a responder `true` pra quase tudo, o que
+    tornava o filtro por pessoa inútil e enchia a tela da Akiane com a casa
+    inteira. Mural agora é uma pergunta separada, `ehDoMural`. */
 export function ehDe(ocorrencia: Ocorrencia, pessoa: Pessoa): boolean {
   if (ocorrencia.exceto?.includes(pessoa)) return false;
   if (ocorrencia.dono === pessoa) return true;
-  if (ocorrencia.envolve?.includes(pessoa)) return true;
+  return ocorrencia.envolve?.includes(pessoa) ?? false;
+}
+
+/** Está no mural: não é de ninguém até alguém pegar. */
+export function ehDoMural(ocorrencia: Ocorrencia): boolean {
   return ocorrencia.dono === "Casa";
+}
+
+/** Do jeito que a pessoa lê "o que é meu hoje": o que é dela por desenho, mais
+    o que ela pegou ou fez com as próprias mãos. O mural inteiro fica de fora,
+    senão "meu" volta a querer dizer "tudo". */
+export function ehComigo(
+  ocorrencia: Ocorrencia,
+  pessoa: Pessoa,
+  marcas: Marcas
+): boolean {
+  if (ehDe(ocorrencia, pessoa)) return true;
+  return participou(ocorrencia.chave, pessoa, marcas);
 }
 
 /* ── Corrente de constância ──────────────────────────────────────────────────
@@ -231,31 +232,90 @@ export function detalheDaCorrente(
   return { dias, folgas };
 }
 
-/** Índice rápido de conclusões, pra não varrer o array a cada linha.
+/** Índice rápido das participações, pra não varrer o array a cada linha.
 
-    Dois conjuntos e não um: feito e pulado são estados diferentes na tela
-    (um risca, o outro apaga) e diferentes na corrente (só feito conta). */
+    Guarda conjunto **e** lista de gente. O conjunto responde "aconteceu?" em
+    tempo constante, que é o que as contagens e a corrente perguntam; a lista
+    responde "quem?", que é o que a tela mostra desde 25/07 e é a peça que faz o
+    mural não virar terra de ninguém. */
 export interface Marcas {
   feitas: Set<string>;
   puladas: Set<string>;
+  pegas: Set<string>;
+  quemFez: Map<string, Pessoa[]>;
+  quemPegou: Map<string, Pessoa[]>;
+}
+
+function juntar(mapa: Map<string, Pessoa[]>, chave: string, pessoa: Pessoa) {
+  const atual = mapa.get(chave);
+  if (!atual) {
+    mapa.set(chave, [pessoa]);
+    return;
+  }
+  if (!atual.includes(pessoa)) atual.push(pessoa);
 }
 
 export function indexar(conclusoes: Conclusao[]): Marcas {
   const feitas = new Set<string>();
   const puladas = new Set<string>();
+  const pegas = new Set<string>();
+  const quemFez = new Map<string, Pessoa[]>();
+  const quemPegou = new Map<string, Pessoa[]>();
+
   for (const c of conclusoes) {
-    /* Sem `tipo` é registro gravado antes do recurso de pular existir, e
-       naquela época marcar só podia significar feito. */
-    if (c.tipo === "pulado") puladas.add(c.chave);
-    else feitas.add(c.chave);
+    if (c.tipo === "pulado") {
+      puladas.add(c.chave);
+    } else if (c.tipo === "pego") {
+      pegas.add(c.chave);
+      juntar(quemPegou, c.chave, c.pessoa);
+    } else {
+      /* Sem `tipo` é registro gravado antes do recurso de pular existir, e
+         naquela época marcar só podia significar feito. */
+      feitas.add(c.chave);
+      juntar(quemFez, c.chave, c.pessoa);
+    }
   }
-  return { feitas, puladas };
+
+  return { feitas, puladas, pegas, quemFez, quemPegou };
 }
 
-export function estadoDa(chave: string, marcas: Marcas): "feito" | "pulado" | "aberto" {
+/** Estado da ocorrência, com uma ordem de precedência que importa.
+
+    Feito ganha de tudo: se uma pessoa pulou e outra fez, a coisa aconteceu.
+    Pego ganha de pulado pelo mesmo motivo invertido: alguém assumiu depois de
+    outro ter desistido, e a tela precisa mostrar que está de pé. */
+export function estadoDa(
+  chave: string,
+  marcas: Marcas
+): "feito" | "pego" | "pulado" | "aberto" {
   if (marcas.feitas.has(chave)) return "feito";
+  if (marcas.pegas.has(chave)) return "pego";
   if (marcas.puladas.has(chave)) return "pulado";
   return "aberto";
+}
+
+export type EstadoOcorrencia = ReturnType<typeof estadoDa>;
+
+/** "Pego" ainda é coisa em aberto: alguém assumiu, ninguém terminou. Contar
+    como resolvido faria o dia parecer fechado com a louça na pia. */
+export function emAberto(estado: EstadoOcorrencia): boolean {
+  return estado === "aberto" || estado === "pego";
+}
+
+export function quemFez(chave: string, marcas: Marcas): Pessoa[] {
+  return marcas.quemFez.get(chave) ?? [];
+}
+
+export function quemPegou(chave: string, marcas: Marcas): Pessoa[] {
+  return marcas.quemPegou.get(chave) ?? [];
+}
+
+/** Esta pessoa encostou nesta ocorrência (pegou ou fez). */
+export function participou(chave: string, pessoa: Pessoa, marcas: Marcas): boolean {
+  return (
+    quemFez(chave, marcas).includes(pessoa) ||
+    quemPegou(chave, marcas).includes(pessoa)
+  );
 }
 
 /* ── Progresso ───────────────────────────────────────────────────────────────
@@ -311,4 +371,51 @@ export function melhorCorrente(
     }
   }
   return melhor;
+}
+
+/* ── Placar da casa ──────────────────────────────────────────────────────────
+   Quem fez quanta coisa nos últimos dias.
+
+   Esta é a contrapartida obrigatória de ter tirado os nomes das tarefas em
+   25/07. Mural sem placar não distribui trabalho, distribui a possibilidade de
+   não fazer: some o "é sua vez" e não entra nada no lugar, então quem já
+   puxava continua puxando e agora sem ninguém conseguir apontar.
+
+   Não é gamificação. Sem ponto, sem prêmio, sem vencedor, sem meta por pessoa,
+   e de propósito: a pesquisa de 25/07 sobre recompensa em painel de família foi
+   o motivo de não existir sistema de pontos pra criança aqui, e valeria o mesmo
+   pra adulto. É contagem seca do que aconteceu. Se a semana ficou torta, a tela
+   mostra torto e a conversa acontece entre as pessoas, não pelo app. */
+
+export interface LinhaDoPlacar {
+  pessoa: Pessoa;
+  feitas: number;
+  /** Assumidas e ainda não terminadas. */
+  pegas: number;
+}
+
+export function placar(
+  hoje: string,
+  conclusoes: Conclusao[],
+  pessoas: Pessoa[],
+  janelaEmDias = 7
+): LinhaDoPlacar[] {
+  const desde = somarDias(hoje, -(janelaEmDias - 1));
+  const feitas = new Map<Pessoa, number>();
+  const pegas = new Map<Pessoa, number>();
+
+  for (const c of conclusoes) {
+    if (c.data < desde || c.data > hoje) continue;
+    const mapa = c.tipo === "pego" ? pegas : c.tipo === "pulado" ? null : feitas;
+    if (!mapa) continue;
+    mapa.set(c.pessoa, (mapa.get(c.pessoa) ?? 0) + 1);
+  }
+
+  return pessoas
+    .map((pessoa) => ({
+      pessoa,
+      feitas: feitas.get(pessoa) ?? 0,
+      pegas: pegas.get(pessoa) ?? 0,
+    }))
+    .sort((a, b) => b.feitas - a.feitas || a.pessoa.localeCompare(b.pessoa, "pt-BR"));
 }

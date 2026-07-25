@@ -155,6 +155,27 @@ export function Noite({ className }: Props) {
    "Fácil de entender o que é cada coisa" começa aqui: a linha diz o que é
    antes de alguém ler o rótulo. */
 
+/** Faixa "a qualquer hora": o dia como uma onda, sem marcação de hora. */
+export function Solto({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <path d="M3 14c2.2-3.4 4.4-3.4 6.6 0s4.4 3.4 6.6 0S20.8 10.6 21 10.6" />
+      <path d="M3 8.5h4M17 8.5h4" opacity="0.45" />
+    </svg>
+  );
+}
+
+/** "Peguei essa": a mão que assume uma tarefa do mural. */
+export function Mao({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M12 11V4.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M15 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1.2a5 5 0 0 1-3.9-1.9L6 15.5l-.9-1.2a1.6 1.6 0 0 1 2.4-2.1L9 13.6V11" />
+    </svg>
+  );
+}
+
 export function Ancora({ className }: Props) {
   return (
     <svg {...base(className ?? "h-4 w-4")}>

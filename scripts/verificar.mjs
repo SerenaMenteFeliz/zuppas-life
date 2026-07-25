@@ -59,13 +59,32 @@ try {
     );
   }
 
-  const { valeNoDia, donoNoDia, ocorrenciasDoDia, ehDe, corrente, detalheDaCorrente, melhorCorrente, indexar, estadoDa, diaDoTracker } =
-    await import(pathToFileURL(join(saida, "agenda.js")).href);
+  const {
+    valeNoDia,
+    ocorrenciasDoDia,
+    ordenar,
+    ehDe,
+    ehDoMural,
+    ehComigo,
+    corrente,
+    detalheDaCorrente,
+    melhorCorrente,
+    indexar,
+    estadoDa,
+    emAberto,
+    quemFez,
+    quemPegou,
+    participou,
+    placar,
+    diaDoTracker,
+  } = await import(pathToFileURL(join(saida, "agenda.js")).href);
   const { diaDaSemana, inicioDaSemana, diasDaSemana, haQuantoTempo, porExtenso } =
     await import(pathToFileURL(join(saida, "datas.js")).href);
   const { interpretar } = await import(pathToFileURL(join(saida, "texto.js")).href);
-  const { ITENS, VOLTA_AS_AULAS } = await import(
-    pathToFileURL(join(saida, "dados.js")).href
+  const { ITENS, PENDENCIAS, COMPROMISSOS, VOLTA_ANDRE, VOLTA_AKIANE } =
+    await import(pathToFileURL(join(saida, "dados.js")).href);
+  const { faixaDe, PESSOAS } = await import(
+    pathToFileURL(join(saida, "types.js")).href
   );
 
   const falhas = [];
@@ -78,11 +97,11 @@ try {
      num dia qualquer, e aí ninguém confia mais nele. 24/07/2026 é uma sexta. */
   const HOJE = "2026-07-24";
   const ancoras = ITENS.filter((i) => i.ancora).map((i) => i.id);
-  const conc = (id, data, tipo = "feito") => ({
+  const conc = (id, data, tipo = "feito", pessoa = "Liz") => ({
     chave: `${id}|${data}`,
     itemId: id,
     data,
-    pessoa: "Liz",
+    pessoa,
     feitoEm: "x",
     tipo,
   });
@@ -96,31 +115,93 @@ try {
 
   console.log("\n── Recorrência e vigência ─────────────────────────────");
   const escola = ITENS.filter((i) => i.categoria === "escola");
+  const doAndre = escola.filter((i) => i.valeDe === VOLTA_ANDRE);
+  const daAkiane = escola.filter((i) => i.valeDe === VOLTA_AKIANE);
   ok("escola some nas férias", escola.every((i) => !valeNoDia(i, HOJE)));
-  ok("escola volta na data da volta às aulas", escola.every((i) => valeNoDia(i, VOLTA_AS_AULAS)));
+  ok("os dois têm horário de escola", doAndre.length === 2 && daAkiane.length === 2);
+  ok("o André volta em 27/07", doAndre.every((i) => valeNoDia(i, VOLTA_ANDRE)));
+  ok(
+    "a Akiane ainda não volta quando o André volta",
+    daAkiane.every((i) => !valeNoDia(i, VOLTA_ANDRE))
+  );
+  ok("a Akiane volta em 03/08", daAkiane.every((i) => valeNoDia(i, VOLTA_AKIANE)));
   ok("escola não cai no sábado", escola.every((i) => !valeNoDia(i, "2026-08-01")));
   const varrer = ITENS.find((i) => i.id === "c4");
   ok("varrer cai na segunda", valeNoDia(varrer, "2026-07-20"));
   ok("varrer não cai na terça", !valeNoDia(varrer, "2026-07-21"));
 
-  console.log("\n── Rodízio ────────────────────────────────────────────");
+  console.log("\n── Mural (a casa sem dono fixo) ───────────────────────");
+  const doDia = ocorrenciasDoDia(HOJE, ITENS, []);
+  const casa = doDia.filter((o) => o.categoria === "casa" || o.categoria === "biro");
   ok(
-    "o dono não muda no meio da semana",
-    donoNoDia(varrer, "2026-07-20") === donoNoDia(varrer, "2026-07-23")
+    "tarefa de casa e Biro ficam no mural, menos as do André",
+    casa.every((o) => ehDoMural(o) || o.dono === "André" || o.dono === "Akiane"),
+    casa.filter((o) => !ehDoMural(o)).map((o) => `${o.titulo}=${o.dono}`).join(" | ")
   );
+  ok("o Biro sai 4 vezes por dia", doDia.filter((o) => o.categoria === "biro").length === 4);
+  ok("nenhum item tem rodízio", ITENS.every((i) => !("rodizio" in i)));
+  const mural = casa.find(ehDoMural);
+  ok("mural não é de ninguém por padrão", !ehDe(mural, "Ge") && !ehDe(mural, "Yan"));
   ok(
-    "o rodízio passa pelas 3 pessoas",
-    new Set(["2026-07-20", "2026-07-27", "2026-08-03"].map((d) => donoNoDia(varrer, d))).size === 3
+    "mas passa a ser de quem pegou",
+    ehComigo(mural, "Ge", indexar([conc(mural.id, HOJE, "pego", "Ge")])),
+    mural.titulo
   );
 
-  console.log("\n── Feito, pulado e corrente ───────────────────────────");
-  const m = indexar([conc("a1", HOJE), conc("a2", HOJE, "pulado")]);
+  console.log("\n── Faixa do dia ───────────────────────────────────────");
+  const meditacao = ITENS.find((i) => i.id === "a2");
+  ok("a meditação não tem hora fixa", meditacao.bloco === undefined);
+  ok("item sem bloco cai na faixa solta", faixaDe(meditacao) === "solto");
+  ok(
+    "o que não tem hora aparece antes do dia",
+    faixaDe(ordenar(doDia)[0]) === "solto",
+    ordenar(doDia)[0].titulo
+  );
+
+  console.log("\n── Feito, pego, pulado ────────────────────────────────");
+  const m = indexar([conc("a1", HOJE), conc("a2", HOJE, "pulado"), conc("a3", HOJE, "pego")]);
   ok("feito e pulado são estados diferentes", estadoDa(`a1|${HOJE}`, m) === "feito" && estadoDa(`a2|${HOJE}`, m) === "pulado");
-  ok("sem marca é aberto", estadoDa(`a3|${HOJE}`, m) === "aberto");
+  ok("pego é estado próprio", estadoDa(`a3|${HOJE}`, m) === "pego");
+  ok("pego ainda conta como em aberto", emAberto("pego") && !emAberto("feito") && !emAberto("pulado"));
+  ok("sem marca é aberto", estadoDa(`c1|${HOJE}`, m) === "aberto");
   ok(
     "registro antigo sem tipo conta como feito",
     indexar([{ chave: `a1|${HOJE}`, itemId: "a1", data: HOJE, pessoa: "Liz", feitoEm: "x" }]).feitas.has(`a1|${HOJE}`)
   );
+
+  console.log("\n── Várias pessoas na mesma tarefa ─────────────────────");
+  const juntas = indexar([
+    conc("c1", HOJE, "feito", "Liz"),
+    conc("c1", HOJE, "feito", "Ge"),
+    conc("c1", HOJE, "feito", "Camilla"),
+  ]);
+  ok("três pessoas cabem na mesma tarefa", quemFez(`c1|${HOJE}`, juntas).length === 3);
+  ok("e a tarefa aconteceu uma vez só", estadoDa(`c1|${HOJE}`, juntas) === "feito");
+  ok("dá pra perguntar se alguém participou", participou(`c1|${HOJE}`, "Ge", juntas) && !participou(`c1|${HOJE}`, "Yan", juntas));
+  const misto = indexar([conc("c4", HOJE, "pulado", "Yan"), conc("c4", HOJE, "feito", "Ge")]);
+  ok("um pular não apaga o fazer do outro", estadoDa(`c4|${HOJE}`, misto) === "feito");
+  const pegou = indexar([conc("b1", HOJE, "pego", "Camilla")]);
+  ok("quem pegou aparece", quemPegou(`b1|${HOJE}`, pegou)[0] === "Camilla");
+  ok("mesma pessoa não entra duas vezes", quemFez(`c1|${HOJE}`, indexar([conc("c1", HOJE, "feito", "Ge"), conc("c1", HOJE, "feito", "Ge")])).length === 1);
+
+  console.log("\n── Placar da casa ─────────────────────────────────────");
+  const linhas = placar(HOJE, [
+    conc("c1", HOJE, "feito", "Liz"),
+    conc("c2", HOJE, "feito", "Liz"),
+    conc("c4", HOJE, "feito", "Ge"),
+    conc("b1", HOJE, "pego", "Yan"),
+    conc("c5", HOJE, "pulado", "Camilla"),
+    conc("c7", "2026-06-01", "feito", "Camilla"),
+  ], PESSOAS);
+  const daLiz = linhas.find((l) => l.pessoa === "Liz");
+  const doYan = linhas.find((l) => l.pessoa === "Yan");
+  const daCamilla = linhas.find((l) => l.pessoa === "Camilla");
+  ok("conta o que cada um fez", daLiz.feitas === 2);
+  ok("a maior contagem vem primeiro", linhas[0].pessoa === "Liz");
+  ok("pegar sem terminar conta separado", doYan.pegas === 1 && doYan.feitas === 0);
+  ok("pular não conta como fazer", daCamilla.feitas === 0);
+  ok("fora da janela de 7 dias não entra", daCamilla.feitas === 0 && placar(HOJE, [conc("c7", "2026-06-01", "feito", "Camilla")], PESSOAS).every((l) => l.feitas === 0));
+  ok("todo mundo aparece, inclusive com zero", linhas.length === PESSOAS.length);
   ok("pular não fecha o dia", corrente(HOJE, ITENS, indexar(ancoras.map((a) => conc(a, HOJE, "pulado"))).feitas) === 0);
   ok("fechar as 3 âncoras fecha o dia", corrente(HOJE, ITENS, fechar(HOJE).feitas) === 1);
 
@@ -145,12 +226,31 @@ try {
   const parcial = diaDoTracker("2026-07-22", HOJE, ITENS, indexar([conc(ancoras[0], "2026-07-22")]).feitas);
   ok("dia parcial não fecha mas aparece", !parcial.fechado && parcial.feitas === 1);
 
-  console.log("\n── Participação (o dia da Akiane) ─────────────────────");
-  const dela = ocorrenciasDoDia(HOJE, ITENS, []).filter((o) => ehDe(o, "Akiane")).map((o) => o.titulo);
-  ok("alongamento fica fora do dia dela", !dela.includes("Alongamento ao acordar"), dela.join(" | "));
-  ok("meditação entra", dela.includes("Meditação guiada pela Liz"));
-  const naSegunda = ocorrenciasDoDia(VOLTA_AS_AULAS, ITENS, []).filter((o) => ehDe(o, "Akiane")).map((o) => o.titulo);
-  ok("a escola entra no dia dela pelo campo envolve", naSegunda.includes("Liz leva a Akiane"));
+  console.log("\n── O dia da Akiane ────────────────────────────────────");
+  const daAkianeNoDia = (data) =>
+    ocorrenciasDoDia(data, ITENS, []).filter((o) => o.akiane || ehDe(o, "Akiane"));
+  const dela = daAkianeNoDia(HOJE).map((o) => o.titulo);
+  ok("a sequência dela é curta", dela.length <= 6, `${dela.length} :: ${dela.join(" | ")}`);
+  ok("o mercado não cai na tela dela", !dela.includes("Mercado da semana"));
+  ok("banheiro e louça também não", !dela.includes("Banheiros (2)") && !dela.includes("Louça"));
+  ok("corrida e Biro saíram do dia dela", !dela.includes("Corrida") && !dela.some((t) => t.startsWith("Biro")));
+  ok("as âncoras entram", dela.includes("Alongamento ao acordar") && dela.includes("Meditação guiada pela Liz"));
+  ok("brincar e ajudar entram", dela.includes("Brincar") && dela.includes("Ajudar em alguma coisa"));
+  ok(
+    "a escola dela não entra na volta do André",
+    !daAkianeNoDia(VOLTA_ANDRE).some((o) => o.titulo === "Liz leva a Akiane")
+  );
+  ok(
+    "e entra na volta dela",
+    daAkianeNoDia(VOLTA_AKIANE).some((o) => o.titulo === "Liz leva a Akiane")
+  );
+
+  console.log("\n── Semente sem invenção ───────────────────────────────");
+  ok("nenhum compromisso semeado com data chutada", COMPROMISSOS.length === 0);
+  ok("a pendência da volta às aulas saiu (foi confirmada)", !PENDENCIAS.some((p) => p.titulo.includes("volta às aulas")));
+  ok("a tarefa de trilha inventada saiu", !PENDENCIAS.some((p) => p.titulo.includes("trilha")));
+  ok("as fotos passaram pro Yan", PENDENCIAS.find((p) => p.id === "d2").responsavel === "Yan");
+  ok("toda pendência tem responsável real", PENDENCIAS.every((p) => PESSOAS.includes(p.responsavel)));
 
   console.log("\n── Frase em português ─────────────────────────────────");
   const casos = [

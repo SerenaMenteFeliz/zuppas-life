@@ -9,11 +9,20 @@ import {
   Noite,
   Pasta,
   Sino,
+  Solto,
   Tarde,
   Vassoura,
   Semana as IconeAgenda,
 } from "./icones";
-import { BLOCO_JANELA, BLOCO_LABEL, type Bloco, type Categoria } from "@/lib/types";
+import {
+  COR_PESSOA,
+  FAIXA_JANELA,
+  FAIXA_LABEL,
+  INICIAL,
+  type Categoria,
+  type Faixa,
+  type Pessoa,
+} from "@/lib/types";
 
 /* Vocabulário visual: cor e forma por tipo de coisa.
 
@@ -80,34 +89,36 @@ export function Marca({
   );
 }
 
-export const ICONE_BLOCO: Record<Bloco, (p: { className?: string }) => React.ReactElement> = {
+export const ICONE_FAIXA: Record<Faixa, (p: { className?: string }) => React.ReactElement> = {
+  solto: Solto,
   manha: Manha,
   tarde: Tarde,
   noite: Noite,
 };
 
-export const COR_BLOCO: Record<Bloco, string> = {
+export const COR_FAIXA: Record<Faixa, string> = {
+  solto: "var(--sage)",
   manha: "var(--gold)",
   tarde: "var(--sky)",
   noite: "var(--accent)",
 };
 
-/** Cabeçalho de um bloco do dia.
+/** Cabeçalho de uma faixa do dia.
 
     É o que transforma a aba escrita numa faixa que se reconhece de longe: cor
     própria, ícone próprio, a janela de horas escrita ao lado (porque a rotina
-    da casa é janela, não horário), e o progresso do bloco à direita. */
-export function CabecalhoBloco({
-  bloco,
+    da casa é janela, não horário), e o progresso da faixa à direita. */
+export function CabecalhoFaixa({
+  faixa,
   feitas,
   total,
 }: {
-  bloco: Bloco;
+  faixa: Faixa;
   feitas: number;
   total: number;
 }) {
-  const Icone = ICONE_BLOCO[bloco];
-  const cor = COR_BLOCO[bloco];
+  const Icone = ICONE_FAIXA[faixa];
+  const cor = COR_FAIXA[faixa];
   const completo = total > 0 && feitas === total;
 
   return (
@@ -120,9 +131,9 @@ export function CabecalhoBloco({
       </span>
 
       <span className="flex flex-col leading-tight">
-        <span className="text-[0.95rem]">{BLOCO_LABEL[bloco]}</span>
+        <span className="text-[0.95rem]">{FAIXA_LABEL[faixa]}</span>
         <span className="text-[0.68rem]" style={{ color: "var(--ink-soft)" }}>
-          {BLOCO_JANELA[bloco]}
+          {FAIXA_JANELA[faixa]}
         </span>
       </span>
 
@@ -133,6 +144,51 @@ export function CabecalhoBloco({
         {total === 0 ? "livre" : completo ? "tudo feito" : `${feitas}/${total}`}
       </span>
     </div>
+  );
+}
+
+/** Quem fez, ou quem pegou. A peça que faz o mural não virar terra de ninguém.
+
+    Nome inteiro e não só inicial quando é uma pessoa só: "Ge fez" se lê de
+    longe, inclusive na TV, e é a informação que a casa realmente disputa. */
+export function Participantes({
+  pessoas,
+  verbo,
+}: {
+  pessoas: Pessoa[];
+  verbo: "fez" | "pegou";
+}) {
+  if (pessoas.length === 0) return null;
+
+  const nomes =
+    pessoas.length === 1
+      ? pessoas[0]
+      : `${pessoas.slice(0, -1).join(", ")} e ${pessoas[pessoas.length - 1]}`;
+
+  const conjugado =
+    pessoas.length === 1 ? verbo : verbo === "fez" ? "fizeram" : "pegaram";
+
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      <span className="flex -space-x-1.5">
+        {pessoas.map((p) => (
+          <span
+            key={p}
+            className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-[0.6rem] font-semibold"
+            style={{
+              background: COR_PESSOA[p],
+              color: "var(--bg)",
+              border: "1.5px solid var(--bg)",
+            }}
+          >
+            {INICIAL[p]}
+          </span>
+        ))}
+      </span>
+      <span>
+        {nomes} {conjugado}
+      </span>
+    </span>
   );
 }
 
