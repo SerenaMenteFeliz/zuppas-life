@@ -95,3 +95,123 @@ export function Relogio({ className }: Props) {
     </svg>
   );
 }
+
+export function Pular({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M5 6l7 6-7 6zM17 6v12" />
+    </svg>
+  );
+}
+
+export function Filtro({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M3.5 6h17M6.5 12h11M10 18h4" />
+    </svg>
+  );
+}
+
+export function Seta({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+/* ── Ícones do dia ─────────────────────────────────────────────────────────
+   Manhã, tarde e noite ganham forma própria porque o Yan pediu que a separação
+   fosse visual, não só uma aba escrita. Um ícone é lido antes da palavra, que é
+   exatamente o que se quer de quem abre o app com o café na outra mão. */
+
+export function Manha({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <path d="M4 17h16M6.5 17a5.5 5.5 0 1111 0" />
+      <path d="M12 4v2M4.6 8.6l1.4 1.4M19.4 8.6L18 10M2.5 21h19" />
+    </svg>
+  );
+}
+
+export function Tarde({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" />
+    </svg>
+  );
+}
+
+export function Noite({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <path d="M20 14.5A8.2 8.2 0 019.6 4 8.5 8.5 0 1020 14.5z" />
+    </svg>
+  );
+}
+
+/* ── Ícones de categoria ───────────────────────────────────────────────────
+   "Fácil de entender o que é cada coisa" começa aqui: a linha diz o que é
+   antes de alguém ler o rótulo. */
+
+export function Ancora({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <circle cx="12" cy="5" r="2.2" />
+      <path d="M12 7.2V20M6 12H4.2a7.8 7.8 0 0015.6 0H18M8.5 11h7" />
+    </svg>
+  );
+}
+
+export function Cachorro({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M5 5.5v4l-1.6 2.2A2 2 0 004.8 15H6v3.5h12V15h1.2a2 2 0 001.4-3.3L19 9.5v-4l-2.6 2H7.6z" />
+      <path d="M10 12.5h.01M14 12.5h.01" />
+    </svg>
+  );
+}
+
+export function Vassoura({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M15.5 3.5L9 10M7.2 11.8l5-5 3.9 3.9-5 5z" />
+      <path d="M6.2 12.8L3 21l8.2-3.2" />
+    </svg>
+  );
+}
+
+export function Mochila({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M6 9.5a6 6 0 1112 0V20H6z" />
+      <path d="M9.5 7.5V5.2A2.5 2.5 0 0112 3a2.5 2.5 0 012.5 2.2v2.3M9 14h6" />
+    </svg>
+  );
+}
+
+export function Sino({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M6.5 10a5.5 5.5 0 1111 0v4.5l1.5 2.2H5l1.5-2.2z" />
+      <path d="M10 19.5a2.2 2.2 0 004 0" />
+    </svg>
+  );
+}
+
+export function Coracao({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M12 20s-7-4.4-7-9.2A3.9 3.9 0 0112 8.5a3.9 3.9 0 017 2.3c0 4.8-7 9.2-7 9.2z" />
+    </svg>
+  );
+}
+
+export function Pasta({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-4 w-4")}>
+      <path d="M3.5 7.5h6l1.6 2h9.4V19H3.5z" />
+    </svg>
+  );
+}

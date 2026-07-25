@@ -134,7 +134,10 @@ export function ehDe(ocorrencia: Ocorrencia, pessoa: Pessoa): boolean {
    conclusões reais. É a peça que a auditoria de 24/07 apontou como o motor
    emocional do produto rodando sem nenhum dado por trás. */
 
-/** Um dia fecha quando todas as âncoras válidas nele têm conclusão. */
+/** Um dia fecha quando todas as âncoras válidas nele foram **feitas**.
+
+    Pular não fecha. É a diferença entre "resolvi" e "aconteceu", e a corrente
+    só faz sentido se contar a segunda coisa. */
 export function diaFechado(
   data: string,
   itens: ItemRecorrente[],
@@ -166,7 +169,84 @@ export function corrente(
   return dias;
 }
 
-/** Índice rápido de conclusões, pra não varrer o array a cada linha. */
-export function indexar(conclusoes: Conclusao[]): Set<string> {
-  return new Set(conclusoes.map((c) => c.chave));
+/** Índice rápido de conclusões, pra não varrer o array a cada linha.
+
+    Dois conjuntos e não um: feito e pulado são estados diferentes na tela
+    (um risca, o outro apaga) e diferentes na corrente (só feito conta). */
+export interface Marcas {
+  feitas: Set<string>;
+  puladas: Set<string>;
+}
+
+export function indexar(conclusoes: Conclusao[]): Marcas {
+  const feitas = new Set<string>();
+  const puladas = new Set<string>();
+  for (const c of conclusoes) {
+    /* Sem `tipo` é registro gravado antes do recurso de pular existir, e
+       naquela época marcar só podia significar feito. */
+    if (c.tipo === "pulado") puladas.add(c.chave);
+    else feitas.add(c.chave);
+  }
+  return { feitas, puladas };
+}
+
+export function estadoDa(chave: string, marcas: Marcas): "feito" | "pulado" | "aberto" {
+  if (marcas.feitas.has(chave)) return "feito";
+  if (marcas.puladas.has(chave)) return "pulado";
+  return "aberto";
+}
+
+/* ── Progresso ───────────────────────────────────────────────────────────────
+   O que alimenta o tracker de semanas que o Yan pediu. Uma casa que só vê
+   "hoje" nunca sabe se está melhorando; ver oito semanas lado a lado responde
+   isso sem ninguém precisar abrir planilha. */
+
+export interface DiaDoTracker {
+  data: string;
+  fechado: boolean;
+  /** Quantas das âncoras do dia foram feitas, e de quantas. */
+  feitas: number;
+  total: number;
+  futuro: boolean;
+}
+
+export function diaDoTracker(
+  data: string,
+  hoje: string,
+  itens: ItemRecorrente[],
+  feitas: Set<string>
+): DiaDoTracker {
+  const ancoras = itens.filter((i) => i.ancora && valeNoDia(i, data));
+  const marcadas = ancoras.filter((i) => feitas.has(chaveConclusao(i.id, data)));
+  return {
+    data,
+    fechado: ancoras.length > 0 && marcadas.length === ancoras.length,
+    feitas: marcadas.length,
+    total: ancoras.length,
+    futuro: data > hoje,
+  };
+}
+
+/** A melhor sequência que a casa já fez. Recorde importa: sem ele, a corrente
+    de hoje não tem contra o que ser comparada. */
+export function melhorCorrente(
+  hoje: string,
+  itens: ItemRecorrente[],
+  feitas: Set<string>,
+  janelaEmDias = 180
+): number {
+  let melhor = 0;
+  let atual = 0;
+  for (let i = janelaEmDias; i >= 0; i--) {
+    const dia = somarDias(hoje, -i);
+    if (diaFechado(dia, itens, feitas)) {
+      atual += 1;
+      if (atual > melhor) melhor = atual;
+    } else if (dia < hoje) {
+      /* O dia de hoje ainda não acabou: não zera o recorde por estar em
+         andamento. */
+      atual = 0;
+    }
+  }
+  return melhor;
 }

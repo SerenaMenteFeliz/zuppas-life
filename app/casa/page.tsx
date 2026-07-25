@@ -6,6 +6,7 @@ import { Avatar, Rotulo, Vazio } from "@/components/ui";
 import { Check, Lixeira, Mais } from "@/components/icones";
 import {
   donoNoDia,
+  estadoDa,
   indexar,
   ocorrenciasDoDia,
   proximoDono,
@@ -17,6 +18,7 @@ import {
   alternarConclusao,
   alternarItemDaLista,
   limparComprados,
+  pular,
   removerDaLista,
   useHoje,
   useZuppas,
@@ -40,7 +42,7 @@ export default function Casa() {
   const hoje = useHoje();
   const [novo, setNovo] = useState("");
 
-  const concluidas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
+  const marcas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
 
   const doDia = useMemo(
     () => ocorrenciasDoDia(hoje, estado.itens, estado.compromissos),
@@ -101,8 +103,9 @@ export default function Casa() {
                     <Linha
                       key={o.chave}
                       ocorrencia={o}
-                      feita={concluidas.has(o.chave)}
-                      aoAlternar={() => alternarConclusao(o.id, hoje, estado.eu)}
+                      estado={estadoDa(o.chave, marcas)}
+                      aoMarcar={() => alternarConclusao(o.id, hoje, estado.eu)}
+                      aoPular={() => pular(o.id, hoje, estado.eu)}
                     />
                   ))}
                 </ul>
@@ -120,8 +123,9 @@ export default function Casa() {
                     <Linha
                       key={o.chave}
                       ocorrencia={o}
-                      feita={concluidas.has(o.chave)}
-                      aoAlternar={() => alternarConclusao(o.id, hoje, estado.eu)}
+                      estado={estadoDa(o.chave, marcas)}
+                      aoMarcar={() => alternarConclusao(o.id, hoje, estado.eu)}
+                      aoPular={() => pular(o.id, hoje, estado.eu)}
                     />
                   ))}
                 </ul>

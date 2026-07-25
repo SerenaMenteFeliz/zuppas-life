@@ -3,199 +3,215 @@
 import { useMemo, useState } from "react";
 import Agendar from "@/components/Agendar";
 import Linha from "@/components/Linha";
-import { Corrente, Rotulo, SeletorPessoa, Vazio } from "@/components/ui";
-import { corrente, ehDe, indexar, ocorrenciasDoDia } from "@/lib/agenda";
-import { haQuantoTempo, horaDoDia, porExtenso, quandoFalta } from "@/lib/datas";
-import { linkDoVault } from "@/lib/dados";
+import Pendencias from "@/components/Pendencias";
+import Popup from "@/components/Popup";
+import { Rotulo } from "@/components/ui";
+import { Anel, CabecalhoBloco } from "@/components/visual";
+import { Filtro } from "@/components/icones";
+import { corrente, ehDe, estadoDa, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import { horaDoDia, porExtenso } from "@/lib/datas";
 import {
   alternarConclusao,
   definirPessoa,
   desagendar,
-  mudarStatusPendencia,
+  pular,
   useHoje,
   useZuppas,
 } from "@/lib/store";
 import {
   BLOCOS,
-  BLOCO_JANELA,
-  BLOCO_LABEL,
+  PESSOAS,
+  blocoDaHora,
   type Bloco,
-  type Pendencia,
+  type Ocorrencia,
 } from "@/lib/types";
 
 /* "Hoje, e é meu" — a superfície pessoal.
 
-   Celular: coluna única, sem kanban, sem filtro de projeto na entrada. O login
-   já responde "quem sou eu" (por ora o seletor no rodapé), então a tela não
-   começa pedindo escolha. O que a Liz abre às 7h não é um quadro de trabalho, é
-   a resposta pra "tem alguma coisa minha hoje?".
+   Reorganizada em 24/07 depois do feedback do Yan. O que mudou e por quê:
 
-   As abas de manhã, tarde e noite existem porque o dia da casa é organizado em
-   janelas, não em horários: a [[Rotina - Família (Semana 1)]] diz isso com todas
-   as letras. "Tudo" continua sendo a aba de entrada, porque a primeira pergunta
-   da manhã é o dia inteiro, e só depois é a próxima hora. */
-
-type Aba = "tudo" | Bloco;
+   - **O dia é uma faixa por bloco, não uma aba escrita.** Manhã, tarde e noite
+     ganharam cor, ícone e progresso próprios, e aparecem os três de uma vez.
+     Filtrar por bloco continua existindo, mas virou o segundo toque: a primeira
+     pergunta de quem abre é o dia inteiro.
+   - **As fileiras de botão viraram dois popups.** Quem sou eu e o que estou
+     vendo. Antes eram quinze pílulas empilhadas antes de qualquer conteúdo.
+   - **Anel de progresso no topo.** Um número seco não diz se o dia está indo
+     bem; o anel diz antes de alguém ler o número.
+   - **Pendências agrupadas por projeto e recolhíveis**, porque 22 numa coluna
+     única viram uma parede de texto que o olho pula. */
 
 export default function Hoje() {
   const estado = useZuppas();
   const hoje = useHoje();
 
-  /* Entra sempre em "tudo", e não no bloco da hora atual. A primeira pergunta
-     de quem abre é o dia inteiro; filtrar por parte do dia é o segundo toque,
-     não o primeiro. */
-  const [aba, setAba] = useState<Aba>("tudo");
+  const [bloco, setBloco] = useState<Bloco | "tudo">("tudo");
   const [soMeu, setSoMeu] = useState(true);
 
-  const concluidas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
+  const marcas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
 
   const ocorrencias = useMemo(
     () => ocorrenciasDoDia(hoje, estado.itens, estado.compromissos),
     [hoje, estado.itens, estado.compromissos]
   );
 
-  const visiveis = useMemo(() => {
-    let lista = ocorrencias;
-    if (soMeu) lista = lista.filter((o) => ehDe(o, estado.eu));
-    if (aba !== "tudo") lista = lista.filter((o) => o.bloco === aba);
-    return lista;
-  }, [ocorrencias, soMeu, aba, estado.eu]);
-
-  const dias = useMemo(
-    () => corrente(hoje, estado.itens, concluidas),
-    [hoje, estado.itens, concluidas]
+  const doEscopo = useMemo(
+    () => (soMeu ? ocorrencias.filter((o) => ehDe(o, estado.eu)) : ocorrencias),
+    [ocorrencias, soMeu, estado.eu]
   );
+
+  const visiveis = bloco === "tudo" ? doEscopo : doEscopo.filter((o) => o.bloco === bloco);
+
+  const feitasNoEscopo = doEscopo.filter((o) => marcas.feitas.has(o.chave)).length;
+  const abertasNoEscopo = doEscopo.filter(
+    (o) => estadoDa(o.chave, marcas) === "aberto"
+  ).length;
 
   const ancoras = ocorrencias.filter((o) => o.ancora);
-  const ancorasFeitas = ancoras.filter((o) => concluidas.has(o.chave)).length;
-
-  const abertas = visiveis.filter((o) => !concluidas.has(o.chave));
-  const feitas = visiveis.filter((o) => concluidas.has(o.chave));
-
-  const minhasPendencias = estado.pendencias.filter(
-    (p) => p.responsavel === estado.eu && p.status !== "concluida"
+  const ancorasFeitas = ancoras.filter((o) => marcas.feitas.has(o.chave)).length;
+  const dias = useMemo(
+    () => corrente(hoje, estado.itens, marcas.feitas),
+    [hoje, estado.itens, marcas.feitas]
   );
 
-  const bloqueio = estado.pendencias.find((p) => p.bloqueio && p.status !== "concluida");
+  const blocoAgora = blocoDaHora(horaDoDia());
+  const minhasPendencias = estado.pendencias.filter(
+    (p) => p.status !== "concluida" && (!soMeu || p.responsavel === estado.eu)
+  );
+  const bloqueio = estado.pendencias.find(
+    (p) => p.bloqueio && p.status !== "concluida"
+  );
 
   const saudacao =
     horaDoDia() < 12 ? "Bom dia" : horaDoDia() < 18 ? "Boa tarde" : "Boa noite";
 
+  function acoes(o: Ocorrencia) {
+    return {
+      estado: estadoDa(o.chave, marcas),
+      aoMarcar: () => alternarConclusao(o.id, hoje, estado.eu),
+      aoPular: () => pular(o.id, hoje, estado.eu),
+      aoRemover: o.removivel ? () => desagendar(o.id) : undefined,
+    };
+  }
+
   return (
-    <main className="veil-bg pb-28 lg:pb-16">
-      <div className="mx-auto w-full max-w-md px-5 pt-8 lg:max-w-[1500px] lg:px-10 lg:pt-10">
-        <header className="mb-6 lg:mb-8 lg:flex lg:items-end lg:justify-between lg:gap-8">
-          <div>
-            <p className="tv-rotulo mb-2">{porExtenso(hoje)}</p>
+    <main className="veil-bg pb-32">
+      <div className="mx-auto w-full max-w-md px-5 pt-8 lg:max-w-[1400px] lg:px-10 lg:pt-12">
+        {/* Cabeçalho */}
+        <header className="mb-6 flex items-start gap-4 lg:mb-9">
+          <div className="min-w-0 flex-1">
+            <p className="tv-rotulo mb-1.5">{porExtenso(hoje)}</p>
             <h1
               className="text-3xl lg:text-5xl"
               style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}
             >
               {saudacao}, {estado.eu}.
             </h1>
-            <p className="mt-1 text-sm lg:text-base" style={{ color: "var(--ink-soft)" }}>
-              {abertas.length === 0
-                ? "Nada em aberto agora. Aproveita."
-                : `${abertas.length} ${abertas.length === 1 ? "coisa" : "coisas"} em aberto.`}
+            <p className="mt-1 text-sm" style={{ color: "var(--ink-soft)" }}>
+              {abertasNoEscopo === 0
+                ? "Nada em aberto agora."
+                : `${abertasNoEscopo} em aberto`}
+              {dias > 0 && ` · ${dias} ${dias === 1 ? "dia seguido" : "dias seguidos"}`}
             </p>
           </div>
 
-          <div className="mt-4 lg:mt-0">
-            <Corrente dias={dias} />
-            <p className="mt-1 text-xs" style={{ color: "var(--ink-soft)" }}>
-              Âncoras de hoje: {ancorasFeitas} de {ancoras.length}
-              {ancorasFeitas === ancoras.length && ancoras.length > 0
-                ? ". O dia contou."
-                : ""}
-            </p>
-          </div>
+          <Anel feitas={feitasNoEscopo} total={doEscopo.length} tamanho={68} />
         </header>
 
-        {/* Abas do dia e escopo */}
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          {(["tudo", ...BLOCOS] as Aba[]).map((a) => (
-            <button
-              key={a}
-              onClick={() => setAba(a)}
-              className={`aba ${a === aba ? "aba-ativa" : ""}`}
-            >
-              {a === "tudo" ? "Tudo" : BLOCO_LABEL[a]}
-            </button>
-          ))}
+        {/* Controles: dois popups, e o filtro de bloco como atalho */}
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <Popup rotulo="Quem sou eu" valor={estado.eu}>
+            {(fechar) => (
+              <div className="flex w-44 flex-col gap-1">
+                {PESSOAS.map((p) => (
+                  <ItemPopup
+                    key={p}
+                    ativo={p === estado.eu}
+                    aoEscolher={() => {
+                      definirPessoa(p);
+                      fechar();
+                    }}
+                  >
+                    {p}
+                  </ItemPopup>
+                ))}
+              </div>
+            )}
+          </Popup>
 
-          <button
-            onClick={() => setSoMeu((v) => !v)}
-            className={`aba ml-auto ${soMeu ? "" : "aba-ativa"}`}
+          <Popup
+            rotulo="O que ver"
+            valor={soMeu ? "Só o que é meu" : "A casa toda"}
+            icone={<Filtro className="h-3.5 w-3.5" />}
           >
-            {soMeu ? "Ver a casa toda" : "Só o que é meu"}
-          </button>
+            {(fechar) => (
+              <div className="flex w-52 flex-col gap-1">
+                <ItemPopup
+                  ativo={soMeu}
+                  aoEscolher={() => {
+                    setSoMeu(true);
+                    fechar();
+                  }}
+                >
+                  Só o que é meu
+                </ItemPopup>
+                <ItemPopup
+                  ativo={!soMeu}
+                  aoEscolher={() => {
+                    setSoMeu(false);
+                    fechar();
+                  }}
+                >
+                  A casa toda
+                </ItemPopup>
+              </div>
+            )}
+          </Popup>
+
+          {bloco !== "tudo" && (
+            <button className="aba aba-ativa" onClick={() => setBloco("tudo")}>
+              ver o dia todo ×
+            </button>
+          )}
+
+          <span
+            className="ml-auto text-[0.7rem]"
+            style={{ color: "var(--ink-soft)" }}
+          >
+            âncoras {ancorasFeitas}/{ancoras.length}
+          </span>
         </div>
 
-        {aba !== "tudo" && (
-          <p className="mb-3 text-xs" style={{ color: "var(--ink-soft)" }}>
-            {BLOCO_LABEL[aba]}, {BLOCO_JANELA[aba]}. Janela, não horário.
-          </p>
-        )}
-
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] lg:items-start lg:gap-8">
-          <div className="flex flex-col gap-6">
-            <section>
-              {abertas.length === 0 ? (
-                <Vazio>
-                  {soMeu
-                    ? "Nada seu por aqui. Toque em ver a casa toda pra enxergar o resto."
-                    : "Nada em aberto neste recorte."}
-                </Vazio>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {abertas.map((o) => (
-                    <Linha
-                      key={o.chave}
-                      ocorrencia={o}
-                      feita={false}
-                      aoAlternar={() => alternarConclusao(o.id, hoje, estado.eu)}
-                      aoRemover={o.removivel ? () => desagendar(o.id) : undefined}
-                    />
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            {feitas.length > 0 && (
-              <section>
-                <Rotulo>Já foi ({feitas.length})</Rotulo>
-                <ul className="flex flex-col gap-2">
-                  {feitas.map((o) => (
-                    <Linha
-                      key={o.chave}
-                      ocorrencia={o}
-                      feita
-                      aoAlternar={() => alternarConclusao(o.id, hoje, estado.eu)}
-                      aoRemover={o.removivel ? () => desagendar(o.id) : undefined}
-                    />
-                  ))}
-                </ul>
-              </section>
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] lg:items-start lg:gap-9">
+          {/* O dia, em faixas */}
+          <div className="flex flex-col gap-7">
+            {bloco === "tudo" ? (
+              BLOCOS.map((b) => (
+                <FaixaDoBloco
+                  key={b}
+                  bloco={b}
+                  agora={b === blocoAgora}
+                  ocorrencias={visiveis.filter((o) => o.bloco === b)}
+                  marcas={marcas}
+                  acoes={acoes}
+                  aoFocar={() => setBloco(b)}
+                />
+              ))
+            ) : (
+              <FaixaDoBloco
+                bloco={bloco}
+                agora={bloco === blocoAgora}
+                ocorrencias={visiveis}
+                marcas={marcas}
+                acoes={acoes}
+              />
             )}
 
             <Agendar data={hoje} eu={estado.eu} />
           </div>
 
-          {/* Pendências: coisa sem dia marcado, que é onde a casa trava */}
-          <aside className="mt-8 flex flex-col gap-6 lg:mt-0">
-            <section>
-              <Rotulo>Suas pendências</Rotulo>
-              {minhasPendencias.length === 0 ? (
-                <Vazio>Nenhuma pendência sua.</Vazio>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {minhasPendencias.map((p) => (
-                    <CartaoPendencia key={p.id} pendencia={p} hoje={hoje} />
-                  ))}
-                </ul>
-              )}
-            </section>
-
+          {/* Coluna de contexto */}
+          <aside className="mt-9 flex flex-col gap-6 lg:mt-0">
             {bloqueio && (
               <section className="surface-card-dark p-5">
                 <p
@@ -215,83 +231,107 @@ export default function Hoje() {
                 </p>
               </section>
             )}
+
+            <section>
+              <Rotulo>
+                {soMeu ? "Suas pendências" : "Pendências da casa"} (
+                {minhasPendencias.length})
+              </Rotulo>
+              <Pendencias
+                pendencias={minhasPendencias}
+                hoje={hoje}
+                vazio={soMeu ? "Nenhuma pendência sua." : "Nenhuma pendência aberta."}
+              />
+            </section>
           </aside>
         </div>
-
-        <footer
-          className="mt-8 border-t pt-5"
-          style={{ borderColor: "var(--line)" }}
-        >
-          <SeletorPessoa eu={estado.eu} aoTrocar={definirPessoa} />
-        </footer>
       </div>
     </main>
   );
 }
 
-/* Pendência não tem dia, tem idade.
+/** Uma faixa do dia: manhã, tarde ou noite.
 
-   O "parada há N dias" é a mecânica social que a arquitetura prometia desde
-   20/07 e que nunca tinha sido implementada: o campo `atualizado` era gravado
-   em toda pendência e nenhuma tela mostrava. Passando de duas semanas o texto
-   muda de cor, porque a partir dali não é atraso, é abandono. */
-function CartaoPendencia({ pendencia, hoje }: { pendencia: Pendencia; hoje: string }) {
-  const p = pendencia;
-  const parada = haQuantoTempo(p.atualizado, hoje);
-  const antiga = p.atualizado < hoje && parada.includes("semana");
-  const muitoAntiga = parada.includes("mês") || parada.includes("meses");
+    A faixa do bloco atual ganha um contorno de acento. É a única pista de
+    "onde estamos agora" que a tela dá, e ela some quando o dia vira. */
+function FaixaDoBloco({
+  bloco,
+  ocorrencias,
+  marcas,
+  acoes,
+  agora,
+  aoFocar,
+}: {
+  bloco: Bloco;
+  ocorrencias: Ocorrencia[];
+  marcas: ReturnType<typeof indexar>;
+  acoes: (o: Ocorrencia) => {
+    estado: "feito" | "pulado" | "aberto";
+    aoMarcar: () => void;
+    aoPular: () => void;
+    aoRemover?: () => void;
+  };
+  agora: boolean;
+  aoFocar?: () => void;
+}) {
+  const feitas = ocorrencias.filter((o) => marcas.feitas.has(o.chave)).length;
 
   return (
-    <li className="glass-card flex flex-col p-4">
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[1.02rem] leading-snug">{p.titulo}</span>
-        {p.status === "bloqueada" && (
-          <span
-            className="mt-0.5 flex-none rounded-full px-2 py-0.5 text-[0.65rem] uppercase tracking-wider"
-            style={{ background: "var(--terracotta)", color: "#fff" }}
+    <section
+      className="faixa-bloco"
+      style={{
+        borderColor: agora ? "var(--accent)" : "transparent",
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <CabecalhoBloco bloco={bloco} feitas={feitas} total={ocorrencias.length} />
+        </div>
+        {aoFocar && ocorrencias.length > 0 && (
+          <button
+            onClick={aoFocar}
+            className="mt-0.5 flex-none text-[0.68rem] underline underline-offset-4"
+            style={{ color: "var(--ink-soft)" }}
           >
-            travada
-          </span>
+            só isto
+          </button>
         )}
       </div>
 
-      {p.nota && (
-        <p
-          className="mt-1.5 text-[0.82rem] leading-snug"
-          style={{ color: "var(--ink-soft)" }}
-        >
-          {p.nota}
+      {ocorrencias.length === 0 ? (
+        <p className="pl-1 text-sm" style={{ color: "var(--ink-soft)", opacity: 0.7 }}>
+          Nada aqui.
         </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {ocorrencias.map((o) => (
+            <Linha key={o.chave} ocorrencia={o} {...acoes(o)} />
+          ))}
+        </ul>
       )}
+    </section>
+  );
+}
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span
-          className={`parada ${antiga || muitoAntiga ? "parada-antiga" : ""}`}
-        >
-          parada {parada}
-        </span>
-        {p.prazo && (
-          <span className="parada">prazo {quandoFalta(p.prazo, hoje)}</span>
-        )}
-        <span className="parada uppercase tracking-wider">{p.projeto}</span>
-
-        <button
-          onClick={() => mudarStatusPendencia(p.id, "concluida")}
-          className="chip ml-auto"
-        >
-          Concluir
-        </button>
-      </div>
-
-      {p.vaultNota && (
-        <a
-          href={linkDoVault(p.vaultNota)}
-          className="mt-2 text-[0.7rem] underline underline-offset-4"
-          style={{ color: "var(--ink-soft)" }}
-        >
-          abrir no vault
-        </a>
-      )}
-    </li>
+function ItemPopup({
+  children,
+  ativo,
+  aoEscolher,
+}: {
+  children: React.ReactNode;
+  ativo: boolean;
+  aoEscolher: () => void;
+}) {
+  return (
+    <button
+      onClick={aoEscolher}
+      className="item-popup"
+      style={{
+        background: ativo ? "var(--accent)" : "transparent",
+        color: ativo ? "var(--accent-foreground)" : "var(--ink)",
+      }}
+    >
+      {children}
+    </button>
   );
 }

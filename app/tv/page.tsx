@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { corrente, donoNoDia, ehDe, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import {
+  corrente,
+  donoNoDia,
+  ehDe,
+  estadoDa,
+  indexar,
+  melhorCorrente,
+  ocorrenciasDoDia,
+} from "@/lib/agenda";
 import { CITACOES, NUMEROS } from "@/lib/dados";
 import { haQuantoTempo, horaDoDia, horaISO, porExtenso } from "@/lib/datas";
 import { useHoje, useZuppas } from "@/lib/store";
@@ -76,7 +84,8 @@ export default function TV() {
     };
   }, [noite]);
 
-  const concluidas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
+  const marcas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
+  const concluidas = marcas.feitas;
 
   const doDia = useMemo(
     () => ocorrenciasDoDia(hoje, estado.itens, estado.compromissos),
@@ -90,16 +99,20 @@ export default function TV() {
     const mapa = new Map<Pessoa, Ocorrencia[]>();
     for (const pessoa of PESSOAS) {
       const dela = doDia.filter((o) => ehDe(o, pessoa));
-      const abertas = dela.filter((o) => !concluidas.has(o.chave));
-      const feitas = dela.filter((o) => concluidas.has(o.chave));
-      mapa.set(pessoa, [...abertas, ...feitas]);
+      const abertas = dela.filter((o) => estadoDa(o.chave, marcas) === "aberto");
+      const resolvidas = dela.filter((o) => estadoDa(o.chave, marcas) !== "aberto");
+      mapa.set(pessoa, [...abertas, ...resolvidas]);
     }
     return mapa;
-  }, [doDia, concluidas]);
+  }, [doDia, marcas]);
 
   const ancoras = doDia.filter((o) => o.ancora);
   const dias = useMemo(
     () => corrente(hoje, estado.itens, concluidas),
+    [hoje, estado.itens, concluidas]
+  );
+  const recorde = useMemo(
+    () => melhorCorrente(hoje, estado.itens, concluidas),
     [hoje, estado.itens, concluidas]
   );
 
@@ -138,6 +151,7 @@ export default function TV() {
             </div>
             <div className="tv-rotulo">
               {dias === 1 ? "dia seguido" : "dias seguidos"}
+              {recorde > 0 && dias < recorde ? ` · recorde ${recorde}` : ""}
             </div>
           </div>
           <p

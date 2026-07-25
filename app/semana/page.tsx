@@ -2,19 +2,22 @@
 
 import { useMemo, useState } from "react";
 import Agendar from "@/components/Agendar";
-import { Avatar, Rotulo } from "@/components/ui";
-import { Check, Relogio } from "@/components/icones";
-import { ehDe, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import CalendarioSemana from "@/components/CalendarioSemana";
+import Pendencias from "@/components/Pendencias";
+import Popup from "@/components/Popup";
+import Tracker from "@/components/Tracker";
+import { Rotulo } from "@/components/ui";
+import { COR_BLOCO, ICONE_BLOCO, Marca } from "@/components/visual";
+import { Filtro, Semana as IconeSemana } from "@/components/icones";
+import { ehDe, estadoDa, indexar, ocorrenciasDoDia } from "@/lib/agenda";
 import {
   curta,
   diasDaSemana,
-  haQuantoTempo,
+  inicioDaSemana,
   nomeDoDiaCurto,
-  porExtenso,
   semanaISO,
-  somarDias,
 } from "@/lib/datas";
-import { alternarConclusao, desagendar, useHoje, useZuppas } from "@/lib/store";
+import { alternarConclusao, useHoje, useZuppas } from "@/lib/store";
 import {
   BLOCOS,
   BLOCO_LABEL,
@@ -27,16 +30,20 @@ import {
 
 /* A semana: tudo que tem que ser feito, de quem é, e em que dia.
 
-   É a tela que responde "o que vem por aí" sem ninguém precisar perguntar. Dois
-   filtros e só dois, porque filtro demais é a porta de entrada do kanban que
-   este projeto decidiu não ser: por pessoa (de quem é cada coisa) e por tipo
-   (só o Biro, só a casa, só compromisso).
+   Reorganizada em 24/07. O que mudou:
 
-   As pendências entram numa faixa separada de propósito. Elas não têm dia, e
-   fingir que têm foi o erro do quadro branco: item sem data escrito num dia
-   qualquer some da cabeça de todo mundo. */
+   - **Calendário no lugar do "anterior / próxima".** Chegar em setembro exigia
+     sete cliques; agora se aponta o dedo num mês. Seleciona a semana inteira,
+     não o dia, porque a unidade desta tela é a semana.
+   - **Tracker de semanas.** A tabela de 7 dias que está vazia no vault desde
+     16/06, viva e continuando depois da primeira semana. Corrente atual,
+     recorde e oito semanas lado a lado.
+   - **Filtros em popup.** Eram quinze pílulas empilhadas antes de qualquer
+     conteúdo aparecer.
+   - **Coluna do dia mais visual.** Cada bloco tem sua cor e seu ícone, os
+     mesmos das outras telas, e o dia mostra progresso em vez de contagem crua. */
 
-const CATEGORIAS_FILTRO: Categoria[] = [
+const CATEGORIAS: Categoria[] = [
   "ancora",
   "biro",
   "casa",
@@ -50,14 +57,16 @@ export default function Semana() {
   const estado = useZuppas();
   const hoje = useHoje();
 
-  const [deslocamento, setDeslocamento] = useState(0);
+  const [ancora, setAncora] = useState<string | null>(null);
   const [pessoa, setPessoa] = useState<Dono | "Todos">("Todos");
   const [categoria, setCategoria] = useState<Categoria | "Tudo">("Tudo");
+  const [verTracker, setVerTracker] = useState(false);
 
-  const referencia = somarDias(hoje, deslocamento * 7);
+  const referencia = ancora ?? hoje;
   const dias = useMemo(() => diasDaSemana(referencia), [referencia]);
+  const ehSemanaAtual = inicioDaSemana(referencia) === inicioDaSemana(hoje);
 
-  const concluidas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
+  const marcas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
 
   const porDia = useMemo(() => {
     return dias.map((dia) => {
@@ -75,7 +84,7 @@ export default function Semana() {
 
   const total = porDia.reduce((s, d) => s + d.lista.length, 0);
   const feitas = porDia.reduce(
-    (s, d) => s + d.lista.filter((o) => concluidas.has(o.chave)).length,
+    (s, d) => s + d.lista.filter((o) => marcas.feitas.has(o.chave)).length,
     0
   );
 
@@ -87,232 +96,294 @@ export default function Semana() {
     return p.responsavel === pessoa;
   });
 
-  return (
-    <main className="veil-bg pb-28 lg:pb-16">
-      <div className="mx-auto w-full max-w-md px-5 pt-8 lg:max-w-[1700px] lg:px-8 lg:pt-10">
-        <header className="mb-5">
-          <p className="tv-rotulo mb-2">Semana {semanaISO(referencia)}</p>
-          <h1
-            className="text-3xl lg:text-4xl"
-            style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}
-          >
-            {curta(dias[0])} a {curta(dias[6])}
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--ink-soft)" }}>
-            {total} {total === 1 ? "coisa" : "coisas"} na semana, {feitas} já {feitas === 1 ? "feita" : "feitas"}.
-          </p>
+  const filtroAtivo = pessoa !== "Todos" || categoria !== "Tudo";
 
-          <div className="mt-3 flex items-center gap-2">
-            <button className="chip" onClick={() => setDeslocamento((d) => d - 1)}>
-              ← anterior
-            </button>
-            {deslocamento !== 0 && (
-              <button className="chip" onClick={() => setDeslocamento(0)}>
-                esta semana
-              </button>
-            )}
-            <button className="chip" onClick={() => setDeslocamento((d) => d + 1)}>
-              próxima →
-            </button>
+  return (
+    <main className="veil-bg pb-32">
+      <div className="mx-auto w-full max-w-md px-5 pt-8 lg:max-w-[1700px] lg:px-8 lg:pt-12">
+        <header className="mb-5 flex items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="tv-rotulo mb-1.5">
+              Semana {semanaISO(referencia)}
+              {ehSemanaAtual ? " · esta semana" : ""}
+            </p>
+            <h1
+              className="text-3xl lg:text-4xl"
+              style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}
+            >
+              {curta(dias[0])} a {curta(dias[6])}
+            </h1>
+            <p className="mt-1 text-sm" style={{ color: "var(--ink-soft)" }}>
+              {total} na semana · {feitas} {feitas === 1 ? "feita" : "feitas"}
+            </p>
           </div>
         </header>
 
-        {/* Filtros: de quem é, e de que tipo */}
-        <div className="mb-5 flex flex-col gap-2.5">
-          <div className="flex flex-wrap gap-2">
-            {(["Todos", "Casa", ...PESSOAS] as (Dono | "Todos")[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPessoa(p)}
-                className={`chip ${p === pessoa ? "chip-ativo" : ""}`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {(["Tudo", ...CATEGORIAS_FILTRO, "pendencia"] as (Categoria | "Tudo")[]).map(
-              (c) => (
-                <button
-                  key={c}
-                  onClick={() => setCategoria(c)}
-                  className={`chip ${c === categoria ? "chip-ativo" : ""}`}
-                >
-                  {c === "Tudo" ? "Tudo" : CATEGORIA_LABEL[c]}
-                </button>
-              )
+        {/* Controles */}
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <Popup
+            rotulo="Escolher semana"
+            valor={ehSemanaAtual ? undefined : `${curta(dias[0])} a ${curta(dias[6])}`}
+            icone={<IconeSemana className="h-3.5 w-3.5" />}
+          >
+            {(fechar) => (
+              <CalendarioSemana
+                selecionada={referencia}
+                hoje={hoje}
+                aoEscolher={(dia) => {
+                  setAncora(dia);
+                  fechar();
+                }}
+              />
             )}
-          </div>
+          </Popup>
+
+          <Popup
+            rotulo="De quem"
+            valor={pessoa === "Todos" ? undefined : String(pessoa)}
+            icone={<Filtro className="h-3.5 w-3.5" />}
+          >
+            {(fechar) => (
+              <div className="flex w-44 flex-col gap-1">
+                {(["Todos", "Casa", ...PESSOAS] as (Dono | "Todos")[]).map((p) => (
+                  <button
+                    key={p}
+                    className="item-popup"
+                    style={{
+                      background: p === pessoa ? "var(--accent)" : "transparent",
+                      color: p === pessoa ? "var(--accent-foreground)" : "var(--ink)",
+                    }}
+                    onClick={() => {
+                      setPessoa(p);
+                      fechar();
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Popup>
+
+          <Popup
+            rotulo="Tipo"
+            valor={categoria === "Tudo" ? undefined : CATEGORIA_LABEL[categoria]}
+          >
+            {(fechar) => (
+              <div className="flex w-52 flex-col gap-1">
+                <button
+                  className="item-popup"
+                  style={{
+                    background: categoria === "Tudo" ? "var(--accent)" : "transparent",
+                    color:
+                      categoria === "Tudo" ? "var(--accent-foreground)" : "var(--ink)",
+                  }}
+                  onClick={() => {
+                    setCategoria("Tudo");
+                    fechar();
+                  }}
+                >
+                  Tudo
+                </button>
+                {[...CATEGORIAS, "pendencia" as Categoria].map((c) => (
+                  <button
+                    key={c}
+                    className="item-popup flex items-center gap-2.5"
+                    style={{
+                      background: c === categoria ? "var(--accent)" : "transparent",
+                      color: c === categoria ? "var(--accent-foreground)" : "var(--ink)",
+                    }}
+                    onClick={() => {
+                      setCategoria(c);
+                      fechar();
+                    }}
+                  >
+                    <Marca categoria={c} tamanho={22} />
+                    {CATEGORIA_LABEL[c]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Popup>
+
+          {filtroAtivo && (
+            <button
+              className="chip"
+              onClick={() => {
+                setPessoa("Todos");
+                setCategoria("Tudo");
+              }}
+            >
+              limpar filtros ×
+            </button>
+          )}
+
+          <button
+            className={`aba ml-auto ${verTracker ? "aba-ativa" : ""}`}
+            onClick={() => setVerTracker((v) => !v)}
+          >
+            {verTracker ? "esconder progresso" : "ver progresso"}
+          </button>
         </div>
 
-        {/* Os 7 dias. Empilhados no celular, lado a lado no desktop. */}
+        {verTracker && (
+          <section className="mb-6">
+            <Rotulo>Progresso das semanas</Rotulo>
+            <Tracker hoje={hoje} itens={estado.itens} feitas={marcas.feitas} />
+          </section>
+        )}
+
+        {/* Os 7 dias */}
         <div className="flex flex-col gap-3 lg:grid lg:grid-cols-7 lg:items-start lg:gap-3">
           {porDia.map(({ dia, lista }) => (
-            <DiaDaSemana
+            <ColunaDoDia
               key={dia}
               dia={dia}
               hoje={hoje}
               ocorrencias={lista}
-              concluidas={concluidas}
+              marcas={marcas}
               aoAlternar={(o) => alternarConclusao(o.id, dia, estado.eu)}
-              aoRemover={(o) => desagendar(o.id)}
             />
           ))}
         </div>
 
-        <div className="mt-6">
+        <div className="mt-5">
           <Agendar data={dias[0] > hoje ? dias[0] : hoje} eu={estado.eu} />
         </div>
 
-        {/* Sem dia marcado */}
         <section className="mt-8">
           <Rotulo>Sem dia marcado ({pendencias.length})</Rotulo>
-          {pendencias.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--ink-soft)" }}>
-              Nada solto neste filtro.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:gap-3">
-              {pendencias.map((p) => (
-                <li key={p.id} className="glass-card flex flex-col gap-1.5 p-3.5">
-                  <div className="flex items-start gap-2.5">
-                    <Avatar dono={p.responsavel} tamanho={24} />
-                    <span className="text-[0.95rem] leading-snug">{p.titulo}</span>
-                  </div>
-                  <span className="parada">
-                    {p.projeto} · parada {haQuantoTempo(p.atualizado, hoje)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <Pendencias
+            pendencias={pendencias}
+            hoje={hoje}
+            vazio="Nada solto neste filtro."
+          />
         </section>
       </div>
     </main>
   );
 }
 
-function DiaDaSemana({
+function ColunaDoDia({
   dia,
   hoje,
   ocorrencias,
-  concluidas,
+  marcas,
   aoAlternar,
-  aoRemover,
 }: {
   dia: string;
   hoje: string;
   ocorrencias: Ocorrencia[];
-  concluidas: Set<string>;
+  marcas: ReturnType<typeof indexar>;
   aoAlternar: (o: Ocorrencia) => void;
-  aoRemover: (o: Ocorrencia) => void;
 }) {
   const ehHoje = dia === hoje;
   const passou = dia < hoje;
-  const abertas = ocorrencias.filter((o) => !concluidas.has(o.chave)).length;
+  const feitas = ocorrencias.filter((o) => marcas.feitas.has(o.chave)).length;
+  const abertas = ocorrencias.filter(
+    (o) => estadoDa(o.chave, marcas) === "aberto"
+  ).length;
+  const fracao = ocorrencias.length === 0 ? 0 : feitas / ocorrencias.length;
 
   return (
     <section
-      className={`glass-card p-3.5 ${ehHoje ? "glass-card-strong" : ""}`}
+      className={`glass-card overflow-hidden ${ehHoje ? "glass-card-strong" : ""}`}
       style={{
         borderColor: ehHoje ? "var(--accent)" : undefined,
-        opacity: passou && abertas === 0 ? 0.6 : 1,
+        opacity: passou && abertas === 0 ? 0.55 : 1,
       }}
     >
-      <header className="mb-2.5 flex items-baseline justify-between gap-2">
-        <div>
-          <p
-            className="text-[0.7rem] uppercase tracking-widest"
-            style={{ color: ehHoje ? "var(--accent)" : "var(--ink-soft)" }}
-          >
-            {nomeDoDiaCurto(dia)}
+      {/* Barra de progresso do dia, no topo do cartão */}
+      <div style={{ height: 3, background: "var(--line)" }}>
+        <div
+          style={{
+            height: "100%",
+            width: `${fracao * 100}%`,
+            background: "var(--accent)",
+            transition: "width 0.25s ease",
+          }}
+        />
+      </div>
+
+      <div className="p-3.5">
+        <header className="mb-2.5 flex items-baseline justify-between gap-2">
+          <div>
+            <p
+              className="text-[0.68rem] uppercase tracking-widest"
+              style={{ color: ehHoje ? "var(--accent)" : "var(--ink-soft)" }}
+            >
+              {nomeDoDiaCurto(dia)}
+            </p>
+            <p className="text-lg leading-tight" style={{ fontFamily: "var(--font-display)" }}>
+              {dia.slice(8, 10)}
+            </p>
+          </div>
+          {abertas > 0 && (
+            <span className="parada">{abertas} aberta{abertas > 1 ? "s" : ""}</span>
+          )}
+        </header>
+
+        {ocorrencias.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--ink-soft)", opacity: 0.7 }}>
+            livre
           </p>
-          <p className="text-lg" style={{ fontFamily: "var(--font-display)" }}>
-            {dia.slice(8, 10)}
-          </p>
-        </div>
-        {abertas > 0 && (
-          <span className="parada">{abertas} aberta{abertas > 1 ? "s" : ""}</span>
-        )}
-      </header>
+        ) : (
+          BLOCOS.map((bloco) => {
+            const doBloco = ocorrencias.filter((o) => o.bloco === bloco);
+            if (doBloco.length === 0) return null;
+            const Icone = ICONE_BLOCO[bloco];
 
-      {ocorrencias.length === 0 ? (
-        <p className="text-xs" style={{ color: "var(--ink-soft)", opacity: 0.7 }}>
-          livre
-        </p>
-      ) : (
-        BLOCOS.map((bloco) => {
-          const doBloco = ocorrencias.filter((o) => o.bloco === bloco);
-          if (doBloco.length === 0) return null;
-          return (
-            <div key={bloco} className="mb-2.5 last:mb-0">
-              <p
-                className="mb-1 text-[0.62rem] uppercase tracking-widest"
-                style={{ color: "var(--ink-soft)", opacity: 0.8 }}
-              >
-                {BLOCO_LABEL[bloco]}
-              </p>
-              <ul className="flex flex-col gap-1">
-                {doBloco.map((o) => {
-                  const feita = concluidas.has(o.chave);
-                  return (
-                    <li key={o.chave} className="flex items-start gap-1.5">
-                      <button
-                        onClick={() => aoAlternar(o)}
-                        className="mt-[0.15rem] flex h-4 w-4 flex-none items-center justify-center rounded-full border"
-                        style={{
-                          borderColor: feita ? "var(--accent)" : "var(--line)",
-                          background: feita ? "var(--accent)" : "transparent",
-                          color: "var(--accent-foreground)",
-                        }}
-                        aria-label={`${feita ? "Desmarcar" : "Marcar"} ${o.titulo} em ${porExtenso(dia)}`}
-                      >
-                        {feita && <Check className="h-2.5 w-2.5" />}
-                      </button>
+            return (
+              <div key={bloco} className="mb-2.5 last:mb-0">
+                <p
+                  className="mb-1 flex items-center gap-1 text-[0.6rem] uppercase tracking-widest"
+                  style={{ color: COR_BLOCO[bloco] }}
+                >
+                  <Icone className="h-3 w-3" />
+                  {BLOCO_LABEL[bloco]}
+                </p>
 
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className="block text-[0.8rem] leading-snug"
-                          style={{
-                            opacity: feita ? 0.45 : 1,
-                            textDecoration: feita ? "line-through" : "none",
-                          }}
-                        >
-                          {o.titulo}
-                        </span>
-                        <span
-                          className="flex items-center gap-1 text-[0.65rem]"
-                          style={{ color: "var(--ink-soft)" }}
-                        >
-                          {o.horario && (
-                            <>
-                              <Relogio className="h-2.5 w-2.5" />
-                              {o.horario}
-                            </>
-                          )}
-                          <span>{o.dono}</span>
-                        </span>
-                      </span>
-
-                      {o.removivel && (
+                <ul className="flex flex-col gap-1">
+                  {doBloco.map((o) => {
+                    const est = estadoDa(o.chave, marcas);
+                    return (
+                      <li key={o.chave}>
                         <button
-                          onClick={() => aoRemover(o)}
-                          className="text-[0.65rem]"
-                          style={{ color: "var(--ink-soft)" }}
-                          aria-label={`Apagar ${o.titulo}`}
+                          onClick={() => aoAlternar(o)}
+                          className="flex w-full items-start gap-1.5 rounded-lg py-0.5 text-left"
+                          aria-pressed={est === "feito"}
+                          aria-label={`Marcar ${o.titulo} em ${curta(dia)}`}
                         >
-                          ×
+                          <Marca categoria={o.categoria} tamanho={16} />
+                          <span className="min-w-0 flex-1">
+                            <span
+                              className="block text-[0.78rem] leading-snug"
+                              style={{
+                                opacity: est === "aberto" ? 1 : 0.45,
+                                textDecoration:
+                                  est === "aberto" ? "none" : "line-through",
+                              }}
+                            >
+                              {o.titulo}
+                            </span>
+                            <span
+                              className="text-[0.62rem]"
+                              style={{ color: "var(--ink-soft)" }}
+                            >
+                              {o.horario ? `${o.horario} · ` : ""}
+                              {o.dono}
+                            </span>
+                          </span>
                         </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          );
-        })
-      )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })
+        )}
+      </div>
     </section>
   );
 }

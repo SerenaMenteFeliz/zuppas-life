@@ -272,24 +272,93 @@ body {
   background: var(--glass);
 }
 
+/* No desktop a barra continua fixa (pedido do Yan, 24/07: sticky no topo
+   sumia da atenção), mas vira uma doca flutuante centrada embaixo. Fixa e
+   sempre à mão, sem roubar a largura inteira da tela. */
 @media (min-width: 1024px) {
   .nav-barra {
-    position: sticky;
-    top: 0;
-    bottom: auto;
-    justify-content: flex-start;
-    gap: 0.4rem;
-    padding: 0.6rem 2.5rem;
-    border-top: none;
-    border-bottom: 1px solid var(--line);
+    left: 50%;
+    right: auto;
+    bottom: 1.4rem;
+    transform: translateX(-50%);
+    width: auto;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 9999px;
+    box-shadow: 0 14px 40px -18px var(--shadow-tint);
   }
   .nav-item {
     flex: none;
     flex-direction: row;
     gap: 0.5rem;
-    padding: 0.45rem 0.9rem;
-    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.88rem;
   }
+}
+
+/* ── Popup ─────────────────────────────────────────────────────────────────
+   As fileiras de chip viraram popup: filtro é segundo toque, não primeira
+   leitura. Ancorado no botão, fecha no clique fora e no Esc. */
+.popup {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  z-index: 50;
+  padding: 0.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface);
+  box-shadow: 0 18px 44px -20px var(--shadow-tint);
+}
+
+.item-popup {
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 0.9rem;
+  transition: background-color 0.12s ease;
+}
+
+.dia-calendario {
+  height: 2rem;
+  font-size: 0.78rem;
+  transition: background-color 0.12s ease;
+}
+
+/* ── Faixa de bloco do dia ─────────────────────────────────────────────────
+   Manhã, tarde e noite deixaram de ser aba escrita e viraram faixa com cor,
+   ícone e progresso próprios. A do bloco atual ganha contorno de acento. */
+.faixa-bloco {
+  padding: 0.9rem 0.9rem 1rem;
+  border-radius: 20px;
+  border: 1.5px solid transparent;
+  background: var(--glass);
+  transition: border-color 0.2s ease;
+}
+
+/* ── Tracker de semanas ────────────────────────────────────────────────────
+   Cada dia é uma barrinha que enche de baixo pra cima com as âncoras feitas.
+   Cheia é dia fechado, meio cheia é dia parcial, que também conta. */
+.tracker-dia {
+  position: relative;
+  display: block;
+  flex: 1;
+  height: 1.5rem;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.tracker-preenchido {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: block;
+  border-radius: 5px;
+  transition: height 0.25s ease;
 }
 
 /* ── Linha marcável ────────────────────────────────────────────────────────
@@ -433,6 +502,20 @@ body {
   background: var(--glass);
   border: 1px solid var(--line);
   opacity: 0.75;
+}
+
+/* Alvo grande de verdade: a mão de uma criança, num celular, possivelmente em
+   momento de transição difícil. Nada de botão de 32 pixels aqui. */
+.botao-grande {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 16px;
+  font-size: 1.15rem;
 }
 
 .passo-titulo {

@@ -197,6 +197,8 @@ export interface ItemCasa {
    A única linha que se grava de um item recorrente. Chave é `id|data`, o que
    torna a marcação idempotente e a corrente uma contagem. */
 
+export type TipoConclusao = "feito" | "pulado";
+
 export interface Conclusao {
   chave: string;
   itemId: string;
@@ -205,6 +207,16 @@ export interface Conclusao {
   pessoa: Pessoa;
   /** ISO completo, com fuso */
   feitoEm: string;
+  /** "pulado" é resolvido, não é feito.
+
+      Existe porque a Akiane precisa poder sair de uma etapa sem que a tela
+      fique cobrando: numa agenda visual, ficar preso numa etapa que não vai
+      acontecer é pior que não ter agenda nenhuma. Vale pra casa toda pelo
+      mesmo motivo, e a rotina já é desenhada em duas camadas justamente pra
+      que um dia ruim não vire fracasso.
+
+      Pular não fecha o dia: só "feito" conta pra corrente. */
+  tipo: TipoConclusao;
 }
 
 export function chaveConclusao(itemId: string, data: string): string {

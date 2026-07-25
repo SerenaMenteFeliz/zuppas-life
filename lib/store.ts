@@ -19,6 +19,7 @@ import {
   type Pendencia,
   type PendenciaStatus,
   type Pessoa,
+  type TipoConclusao,
 } from "./types";
 
 /* Estado do Zuppas Life.
@@ -210,26 +211,48 @@ export function definirPessoa(pessoa: Pessoa) {
   mudar({ eu: pessoa });
 }
 
-/** Marca ou desmarca uma ocorrência do dia.
+/** Resolve uma ocorrência do dia como feita ou pulada.
 
-    Idempotente pela chave `id|data`: marcar duas vezes não cria duas linhas, e
-    marcar de dois aparelhos diferentes converge no mesmo registro quando o
-    banco entrar. */
-export function alternarConclusao(itemId: string, data: string, pessoa: Pessoa) {
+    Um clique só cicla entre os três estados quando `tipo` não é informado, e
+    vai direto pro estado pedido quando é. Idempotente pela chave `id|data`:
+    marcar duas vezes não cria duas linhas, e marcar de dois aparelhos
+    diferentes converge no mesmo registro quando o banco entrar. */
+export function resolver(
+  itemId: string,
+  data: string,
+  pessoa: Pessoa,
+  tipo: TipoConclusao = "feito"
+) {
   const chave = chaveConclusao(itemId, data);
-  const existe = estado.conclusoes.some((c) => c.chave === chave);
-  if (existe) {
+  const atual = estado.conclusoes.find((c) => c.chave === chave);
+
+  /* Repetir o mesmo estado desfaz. É como uma pessoa espera que um botão de
+     marcar se comporte, e evita ter que caçar um "desmarcar" separado. */
+  if (atual && atual.tipo === tipo) {
     mudar({ conclusoes: estado.conclusoes.filter((c) => c.chave !== chave) });
     return;
   }
+
   const nova: Conclusao = {
     chave,
     itemId,
     data,
     pessoa,
     feitoEm: agoraISO(),
+    tipo,
   };
-  mudar({ conclusoes: [...estado.conclusoes, nova] });
+  mudar({
+    conclusoes: [...estado.conclusoes.filter((c) => c.chave !== chave), nova],
+  });
+}
+
+/** Atalho antigo, mantido porque metade das telas só quer marcar feito. */
+export function alternarConclusao(itemId: string, data: string, pessoa: Pessoa) {
+  resolver(itemId, data, pessoa, "feito");
+}
+
+export function pular(itemId: string, data: string, pessoa: Pessoa) {
+  resolver(itemId, data, pessoa, "pulado");
 }
 
 export function agendar(entrada: {

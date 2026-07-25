@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { Check } from "@/components/icones";
-import { ehDe, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import { Check, Pular } from "@/components/icones";
+import { Marca } from "@/components/visual";
+import { ehDe, estadoDa, indexar, ocorrenciasDoDia } from "@/lib/agenda";
 import { porExtenso } from "@/lib/datas";
-import { alternarConclusao, useHoje, useZuppas } from "@/lib/store";
+import { alternarConclusao, pular, useHoje, useZuppas } from "@/lib/store";
 
 /* O dia da Akiane: primeiro, depois.
 
@@ -14,24 +15,26 @@ import { alternarConclusao, useHoje, useZuppas } from "@/lib/store";
    tem duas camadas". O app inteiro foi desenhado em cima dessa frase e a
    própria Akiane não aparecia nele.
 
-   O formato vem da literatura de agenda visual, e as três coisas que ela pede
-   são as três regras desta tela:
+   O formato vem da literatura de agenda visual, e as regras da tela são:
 
    1. **Sequência previsível.** A ordem é a mesma todo dia e não muda de lugar.
-   2. **Uma etapa por vez, e a seguinte.** Dois cartões, nada mais. A pergunta
-      que a criança está realmente fazendo é o que vem quando isso acabar.
-   3. **Feedback claro de conclusão.** Marcar move a etapa pra "já foi", visível,
-      sem animação de distração. É a dica de conclusão que reduz a ansiedade de
-      transição, não um enfeite.
+   2. **Uma etapa por vez, e a seguinte.** Dois cartões. A pergunta que a
+      criança está realmente fazendo é o que vem quando isso acabar.
+   3. **Feedback claro de conclusão.** Marcar move a etapa pra "já foi",
+      visível, sem animação de distração.
+   4. **Poder sair da etapa.** Adicionado em 24/07 e é a correção mais
+      importante desta rodada: antes só existia "já fiz" ou nada, e uma etapa
+      que não vai acontecer travava a sequência inteira. Ficar preso é pior que
+      não ter agenda, e pular aqui não é falha, é seguir em frente.
 
-   Sem contagem, sem porcentagem, sem cobrança. Se o dia foi ruim, a tela não
-   fica vermelha: um dia salvo no caos ainda conta. */
+   Sem contagem de cobrança, sem porcentagem, sem vermelho. Se o dia foi ruim,
+   a tela não briga: um dia salvo no caos ainda conta. */
 
 export default function Akiane() {
   const estado = useZuppas();
   const hoje = useHoje();
 
-  const concluidas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
+  const marcas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
 
   /* A sequência dela: o que é dela, o que envolve ela, e o que é da casa e ela
      participa. O alongamento sai daqui sozinho, pelo `exceto`. */
@@ -43,16 +46,16 @@ export default function Akiane() {
     [hoje, estado.itens, estado.compromissos]
   );
 
-  const pendentes = sequencia.filter((o) => !concluidas.has(o.chave));
-  const feitas = sequencia.filter((o) => concluidas.has(o.chave));
+  const pendentes = sequencia.filter((o) => estadoDa(o.chave, marcas) === "aberto");
+  const resolvidas = sequencia.length - pendentes.length;
 
   const agora = pendentes[0];
   const depois = pendentes[1];
 
   return (
-    <main className="veil-bg pb-28 lg:pb-16">
+    <main className="veil-bg pb-32">
       <div className="mx-auto w-full max-w-lg px-5 pt-10">
-        <header className="mb-8 text-center">
+        <header className="mb-7 text-center">
           <p className="tv-rotulo mb-2">{porExtenso(hoje)}</p>
           <h1
             className="text-4xl"
@@ -71,26 +74,43 @@ export default function Akiane() {
               >
                 Agora
               </p>
-              <button
-                onClick={() => alternarConclusao(agora.id, hoje, "Akiane")}
-                className="passo passo-agora w-full"
-              >
+
+              <div className="passo passo-agora">
+                <Marca categoria={agora.categoria} tamanho={52} />
                 <span className="passo-titulo">{agora.titulo}</span>
                 {agora.horario && (
                   <span className="text-lg" style={{ color: "var(--ink-soft)" }}>
                     {agora.horario}
                   </span>
                 )}
-                <span
-                  className="mt-2 rounded-full px-5 py-2.5 text-base"
-                  style={{
-                    background: "var(--accent)",
-                    color: "var(--accent-foreground)",
-                  }}
-                >
-                  Já fiz
-                </span>
-              </button>
+
+                <div className="mt-3 flex w-full flex-col gap-2">
+                  <button
+                    onClick={() => alternarConclusao(agora.id, hoje, "Akiane")}
+                    className="botao-grande"
+                    style={{
+                      background: "var(--accent)",
+                      color: "var(--accent-foreground)",
+                    }}
+                  >
+                    <Check className="h-6 w-6" />
+                    Já fiz
+                  </button>
+
+                  <button
+                    onClick={() => pular(agora.id, hoje, "Akiane")}
+                    className="botao-grande"
+                    style={{
+                      background: "transparent",
+                      border: "1.5px solid var(--line)",
+                      color: "var(--ink-soft)",
+                    }}
+                  >
+                    <Pular className="h-5 w-5" />
+                    Agora não
+                  </button>
+                </div>
+              </div>
             </section>
 
             <section>
@@ -101,6 +121,7 @@ export default function Akiane() {
                 Depois
               </p>
               <div className="passo passo-depois">
+                {depois && <Marca categoria={depois.categoria} tamanho={40} />}
                 <span className="passo-titulo">
                   {depois ? depois.titulo : "Livre"}
                 </span>
@@ -120,7 +141,8 @@ export default function Akiane() {
         )}
 
         {/* O dia inteiro, pequeno. Previsibilidade é saber que a sequência
-            existe e não muda, mesmo quando só duas etapas estão em foco. */}
+            existe e não muda, mesmo quando só duas etapas estão em foco.
+            Tocar aqui volta atrás, porque marcar por engano acontece. */}
         {sequencia.length > 0 && (
           <section className="mt-9">
             <p
@@ -131,48 +153,58 @@ export default function Akiane() {
             </p>
             <ul className="flex flex-col gap-1.5">
               {sequencia.map((o) => {
-                const feita = concluidas.has(o.chave);
+                const est = estadoDa(o.chave, marcas);
                 return (
-                  <li
-                    key={o.chave}
-                    className="glass-card flex items-center gap-3 px-4 py-3"
-                    style={{ opacity: feita ? 0.55 : 1 }}
-                  >
-                    <span
-                      className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2"
-                      style={{
-                        borderColor: feita ? "var(--accent)" : "var(--line)",
-                        background: feita ? "var(--accent)" : "transparent",
-                        color: "var(--accent-foreground)",
-                      }}
+                  <li key={o.chave}>
+                    <button
+                      onClick={() => alternarConclusao(o.id, hoje, "Akiane")}
+                      className="glass-card flex w-full items-center gap-3 px-4 py-3 text-left"
+                      style={{ opacity: est === "aberto" ? 1 : 0.55 }}
                     >
-                      {feita && <Check className="h-3.5 w-3.5" />}
-                    </span>
-                    <span
-                      className="text-[1.05rem]"
-                      style={{ textDecoration: feita ? "line-through" : "none" }}
-                    >
-                      {o.titulo}
-                    </span>
-                    {o.horario && (
                       <span
-                        className="ml-auto text-sm"
-                        style={{ color: "var(--ink-soft)" }}
+                        className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2"
+                        style={{
+                          borderColor:
+                            est === "feito" ? "var(--accent)" : "var(--line)",
+                          background:
+                            est === "feito" ? "var(--accent)" : "transparent",
+                          color: "var(--accent-foreground)",
+                        }}
                       >
-                        {o.horario}
+                        {est === "feito" && <Check className="h-3.5 w-3.5" />}
+                        {est === "pulado" && (
+                          <Pular className="h-3 w-3" />
+                        )}
                       </span>
-                    )}
+
+                      <Marca categoria={o.categoria} tamanho={26} />
+
+                      <span
+                        className="flex-1 text-[1.05rem]"
+                        style={{
+                          textDecoration: est === "aberto" ? "none" : "line-through",
+                        }}
+                      >
+                        {o.titulo}
+                      </span>
+
+                      {o.horario && (
+                        <span className="text-sm" style={{ color: "var(--ink-soft)" }}>
+                          {o.horario}
+                        </span>
+                      )}
+                    </button>
                   </li>
                 );
               })}
             </ul>
 
-            {feitas.length > 0 && (
+            {resolvidas > 0 && (
               <p
                 className="mt-4 text-center text-sm"
                 style={{ color: "var(--ink-soft)" }}
               >
-                {feitas.length} {feitas.length === 1 ? "coisa feita" : "coisas feitas"} hoje.
+                {resolvidas} de {sequencia.length} já {resolvidas === 1 ? "resolvida" : "resolvidas"} hoje.
               </p>
             )}
           </section>
