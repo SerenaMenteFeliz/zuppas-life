@@ -234,6 +234,227 @@ body {
   50% { transform: translateY(-7px); }
 }
 
+/* ── Navegação ─────────────────────────────────────────────────────────────
+   Barra embaixo no celular (polegar), no topo no desktop. Cinco destinos, sem
+   menu escondido: se precisa de dois toques pra achar, a Liz não acha às 7h. */
+.nav-barra {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: space-around;
+  gap: 0.25rem;
+  padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom));
+  background: var(--glass-strong);
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.nav-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.2rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.nav-item-ativo {
+  color: var(--accent);
+  background: var(--glass);
+}
+
+@media (min-width: 1024px) {
+  .nav-barra {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    justify-content: flex-start;
+    gap: 0.4rem;
+    padding: 0.6rem 2.5rem;
+    border-top: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-item {
+    flex: none;
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* ── Linha marcável ────────────────────────────────────────────────────────
+   O componente mais repetido do app. Alvo de toque grande pela mesma razão da
+   âncora, e o estado "feito" tem que ser óbvio de relance, não sutil: a
+   pesquisa sobre agenda visual é clara que a dica de conclusão é o que reduz
+   ansiedade de transição, e ela vale pra casa inteira, não só pra Akiane. */
+.linha {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  text-align: left;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.linha-marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.65rem;
+  height: 1.65rem;
+  margin-top: 0.1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--line);
+  color: transparent;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.linha-feita .linha-marca {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.linha-feita .linha-titulo {
+  opacity: 0.45;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+/* ── Abas e filtros ────────────────────────────────────────────────────────
+   Manhã / tarde / noite / tudo, e os filtros da semana. Mesmo desenho pros
+   dois: pílula, estado ativo cheio. */
+.aba {
+  padding: 0.45rem 0.95rem;
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.aba-ativa {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.chip {
+  padding: 0.3rem 0.7rem;
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+
+.chip-ativo {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* ── Campos de formulário ──────────────────────────────────────────────────
+   Agendar tem que ser mais rápido que abrir o WhatsApp e mandar mensagem pra
+   alguém lembrar, senão ninguém agenda. */
+.campo {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.campo:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.botao {
+  padding: 0.7rem 1.2rem;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.95rem;
+  transition: opacity 0.15s ease;
+}
+
+.botao:disabled {
+  opacity: 0.45;
+}
+
+.botao-fantasma {
+  padding: 0.7rem 1.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+/* ── Akiane: primeiro / depois ─────────────────────────────────────────────
+   Dois cartões, nada mais. O formato vem da literatura de agenda visual: uma
+   etapa por vez e o que vem depois dela, que é a pergunta que a criança está
+   realmente fazendo. Tipografia grande, sem texto de apoio, sem menu. */
+.passo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 2rem 1.25rem;
+  border-radius: 24px;
+  text-align: center;
+  min-height: 11rem;
+}
+
+.passo-agora {
+  background: var(--glass-strong);
+  border: 2px solid var(--accent);
+}
+
+.passo-depois {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  opacity: 0.75;
+}
+
+.passo-titulo {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.5rem, 6vw, 2.4rem);
+  line-height: 1.15;
+}
+
+/* ── Alerta de item parado ─────────────────────────────────────────────────
+   A mecânica social prometida na arquitetura e nunca implementada: pendência
+   parada fica visível sem ninguém precisar cobrar. */
+.parada {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.parada-antiga {
+  color: var(--terracotta);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .float-slow { animation: none; }
+  .linha, .ancora, .aba, .nav-item { transition: none; }
 }

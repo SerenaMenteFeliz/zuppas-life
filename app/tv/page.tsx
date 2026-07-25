@@ -1,59 +1,68 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  BLOQUEIO_DA_VEZ,
-  CITACOES,
-  DIAS_FECHADOS,
-  NUMEROS,
-  PENDENCIAS,
-  ROTINAS,
-} from "@/lib/mock-data";
-import { INICIAL, PESSOAS, type Pessoa } from "@/lib/types";
+import { corrente, donoNoDia, ehDe, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import { CITACOES, NUMEROS } from "@/lib/dados";
+import { haQuantoTempo, horaDoDia, horaISO, porExtenso } from "@/lib/datas";
+import { useHoje, useZuppas } from "@/lib/store";
+import { INICIAL, PESSOAS, type Ocorrencia, type Pessoa } from "@/lib/types";
 
-/* Modo TV — ambiente, sempre ligado.
+/* Modo TV: ambiente, sempre ligado.
 
    A TV da casa fica ligada quase o dia todo e mal é usada. Isso transforma o
    painel de "app que alguém lembra de abrir" em "informação que está no campo
-   de visão", e o efeito social é o ponto: pendência parada há dias fica
-   visível sem ninguém precisar cobrar.
+   de visão", e o efeito social é o ponto: coisa parada há dias fica visível sem
+   ninguém precisar cobrar.
 
    Regra que governa esta tela: TV mostra, celular resolve. Nada aqui é
-   clicável, nada tem menu, nada exige interação. TV que pede interação vira
-   TV desligada em duas semanas.
+   clicável, nada tem menu, nada exige interação. TV que pede interação vira TV
+   desligada em duas semanas.
 
-   Sem scroll: tudo cabe numa tela. O que não couber é cortado de propósito
-   com um "+N" — lista longa em TV ninguém lê. */
+   Sem scroll: tudo cabe numa tela. O que não couber é cortado com um "+N", e o
+   corte tem critério (o que está em aberto vem antes), porque lista longa em TV
+   ninguém lê e corte arbitrário esconde justamente o que importa. */
 
-const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
-const MESES = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-];
+/** De quantas em quantas horas a página se recarrega sozinha.
 
-/** Depois do pôr do sol o véu claro vira lâmpada de sala. */
+    Não é paranoia: dashboard aberto 24 horas por dia vaza memória até o
+    navegador engasgar, e o Wake Lock cai sozinho quando a aba deixa de estar
+    visível. Uma parede que congela no dia anterior mente pra casa inteira, e
+    depois disso ninguém confia mais nela. Recarregar de madrugada é barato. */
+const HORAS_ATE_RECARREGAR = 6;
+
 function ehNoite(hora: number) {
   return hora >= 18 || hora < 6;
 }
 
 export default function TV() {
-  const [agora, setAgora] = useState<Date | null>(null);
+  const estado = useZuppas();
+  const hoje = useHoje();
+
+  const [relogio, setRelogio] = useState(horaISO);
   const [citacao, setCitacao] = useState(0);
 
   useEffect(() => {
-    setAgora(new Date());
-    const relogio = setInterval(() => setAgora(new Date()), 15000);
+    const tique = setInterval(() => setRelogio(horaISO()), 15_000);
     const frase = setInterval(
       () => setCitacao((i) => (i + 1) % CITACOES.length),
-      30000
+      30_000
     );
     return () => {
-      clearInterval(relogio);
+      clearInterval(tique);
       clearInterval(frase);
     };
   }, []);
 
-  const noite = agora ? ehNoite(agora.getHours()) : false;
+  /* Recarga programada. Roda uma vez por montagem e se reagenda no reload. */
+  useEffect(() => {
+    const id = setTimeout(
+      () => window.location.reload(),
+      HORAS_ATE_RECARREGAR * 60 * 60 * 1000
+    );
+    return () => clearTimeout(id);
+  }, []);
+
+  const noite = ehNoite(horaDoDia());
 
   /* O tema é trocado na raiz do documento pra que os tokens do véu escuro
      valham pra tudo dentro, sem duplicar variável por componente. */
@@ -67,70 +76,101 @@ export default function TV() {
     };
   }, [noite]);
 
+  const concluidas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
+
+  const doDia = useMemo(
+    () => ocorrenciasDoDia(hoje, estado.itens, estado.compromissos),
+    [hoje, estado.itens, estado.compromissos]
+  );
+
+  /* Por pessoa: em aberto primeiro, e dentro disso a ordem natural do dia. O
+     que já foi feito não some, fica no fim e apagado, porque ver o que a casa
+     cumpriu é metade do valor da parede. */
   const porPessoa = useMemo(() => {
-    const mapa = new Map<Pessoa, typeof PENDENCIAS>();
+    const mapa = new Map<Pessoa, Ocorrencia[]>();
     for (const pessoa of PESSOAS) {
-      mapa.set(
-        pessoa,
-        PENDENCIAS.filter(
-          (p) => p.responsavel === pessoa && p.status !== "concluida"
-        )
-      );
+      const dela = doDia.filter((o) => ehDe(o, pessoa));
+      const abertas = dela.filter((o) => !concluidas.has(o.chave));
+      const feitas = dela.filter((o) => concluidas.has(o.chave));
+      mapa.set(pessoa, [...abertas, ...feitas]);
     }
     return mapa;
-  }, []);
+  }, [doDia, concluidas]);
 
-  const ancoras = ROTINAS.filter((r) => r.ancora);
+  const ancoras = doDia.filter((o) => o.ancora);
+  const dias = useMemo(
+    () => corrente(hoje, estado.itens, concluidas),
+    [hoje, estado.itens, concluidas]
+  );
 
-  const hora = agora
-    ? `${String(agora.getHours()).padStart(2, "0")}:${String(
-        agora.getMinutes()
-      ).padStart(2, "0")}`
-    : "--:--";
+  const compromissos = doDia.filter(
+    (o) => o.categoria === "compromisso" || o.categoria === "lembrete"
+  );
 
-  const data = agora
-    ? `${DIAS[agora.getDay()]}, ${agora.getDate()} de ${MESES[agora.getMonth()]}`
-    : "";
+  const rodizios = estado.itens.filter((i) => i.rodizio && i.rodizio.length > 0);
+
+  const bloqueio = estado.pendencias.find(
+    (p) => p.bloqueio && p.status !== "concluida"
+  );
+
+  /* A pendência mais esquecida da casa. É a mecânica social em uma linha: não
+     acusa ninguém, só deixa de esconder. */
+  const maisParada = useMemo(() => {
+    const abertas = estado.pendencias.filter((p) => p.status !== "concluida");
+    return abertas.reduce<(typeof abertas)[number] | undefined>(
+      (pior, p) => (!pior || p.atualizado < pior.atualizado ? p : pior),
+      undefined
+    );
+  }, [estado.pendencias]);
 
   return (
-    <div className="tv-bg flex h-screen flex-col p-[2.5vw]">
-      {/* Cabeçalho: relógio, data, citação */}
-      <header className="flex items-end justify-between gap-8 pb-[2vh]">
+    <div className="tv-bg flex h-screen flex-col p-[2.2vw]">
+      <header className="flex items-end justify-between gap-8 pb-[1.6vh]">
         <div>
-          <div className="tv-relogio">{hora}</div>
-          <div className="tv-rotulo mt-2">{data}</div>
+          <div className="tv-relogio">{relogio}</div>
+          <div className="tv-rotulo mt-1">{porExtenso(hoje)}</div>
         </div>
-        <p
-          className="max-w-[38%] text-right"
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(0.9rem, 1.3vw, 1.5rem)",
-            lineHeight: 1.3,
-            color: "var(--ink-soft)",
-            fontStyle: "italic",
-          }}
-        >
-          {CITACOES[citacao]}
-        </p>
+
+        <div className="flex items-center gap-[2vw]">
+          <div className="text-right">
+            <div className="tv-numero" style={{ color: "var(--accent)" }}>
+              {dias}
+            </div>
+            <div className="tv-rotulo">
+              {dias === 1 ? "dia seguido" : "dias seguidos"}
+            </div>
+          </div>
+          <p
+            className="max-w-[26vw] text-right"
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(0.9rem, 1.25vw, 1.5rem)",
+              lineHeight: 1.3,
+              color: "var(--ink-soft)",
+              fontStyle: "italic",
+            }}
+          >
+            {CITACOES[citacao]}
+          </p>
+        </div>
       </header>
 
-      {/* Corpo: pessoas à esquerda, dia da casa e números à direita */}
-      <div className="grid min-h-0 flex-1 grid-cols-[1fr_26%] gap-[1.6vw]">
+      <div className="grid min-h-0 flex-1 grid-cols-[1fr_25%] gap-[1.4vw]">
         {/* Hoje da casa, por pessoa */}
-        <section className="glass-card flex min-h-0 flex-col p-[1.6vw]">
-          <h2 className="tv-rotulo mb-[1.6vh]">Hoje da casa</h2>
+        <section className="glass-card flex min-h-0 flex-col p-[1.4vw]">
+          <h2 className="tv-rotulo mb-[1.4vh]">Hoje da casa</h2>
 
-          <div className="grid min-h-0 flex-1 grid-cols-5 gap-[1.1vw]">
+          <div className="grid min-h-0 flex-1 grid-cols-6 gap-[0.9vw]">
             {PESSOAS.map((pessoa) => {
               const itens = porPessoa.get(pessoa) ?? [];
-              const visiveis = itens.slice(0, 4);
+              const visiveis = itens.slice(0, 5);
               const resto = itens.length - visiveis.length;
 
               return (
                 <div key={pessoa} className="flex min-h-0 flex-col">
-                  <div className="mb-[1.2vh] flex items-center gap-2">
+                  <div className="mb-[1vh] flex items-center gap-1.5">
                     <span
-                      className="flex h-[2.2vw] max-h-9 min-h-7 w-[2.2vw] min-w-7 max-w-9 items-center justify-center rounded-full text-sm font-semibold"
+                      className="flex h-[2vw] max-h-8 min-h-6 w-[2vw] min-w-6 max-w-8 items-center justify-center rounded-full text-xs font-semibold"
                       style={{
                         background: "var(--accent)",
                         color: "var(--accent-foreground)",
@@ -140,7 +180,7 @@ export default function TV() {
                     </span>
                     <span
                       className="truncate"
-                      style={{ fontSize: "clamp(0.85rem, 1.1vw, 1.25rem)" }}
+                      style={{ fontSize: "clamp(0.8rem, 1vw, 1.15rem)" }}
                     >
                       {pessoa}
                     </span>
@@ -154,32 +194,32 @@ export default function TV() {
                       livre
                     </p>
                   ) : (
-                    <ul className="flex flex-col gap-[0.9vh]">
-                      {visiveis.map((p) => (
-                        <li
-                          key={p.id}
-                          className="tv-item flex gap-2"
-                          style={{
-                            color:
-                              p.status === "bloqueada"
-                                ? "var(--terracotta)"
-                                : "var(--ink)",
-                          }}
-                        >
-                          <span
-                            className="mt-[0.55em] h-[0.4em] w-[0.4em] flex-none rounded-full"
+                    <ul className="flex flex-col gap-[0.7vh]">
+                      {visiveis.map((o) => {
+                        const feita = concluidas.has(o.chave);
+                        return (
+                          <li
+                            key={o.chave}
+                            className="tv-item flex gap-1.5"
                             style={{
-                              background:
-                                p.status === "bloqueada"
-                                  ? "var(--terracotta)"
-                                  : p.status === "em-andamento"
+                              opacity: feita ? 0.4 : 1,
+                              textDecoration: feita ? "line-through" : "none",
+                            }}
+                          >
+                            <span
+                              className="mt-[0.55em] h-[0.38em] w-[0.38em] flex-none rounded-full"
+                              style={{
+                                background: feita
+                                  ? "var(--accent)"
+                                  : o.ancora
                                     ? "var(--gold)"
                                     : "var(--line)",
-                            }}
-                          />
-                          <span className="line-clamp-3">{p.titulo}</span>
-                        </li>
-                      ))}
+                              }}
+                            />
+                            <span className="line-clamp-2">{o.titulo}</span>
+                          </li>
+                        );
+                      })}
                       {resto > 0 && (
                         <li
                           className="tv-item"
@@ -196,44 +236,65 @@ export default function TV() {
           </div>
         </section>
 
-        {/* Coluna direita: âncoras + números */}
-        <div className="flex min-h-0 flex-col gap-[1.6vh]">
-          <section className="glass-card p-[1.4vw]">
-            <h2 className="tv-rotulo mb-[1.4vh]">O dia conta se</h2>
-            <ul className="flex flex-col gap-[1.1vh]">
-              {ancoras.map((r) => (
-                <li key={r.id} className="tv-item flex items-center gap-2.5">
+        {/* Coluna direita */}
+        <div className="flex min-h-0 flex-col gap-[1.2vh]">
+          <section className="glass-card p-[1.1vw]">
+            <h2 className="tv-rotulo mb-[1vh]">O dia conta se</h2>
+            <ul className="flex flex-col gap-[0.8vh]">
+              {ancoras.map((o) => {
+                const feita = concluidas.has(o.chave);
+                return (
+                  <li key={o.chave} className="tv-item flex items-center gap-2">
+                    <span
+                      className="h-[0.85em] w-[0.85em] flex-none rounded-full border-2"
+                      style={{
+                        borderColor: feita ? "var(--accent)" : "var(--line)",
+                        background: feita ? "var(--accent)" : "transparent",
+                      }}
+                    />
+                    <span style={{ opacity: feita ? 0.45 : 1 }}>{o.titulo}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+
+          {compromissos.length > 0 && (
+            <section className="glass-card p-[1.1vw]">
+              <h2 className="tv-rotulo mb-[1vh]">Marcado pra hoje</h2>
+              <ul className="flex flex-col gap-[0.8vh]">
+                {compromissos.slice(0, 4).map((o) => (
+                  <li key={o.chave} className="tv-item flex items-baseline gap-2">
+                    {o.horario && (
+                      <span style={{ color: "var(--accent)" }}>{o.horario}</span>
+                    )}
+                    <span className="line-clamp-2">{o.titulo}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section className="glass-card p-[1.1vw]">
+            <h2 className="tv-rotulo mb-[1vh]">Da vez esta semana</h2>
+            <ul className="flex flex-col gap-[0.7vh]">
+              {rodizios.map((item) => (
+                <li key={item.id} className="tv-item flex items-baseline gap-2">
+                  <span style={{ color: "var(--accent)" }}>
+                    {donoNoDia(item, hoje)}
+                  </span>
                   <span
-                    className="h-[0.9em] w-[0.9em] flex-none rounded-full border-2"
-                    style={{ borderColor: "var(--line)" }}
-                  />
-                  <span>{r.titulo}</span>
+                    className="line-clamp-1"
+                    style={{ color: "var(--ink-soft)" }}
+                  >
+                    {item.titulo}
+                  </span>
                 </li>
               ))}
             </ul>
-
-            <div className="mt-[1.6vh] flex items-center gap-1.5">
-              {Array.from({ length: 7 }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`corrente-dia ${
-                    i < DIAS_FECHADOS ? "corrente-dia-cheio" : ""
-                  }`}
-                />
-              ))}
-              <span
-                className="ml-1.5"
-                style={{
-                  fontSize: "clamp(0.68rem, 0.85vw, 0.95rem)",
-                  color: "var(--ink-soft)",
-                }}
-              >
-                {DIAS_FECHADOS} dias seguidos
-              </span>
-            </div>
           </section>
 
-          <section className="glass-card flex flex-1 flex-col justify-around p-[1.4vw]">
+          <section className="glass-card flex flex-1 flex-col justify-around p-[1.1vw]">
             {NUMEROS.map((n) => (
               <div key={n.rotulo}>
                 <div className="tv-numero" style={{ color: "var(--accent)" }}>
@@ -241,7 +302,7 @@ export default function TV() {
                 </div>
                 <div
                   style={{
-                    fontSize: "clamp(0.7rem, 0.9vw, 1rem)",
+                    fontSize: "clamp(0.68rem, 0.85vw, 0.95rem)",
                     color: "var(--ink-soft)",
                   }}
                 >
@@ -253,24 +314,32 @@ export default function TV() {
         </div>
       </div>
 
-      {/* O bloqueio da vez: uma frase só, que não sai da parede até resolver */}
-      <footer className="surface-card-dark mt-[1.6vh] flex items-center gap-[1.6vw] px-[1.8vw] py-[1.8vh]">
-        <span
-          className="tv-rotulo flex-none"
-          style={{ color: "var(--surface-dark-foreground)", opacity: 0.55 }}
-        >
-          Travando
-        </span>
-        <span className="tv-titulo">{BLOQUEIO_DA_VEZ.titulo}</span>
-        <span
-          className="ml-auto flex-none"
-          style={{
-            fontSize: "clamp(0.75rem, 1vw, 1.1rem)",
-            opacity: 0.6,
-          }}
-        >
-          {BLOQUEIO_DA_VEZ.responsavel}
-        </span>
+      {/* O bloqueio da vez e o item mais esquecido, lado a lado */}
+      <footer className="surface-card-dark mt-[1.2vh] flex items-center gap-[1.6vw] px-[1.6vw] py-[1.5vh]">
+        {bloqueio && (
+          <>
+            <span
+              className="tv-rotulo flex-none"
+              style={{ color: "var(--surface-dark-foreground)", opacity: 0.55 }}
+            >
+              Travando
+            </span>
+            <span className="tv-titulo line-clamp-1">{bloqueio.titulo}</span>
+          </>
+        )}
+
+        {maisParada && (
+          <span
+            className="ml-auto flex-none text-right"
+            style={{
+              fontSize: "clamp(0.72rem, 0.95vw, 1.05rem)",
+              opacity: 0.6,
+            }}
+          >
+            mais parada: {maisParada.titulo} · {maisParada.responsavel} ·{" "}
+            {haQuantoTempo(maisParada.atualizado, hoje)}
+          </span>
+        )}
       </footer>
     </div>
   );

@@ -1,430 +1,297 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
+import Agendar from "@/components/Agendar";
+import Linha from "@/components/Linha";
+import { Corrente, Rotulo, SeletorPessoa, Vazio } from "@/components/ui";
+import { corrente, ehDe, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import { haQuantoTempo, horaDoDia, porExtenso, quandoFalta } from "@/lib/datas";
+import { linkDoVault } from "@/lib/dados";
 import {
-  BLOQUEIO_DA_VEZ,
-  DIAS_FECHADOS,
-  LEMBRETES,
-  LISTA_CASA,
-  PENDENCIAS,
-  ROTINAS,
-} from "@/lib/mock-data";
-import { PESSOAS, type Pessoa } from "@/lib/types";
+  alternarConclusao,
+  definirPessoa,
+  desagendar,
+  mudarStatusPendencia,
+  useHoje,
+  useZuppas,
+} from "@/lib/store";
+import {
+  BLOCOS,
+  BLOCO_JANELA,
+  BLOCO_LABEL,
+  type Bloco,
+  type Pendencia,
+} from "@/lib/types";
 
 /* "Hoje, e é meu" — a superfície pessoal.
 
-   Celular: coluna única, sem kanban, sem filtro de projeto na entrada. O
-   login já responde "quem sou eu", então a tela não começa pedindo escolha.
-   O que a Liz abre às 7h não é um quadro de trabalho, é a resposta pra "tem
-   alguma coisa minha hoje?".
+   Celular: coluna única, sem kanban, sem filtro de projeto na entrada. O login
+   já responde "quem sou eu" (por ora o seletor no rodapé), então a tela não
+   começa pedindo escolha. O que a Liz abre às 7h não é um quadro de trabalho, é
+   a resposta pra "tem alguma coisa minha hoje?".
 
-   Desktop: a mesma informação em três colunas, porque cabe. O botão "ver a
-   casa toda" some — ele existe por falta de espaço no celular, não por
-   decisão de produto. Aqui a casa inteira fica visível de uma vez.
+   As abas de manhã, tarde e noite existem porque o dia da casa é organizado em
+   janelas, não em horários: a [[Rotina - Família (Semana 1)]] diz isso com todas
+   as letras. "Tudo" continua sendo a aba de entrada, porque a primeira pergunta
+   da manhã é o dia inteiro, e só depois é a próxima hora. */
 
-   As três superfícies têm donos diferentes e isso guia cada layout: o
-   celular é da Liz, a TV é da casa, o desktop é do Yan. */
+type Aba = "tudo" | Bloco;
 
-const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
-const MESES = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-];
+export default function Hoje() {
+  const estado = useZuppas();
+  const hoje = useHoje();
 
-function saudacao(hora: number) {
-  if (hora < 12) return "Bom dia";
-  if (hora < 18) return "Boa tarde";
-  return "Boa noite";
-}
+  /* Entra sempre em "tudo", e não no bloco da hora atual. A primeira pergunta
+     de quem abre é o dia inteiro; filtrar por parte do dia é o segundo toque,
+     não o primeiro. */
+  const [aba, setAba] = useState<Aba>("tudo");
+  const [soMeu, setSoMeu] = useState(true);
 
-function Check() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
-      <path
-        d="M4.5 10.5l3.5 3.5 7.5-8"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+  const concluidas = useMemo(() => indexar(estado.conclusoes), [estado.conclusoes]);
 
-function Rotulo({ children }: { children: React.ReactNode }) {
-  return <h2 className="tv-rotulo mb-3">{children}</h2>;
-}
-
-/** Corrente de constância. Exposta de propósito: ninguém quer quebrá-la. */
-function Corrente({ dias }: { dias: number }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-1">
-        {Array.from({ length: 7 }).map((_, i) => (
-          <span
-            key={i}
-            className={`corrente-dia ${i < dias ? "corrente-dia-cheio" : ""}`}
-          />
-        ))}
-      </div>
-      <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
-        {dias === 0
-          ? "a corrente começa hoje"
-          : `${dias} dia${dias > 1 ? "s" : ""} seguidos`}
-      </span>
-    </div>
-  );
-}
-
-function SeletorPessoa({
-  eu,
-  setEu,
-}: {
-  eu: Pessoa;
-  setEu: (p: Pessoa) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span style={{ color: "var(--ink-soft)" }}>Você é:</span>
-      {PESSOAS.map((p) => (
-        <button
-          key={p}
-          onClick={() => setEu(p)}
-          className="rounded-full px-3 py-1 transition-colors"
-          style={{
-            background: p === eu ? "var(--accent)" : "transparent",
-            color: p === eu ? "var(--accent-foreground)" : "var(--ink-soft)",
-            border: `1px solid ${p === eu ? "var(--accent)" : "var(--line)"}`,
-          }}
-        >
-          {p}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-export default function Home() {
-  /* Enquanto não existe auth, a pessoa é escolhida na mão. Some na fase 2. */
-  const [eu, setEu] = useState<Pessoa>("Liz");
-  const [feitas, setFeitas] = useState<string[]>([]);
-  const [verCasa, setVerCasa] = useState(false);
-
-  /* Data resolvida só no cliente: evita divergência de hidratação entre o
-     relógio do servidor e o do aparelho. */
-  const [agora, setAgora] = useState<Date | null>(null);
-  useEffect(() => setAgora(new Date()), []);
-
-  const minhas = useMemo(
-    () =>
-      PENDENCIAS.filter((p) => p.responsavel === eu && p.status !== "concluida"),
-    [eu]
+  const ocorrencias = useMemo(
+    () => ocorrenciasDoDia(hoje, estado.itens, estado.compromissos),
+    [hoje, estado.itens, estado.compromissos]
   );
 
-  const meusLembretes = useMemo(
-    () => LEMBRETES.filter((l) => l.para === eu || l.para === "Casa"),
-    [eu]
+  const visiveis = useMemo(() => {
+    let lista = ocorrencias;
+    if (soMeu) lista = lista.filter((o) => ehDe(o, estado.eu));
+    if (aba !== "tudo") lista = lista.filter((o) => o.bloco === aba);
+    return lista;
+  }, [ocorrencias, soMeu, aba, estado.eu]);
+
+  const dias = useMemo(
+    () => corrente(hoje, estado.itens, concluidas),
+    [hoje, estado.itens, concluidas]
   );
 
-  const ancoras = ROTINAS.filter((r) => r.ancora);
-  const todasFeitas = feitas.length === ancoras.length;
-  const corrente = DIAS_FECHADOS + (todasFeitas ? 1 : 0);
+  const ancoras = ocorrencias.filter((o) => o.ancora);
+  const ancorasFeitas = ancoras.filter((o) => concluidas.has(o.chave)).length;
 
-  function alternar(id: string) {
-    setFeitas((atual) =>
-      atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]
-    );
-  }
+  const abertas = visiveis.filter((o) => !concluidas.has(o.chave));
+  const feitas = visiveis.filter((o) => concluidas.has(o.chave));
 
-  const outros = PESSOAS.filter((p) => p !== eu)
-    .map((pessoa) => ({
-      pessoa,
-      itens: PENDENCIAS.filter(
-        (p) => p.responsavel === pessoa && p.status !== "concluida"
-      ),
-    }))
-    .filter((g) => g.itens.length > 0);
+  const minhasPendencias = estado.pendencias.filter(
+    (p) => p.responsavel === estado.eu && p.status !== "concluida"
+  );
+
+  const bloqueio = estado.pendencias.find((p) => p.bloqueio && p.status !== "concluida");
+
+  const saudacao =
+    horaDoDia() < 12 ? "Bom dia" : horaDoDia() < 18 ? "Boa tarde" : "Boa noite";
 
   return (
-    <main className="veil-bg pb-16">
-      <div className="mx-auto w-full max-w-md px-5 pt-10 lg:max-w-[1500px] lg:px-10 lg:pt-14">
-        {/* Cabeçalho */}
-        <header className="mb-8 lg:mb-10 lg:flex lg:items-end lg:justify-between lg:gap-8">
+    <main className="veil-bg pb-28 lg:pb-16">
+      <div className="mx-auto w-full max-w-md px-5 pt-8 lg:max-w-[1500px] lg:px-10 lg:pt-10">
+        <header className="mb-6 lg:mb-8 lg:flex lg:items-end lg:justify-between lg:gap-8">
           <div>
-            <p className="tv-rotulo mb-2" style={{ letterSpacing: "0.14em" }}>
-              {agora
-                ? `${DIAS[agora.getDay()]}, ${agora.getDate()} de ${MESES[agora.getMonth()]}`
-                : " "}
-            </p>
+            <p className="tv-rotulo mb-2">{porExtenso(hoje)}</p>
             <h1
               className="text-3xl lg:text-5xl"
               style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}
             >
-              {agora ? saudacao(agora.getHours()) : "Olá"}, {eu}.
+              {saudacao}, {estado.eu}.
             </h1>
-            <p
-              className="mt-1 text-sm lg:text-base"
-              style={{ color: "var(--ink-soft)" }}
-            >
-              {minhas.length === 0
-                ? "Nada é seu hoje. Aproveita."
-                : `${minhas.length} ${minhas.length === 1 ? "coisa é sua" : "coisas são suas"} hoje.`}
+            <p className="mt-1 text-sm lg:text-base" style={{ color: "var(--ink-soft)" }}>
+              {abertas.length === 0
+                ? "Nada em aberto agora. Aproveita."
+                : `${abertas.length} ${abertas.length === 1 ? "coisa" : "coisas"} em aberto.`}
             </p>
           </div>
 
-          {/* No desktop o seletor vive no topo; no celular, no rodapé. */}
-          <div className="hidden lg:block">
-            <SeletorPessoa eu={eu} setEu={setEu} />
+          <div className="mt-4 lg:mt-0">
+            <Corrente dias={dias} />
+            <p className="mt-1 text-xs" style={{ color: "var(--ink-soft)" }}>
+              Âncoras de hoje: {ancorasFeitas} de {ancoras.length}
+              {ancorasFeitas === ancoras.length && ancoras.length > 0
+                ? ". O dia contou."
+                : ""}
+            </p>
           </div>
         </header>
 
-        {/* Três colunas no desktop, empilhado no celular */}
-        <div className="lg:grid lg:grid-cols-[minmax(290px,330px)_minmax(0,1fr)_minmax(290px,350px)] lg:items-start lg:gap-8">
-          {/* ── Coluna 1: o dia da casa ────────────────────────────────── */}
-          <section className="mb-8 lg:mb-0 lg:sticky lg:top-10">
-            <div className="mb-3 flex items-end justify-between gap-3">
-              <h2 className="tv-rotulo">O dia da casa</h2>
-              <div className="lg:hidden">
-                <Corrente dias={corrente} />
-              </div>
-            </div>
+        {/* Abas do dia e escopo */}
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          {(["tudo", ...BLOCOS] as Aba[]).map((a) => (
+            <button
+              key={a}
+              onClick={() => setAba(a)}
+              className={`aba ${a === aba ? "aba-ativa" : ""}`}
+            >
+              {a === "tudo" ? "Tudo" : BLOCO_LABEL[a]}
+            </button>
+          ))}
 
-            <div className="glass-card glass-card-strong overflow-hidden p-1.5">
-              {ancoras.map((r, i) => {
-                const feita = feitas.includes(r.id);
-                return (
-                  <button
-                    key={r.id}
-                    onClick={() => alternar(r.id)}
-                    className={`ancora ${feita ? "ancora-feita" : ""}`}
-                    style={{
-                      borderTop: i === 0 ? "none" : "1px solid var(--line)",
-                      borderRadius: 0,
-                    }}
-                    aria-pressed={feita}
-                  >
-                    <span
-                      className="ancora-marca"
-                      style={{ color: "var(--accent-foreground)" }}
-                    >
-                      {feita ? <Check /> : null}
-                    </span>
-                    <span className="flex flex-col">
-                      <span className="ancora-titulo text-[1.05rem] leading-tight">
-                        {r.titulo}
-                      </span>
-                      {r.horario && (
-                        <span
-                          className="mt-0.5 text-xs"
-                          style={{ color: "var(--ink-soft)" }}
-                        >
-                          {r.horario}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <button
+            onClick={() => setSoMeu((v) => !v)}
+            className={`aba ml-auto ${soMeu ? "" : "aba-ativa"}`}
+          >
+            {soMeu ? "Ver a casa toda" : "Só o que é meu"}
+          </button>
+        </div>
 
-            <div className="mt-4 hidden lg:block">
-              <Corrente dias={corrente} />
-            </div>
+        {aba !== "tudo" && (
+          <p className="mb-3 text-xs" style={{ color: "var(--ink-soft)" }}>
+            {BLOCO_LABEL[aba]}, {BLOCO_JANELA[aba]}. Janela, não horário.
+          </p>
+        )}
 
-            {todasFeitas && (
-              <p
-                className="mt-3 text-center text-sm lg:text-left"
-                style={{ color: "var(--accent)" }}
-              >
-                As três fechadas. O dia contou.
-              </p>
-            )}
-          </section>
-
-          {/* ── Coluna 2: o que é meu ──────────────────────────────────── */}
-          <section className="mb-8 lg:mb-0">
-            <Rotulo>É seu</Rotulo>
-
-            {minhas.length === 0 ? (
-              <div className="glass-card p-6 text-center">
-                <p className="text-sm" style={{ color: "var(--ink-soft)" }}>
-                  Nenhuma pendência sua.
-                </p>
-              </div>
-            ) : (
-              <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
-                {minhas.map((p) => (
-                  <li key={p.id} className="glass-card flex flex-col p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-[1.02rem] leading-snug">
-                        {p.titulo}
-                      </span>
-                      {p.status === "bloqueada" && (
-                        <span
-                          className="mt-0.5 flex-none rounded-full px-2 py-0.5 text-[0.65rem] uppercase tracking-wider"
-                          style={{ background: "var(--terracotta)", color: "#fff" }}
-                        >
-                          travada
-                        </span>
-                      )}
-                    </div>
-                    {p.nota && (
-                      <p
-                        className="mt-1.5 text-[0.82rem] leading-snug"
-                        style={{ color: "var(--ink-soft)" }}
-                      >
-                        {p.nota}
-                      </p>
-                    )}
-                    <p
-                      className="mt-auto pt-2 text-[0.7rem] uppercase tracking-wider"
-                      style={{ color: "var(--ink-soft)" }}
-                    >
-                      {p.projeto}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {/* ── Coluna 3: lembretes, lista, a casa ─────────────────────── */}
-          <div className="flex flex-col gap-8">
-            {meusLembretes.length > 0 && (
-              <section>
-                <Rotulo>Não esquecer</Rotulo>
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] lg:items-start lg:gap-8">
+          <div className="flex flex-col gap-6">
+            <section>
+              {abertas.length === 0 ? (
+                <Vazio>
+                  {soMeu
+                    ? "Nada seu por aqui. Toque em ver a casa toda pra enxergar o resto."
+                    : "Nada em aberto neste recorte."}
+                </Vazio>
+              ) : (
                 <ul className="flex flex-col gap-2">
-                  {meusLembretes.map((l) => (
-                    <li key={l.id} className="glass-card flex items-center gap-3 p-4">
-                      <span
-                        className="h-2 w-2 flex-none rounded-full"
-                        style={{ background: "var(--gold)" }}
-                      />
-                      <span className="text-[0.98rem]">{l.titulo}</span>
-                      <span
-                        className="ml-auto text-xs"
-                        style={{ color: "var(--ink-soft)" }}
-                      >
-                        {l.quando.slice(8, 10)}/{l.quando.slice(5, 7)}
-                      </span>
-                    </li>
+                  {abertas.map((o) => (
+                    <Linha
+                      key={o.chave}
+                      ocorrencia={o}
+                      feita={false}
+                      aoAlternar={() => alternarConclusao(o.id, hoje, estado.eu)}
+                      aoRemover={o.removivel ? () => desagendar(o.id) : undefined}
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {feitas.length > 0 && (
+              <section>
+                <Rotulo>Já foi ({feitas.length})</Rotulo>
+                <ul className="flex flex-col gap-2">
+                  {feitas.map((o) => (
+                    <Linha
+                      key={o.chave}
+                      ocorrencia={o}
+                      feita
+                      aoAlternar={() => alternarConclusao(o.id, hoje, estado.eu)}
+                      aoRemover={o.removivel ? () => desagendar(o.id) : undefined}
+                    />
                   ))}
                 </ul>
               </section>
             )}
 
+            <Agendar data={hoje} eu={estado.eu} />
+          </div>
+
+          {/* Pendências: coisa sem dia marcado, que é onde a casa trava */}
+          <aside className="mt-8 flex flex-col gap-6 lg:mt-0">
             <section>
-              <Rotulo>Lista da casa</Rotulo>
-              <div className="glass-card p-4">
-                <ul className="flex flex-col gap-2.5">
-                  {LISTA_CASA.map((item) => (
-                    <li key={item.id} className="flex items-center gap-2.5">
-                      <span
-                        className="h-4 w-4 flex-none rounded-full border"
-                        style={{
-                          borderColor: item.feito ? "var(--accent)" : "var(--line)",
-                          background: item.feito ? "var(--accent)" : "transparent",
-                        }}
-                      />
-                      <span
-                        className="text-[0.95rem]"
-                        style={{
-                          opacity: item.feito ? 0.45 : 1,
-                          textDecoration: item.feito ? "line-through" : "none",
-                        }}
-                      >
-                        {item.titulo}
-                      </span>
-                      <span
-                        className="ml-auto text-[0.7rem]"
-                        style={{ color: "var(--ink-soft)" }}
-                      >
-                        {item.por}
-                      </span>
-                    </li>
+              <Rotulo>Suas pendências</Rotulo>
+              {minhasPendencias.length === 0 ? (
+                <Vazio>Nenhuma pendência sua.</Vazio>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {minhasPendencias.map((p) => (
+                    <CartaoPendencia key={p.id} pendencia={p} hoje={hoje} />
                   ))}
                 </ul>
-              </div>
+              )}
             </section>
 
-            {/* No celular fica atrás de um toque; no desktop cabe, então
-                aparece sempre. */}
-            <section>
-              <div className="hidden lg:block">
-                <Rotulo>A casa</Rotulo>
-              </div>
-
-              <button
-                onClick={() => setVerCasa((v) => !v)}
-                className="glass-card w-full p-4 text-left text-sm lg:hidden"
-              >
-                {verCasa ? "Esconder a casa toda" : "Ver a casa toda"}
-              </button>
-
-              <div
-                className={`${verCasa ? "mt-3 flex" : "hidden"} flex-col gap-3 lg:mt-0 lg:flex`}
-              >
-                {outros.map(({ pessoa, itens }) => (
-                  <div key={pessoa} className="glass-card p-4">
-                    <p className="tv-rotulo mb-2">
-                      {pessoa} · {itens.length}
-                    </p>
-                    <ul className="flex flex-col gap-1.5">
-                      {itens.map((p) => (
-                        <li
-                          key={p.id}
-                          className="text-[0.9rem] leading-snug"
-                          style={{ color: "var(--ink-soft)" }}
-                        >
-                          {p.titulo}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
+            {bloqueio && (
+              <section className="surface-card-dark p-5">
+                <p
+                  className="tv-rotulo mb-2"
+                  style={{ color: "var(--surface-dark-foreground)", opacity: 0.6 }}
+                >
+                  O que está travando
+                </p>
+                <p
+                  className="text-[1.1rem] leading-snug"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  {bloqueio.titulo}
+                </p>
+                <p className="mt-1.5 text-sm" style={{ opacity: 0.7 }}>
+                  {bloqueio.nota} · {bloqueio.responsavel}
+                </p>
+              </section>
+            )}
+          </aside>
         </div>
 
-        {/* O bloqueio da vez, largura inteira */}
-        <section className="mt-8 lg:mt-10">
-          <div className="surface-card-dark p-5 lg:flex lg:items-center lg:gap-6 lg:px-8 lg:py-6">
-            <p
-              className="tv-rotulo mb-2 lg:mb-0 lg:flex-none"
-              style={{ color: "var(--surface-dark-foreground)", opacity: 0.6 }}
-            >
-              O que está travando
-            </p>
-            <p
-              className="text-[1.1rem] leading-snug lg:text-2xl"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {BLOQUEIO_DA_VEZ.titulo}
-            </p>
-            <p
-              className="mt-1.5 text-sm lg:mt-0 lg:ml-auto lg:flex-none lg:text-right"
-              style={{ opacity: 0.7 }}
-            >
-              {BLOQUEIO_DA_VEZ.detalhe} · {BLOQUEIO_DA_VEZ.responsavel}
-            </p>
-          </div>
-        </section>
-
-        {/* Rodapé: no celular carrega o seletor; no desktop só o link da TV */}
         <footer
-          className="mt-8 flex flex-wrap items-center gap-3 border-t pt-5 text-xs"
-          style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
+          className="mt-8 border-t pt-5"
+          style={{ borderColor: "var(--line)" }}
         >
-          <div className="lg:hidden">
-            <SeletorPessoa eu={eu} setEu={setEu} />
-          </div>
-          <Link href="/tv" className="ml-auto underline underline-offset-4">
-            Modo TV
-          </Link>
+          <SeletorPessoa eu={estado.eu} aoTrocar={definirPessoa} />
         </footer>
       </div>
     </main>
+  );
+}
+
+/* Pendência não tem dia, tem idade.
+
+   O "parada há N dias" é a mecânica social que a arquitetura prometia desde
+   20/07 e que nunca tinha sido implementada: o campo `atualizado` era gravado
+   em toda pendência e nenhuma tela mostrava. Passando de duas semanas o texto
+   muda de cor, porque a partir dali não é atraso, é abandono. */
+function CartaoPendencia({ pendencia, hoje }: { pendencia: Pendencia; hoje: string }) {
+  const p = pendencia;
+  const parada = haQuantoTempo(p.atualizado, hoje);
+  const antiga = p.atualizado < hoje && parada.includes("semana");
+  const muitoAntiga = parada.includes("mês") || parada.includes("meses");
+
+  return (
+    <li className="glass-card flex flex-col p-4">
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-[1.02rem] leading-snug">{p.titulo}</span>
+        {p.status === "bloqueada" && (
+          <span
+            className="mt-0.5 flex-none rounded-full px-2 py-0.5 text-[0.65rem] uppercase tracking-wider"
+            style={{ background: "var(--terracotta)", color: "#fff" }}
+          >
+            travada
+          </span>
+        )}
+      </div>
+
+      {p.nota && (
+        <p
+          className="mt-1.5 text-[0.82rem] leading-snug"
+          style={{ color: "var(--ink-soft)" }}
+        >
+          {p.nota}
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span
+          className={`parada ${antiga || muitoAntiga ? "parada-antiga" : ""}`}
+        >
+          parada {parada}
+        </span>
+        {p.prazo && (
+          <span className="parada">prazo {quandoFalta(p.prazo, hoje)}</span>
+        )}
+        <span className="parada uppercase tracking-wider">{p.projeto}</span>
+
+        <button
+          onClick={() => mudarStatusPendencia(p.id, "concluida")}
+          className="chip ml-auto"
+        >
+          Concluir
+        </button>
+      </div>
+
+      {p.vaultNota && (
+        <a
+          href={linkDoVault(p.vaultNota)}
+          className="mt-2 text-[0.7rem] underline underline-offset-4"
+          style={{ color: "var(--ink-soft)" }}
+        >
+          abrir no vault
+        </a>
+      )}
+    </li>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Manrope } from "next/font/google";
+import Nav from "@/components/Nav";
 import "./globals.css";
 
 /* Fraunces + Manrope é o par tipográfico do guarda-chuva (tema `hub` do
@@ -23,7 +24,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f7f4ee",
+  /* Duas cores porque a TV vira véu escuro depois das 18h e a barra do
+     navegador tem que acompanhar, senão fica uma faixa clara no escuro. */
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f4ee" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a201a" },
+  ],
+  /* Sem zoom travado: a Liz e a Ge usam o app de manhã, e alguém vai querer
+     aumentar a fonte. Travar zoom por estética é acessibilidade jogada fora. */
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -36,7 +46,10 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${fraunces.variable} ${manrope.variable} theme-casa h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <Nav />
+      </body>
     </html>
   );
 }
