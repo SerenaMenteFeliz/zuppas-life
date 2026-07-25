@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Manrope } from "next/font/google";
+import Casca from "@/components/Casca";
+import Desfazer from "@/components/Desfazer";
 import Nav from "@/components/Nav";
 import "./globals.css";
 
@@ -21,6 +23,12 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   title: "Zuppas Life",
   description: "O dia da casa, num lugar só.",
+  applicationName: "Zuppas Life",
+  appleWebApp: {
+    capable: true,
+    title: "Zuppas",
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
@@ -34,6 +42,7 @@ export const viewport: Viewport = {
      aumentar a fonte. Travar zoom por estética é acessibilidade jogada fora. */
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -47,8 +56,17 @@ export default function RootLayout({
       className={`${fraunces.variable} ${manrope.variable} theme-casa h-full antialiased`}
     >
       <body className="min-h-full">
-        {children}
-        <Nav />
+        {/* Atalho de teclado pra pular direto ao conteúdo. Invisível até
+            receber foco, que é o padrão de quem navega sem mouse. */}
+        <a href="#conteudo" className="pular-para-conteudo">
+          Pular para o conteúdo
+        </a>
+
+        <Casca>
+          <div id="conteudo">{children}</div>
+          <Desfazer />
+          <Nav />
+        </Casca>
       </body>
     </html>
   );

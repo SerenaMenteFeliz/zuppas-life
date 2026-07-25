@@ -19,7 +19,9 @@ import {
   type Pendencia,
   type PendenciaStatus,
   type Pessoa,
+  type Preferencias,
   type TipoConclusao,
+  PREFERENCIAS_PADRAO,
 } from "./types";
 
 /* Estado do Zuppas Life.
@@ -47,6 +49,19 @@ const CHAVE = "zuppas-life";
     marra, que é como se perde dado sem perceber. */
 const VERSAO = 1;
 
+/** Um passo atrás disponível.
+
+    Toda ação que apaga alguma coisa guarda aqui o pedaço de estado que existia
+    antes. É a rede de segurança que a pesquisa de UX considera obrigatória pra
+    ação destrutiva: em vez de perguntar "tem certeza?" antes (que interrompe
+    todo mundo, inclusive quem tinha certeza), a ação acontece na hora e fica
+    desfazível por alguns segundos. */
+export interface Desfazivel {
+  rotulo: string;
+  em: number;
+  restaurar: Partial<Estado>;
+}
+
 export interface Estado {
   eu: Pessoa;
   itens: ItemRecorrente[];
@@ -54,6 +69,8 @@ export interface Estado {
   compromissos: Compromisso[];
   lista: ItemCasa[];
   pendencias: Pendencia[];
+  preferencias: Preferencias;
+  desfazer: Desfazivel | null;
 }
 
 /** Só isto vai pro disco. As pendências entram como sobreposição de status,
@@ -67,6 +84,7 @@ interface Persistido {
   lista: ItemCasa[];
   statusPendencias: Record<string, { status: PendenciaStatus; atualizado: string }>;
   pendenciasNovas: Pendencia[];
+  preferencias: Preferencias;
 }
 
 function inicial(): Estado {
@@ -77,6 +95,8 @@ function inicial(): Estado {
     compromissos: COMPROMISSOS,
     lista: LISTA_CASA,
     pendencias: PENDENCIAS,
+    preferencias: PREFERENCIAS_PADRAO,
+    desfazer: null,
   };
 }
 
@@ -88,9 +108,37 @@ function notificar() {
   for (const o of ouvintes) o();
 }
 
-function mudar(parcial: Partial<Estado>) {
-  estado = { ...estado, ...parcial };
+/** Aplica uma mudança.
+
+    Quando recebe `desfazivel`, tira antes uma foto exatamente das chaves que
+    vão mudar. Isso mantém o desfazer barato (não copia o estado inteiro) e
+    automático: qualquer ação futura ganha desfazer só passando o rótulo. */
+function mudar(parcial: Partial<Estado>, desfazivel?: string) {
+  let desfazer: Desfazivel | null = null;
+
+  if (desfazivel) {
+    const restaurar: Partial<Estado> = {};
+    for (const chave of Object.keys(parcial) as (keyof Estado)[]) {
+      Object.assign(restaurar, { [chave]: estado[chave] });
+    }
+    desfazer = { rotulo: desfazivel, em: Date.now(), restaurar };
+  }
+
+  estado = { ...estado, ...parcial, desfazer };
   gravar();
+  notificar();
+}
+
+export function desfazerUltima() {
+  if (!estado.desfazer) return;
+  estado = { ...estado, ...estado.desfazer.restaurar, desfazer: null };
+  gravar();
+  notificar();
+}
+
+export function dispensarDesfazer() {
+  if (!estado.desfazer) return;
+  estado = { ...estado, desfazer: null };
   notificar();
 }
 
@@ -117,6 +165,7 @@ function gravar() {
     lista: estado.lista,
     statusPendencias,
     pendenciasNovas: novas,
+    preferencias: estado.preferencias,
   };
 
   try {
@@ -158,6 +207,9 @@ function hidratar() {
       compromissos: dados.compromissos ?? COMPROMISSOS,
       lista: dados.lista ?? LISTA_CASA,
       pendencias,
+      /* Mescla com o padrão pra que preferência nova lançada depois já venha
+         ligada, em vez de ficar `undefined` em quem já tinha gravado. */
+      preferencias: { ...PREFERENCIAS_PADRAO, ...(dados.preferencias ?? {}) },
     };
     notificar();
   } catch {
@@ -241,6 +293,7 @@ export function resolver(
     feitoEm: agoraISO(),
     tipo,
   };
+  if (tipo === "feito") tremer();
   mudar({
     conclusoes: [...estado.conclusoes.filter((c) => c.chave !== chave), nova],
   });
@@ -271,10 +324,14 @@ export function agendar(entrada: {
 }
 
 export function desagendar(id: string) {
-  mudar({
-    compromissos: estado.compromissos.filter((c) => c.id !== id),
-    conclusoes: estado.conclusoes.filter((c) => c.itemId !== id),
-  });
+  const alvo = estado.compromissos.find((c) => c.id === id);
+  mudar(
+    {
+      compromissos: estado.compromissos.filter((c) => c.id !== id),
+      conclusoes: estado.conclusoes.filter((c) => c.itemId !== id),
+    },
+    alvo ? `"${alvo.titulo}" apagado` : "Compromisso apagado"
+  );
 }
 
 export function adicionarNaLista(titulo: string, por: Pessoa) {
@@ -295,21 +352,39 @@ export function alternarItemDaLista(id: string) {
 }
 
 export function removerDaLista(id: string) {
-  mudar({ lista: estado.lista.filter((i) => i.id !== id) });
+  const alvo = estado.lista.find((i) => i.id === id);
+  mudar(
+    { lista: estado.lista.filter((i) => i.id !== id) },
+    alvo ? `"${alvo.titulo}" saiu da lista` : "Item removido"
+  );
 }
 
 /** Tira da lista tudo que já foi comprado. Depois do mercado, a lista limpa é
     o que faz alguém escrever a próxima. */
 export function limparComprados() {
-  mudar({ lista: estado.lista.filter((i) => !i.feito) });
+  const quantos = estado.lista.filter((i) => i.feito).length;
+  mudar(
+    { lista: estado.lista.filter((i) => !i.feito) },
+    `${quantos} ${quantos === 1 ? "item saiu" : "itens saíram"} da lista`
+  );
 }
 
 export function mudarStatusPendencia(id: string, status: PendenciaStatus) {
-  mudar({
-    pendencias: estado.pendencias.map((p) =>
-      p.id === id ? { ...p, status, atualizado: hojeISO() } : p
-    ),
-  });
+  const alvo = estado.pendencias.find((p) => p.id === id);
+  mudar(
+    {
+      pendencias: estado.pendencias.map((p) =>
+        p.id === id ? { ...p, status, atualizado: hojeISO() } : p
+      ),
+    },
+    /* Só concluir merece desfazer visível. Marcar "comecei" ou "travou" não
+       perde nada, e um aviso a cada toque vira ruído que ninguém lê. */
+    status === "concluida" && alvo ? `"${alvo.titulo}" concluída` : undefined
+  );
+}
+
+export function definirPreferencia(parcial: Partial<Preferencias>) {
+  mudar({ preferencias: { ...estado.preferencias, ...parcial } });
 }
 
 export function adicionarPendencia(entrada: {
@@ -337,6 +412,22 @@ export function reiniciar() {
   }
   estado = inicial();
   notificar();
+}
+
+/** Toque curto no aparelho ao concluir alguma coisa.
+
+    Vocabulário mínimo de propósito: **um** padrão, só na conclusão. A pesquisa
+    de haptics é clara que o valor está em confirmar ação frequente com as mãos
+    ocupadas (que é exatamente a manhã desta casa) e que vibrar em tudo vira
+    ruído. Falha em silêncio onde não existe: iOS ignora `vibrate`. */
+export function tremer(ms = 12) {
+  try {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(ms);
+    }
+  } catch {
+    /* aparelho sem motor, ou permissão negada */
+  }
 }
 
 let contador = 0;

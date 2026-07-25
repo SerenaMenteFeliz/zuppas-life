@@ -1,26 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Agendar from "@/components/Agendar";
 import CalendarioSemana from "@/components/CalendarioSemana";
 import Pendencias from "@/components/Pendencias";
 import Popup from "@/components/Popup";
 import Tracker from "@/components/Tracker";
 import { Rotulo } from "@/components/ui";
-import { COR_BLOCO, ICONE_BLOCO, Marca } from "@/components/visual";
+import { Marca } from "@/components/visual";
+import { VisaoBlocos, VisaoColunas, VisaoLista } from "@/components/semana";
 import { Filtro, Semana as IconeSemana } from "@/components/icones";
-import { ehDe, estadoDa, indexar, ocorrenciasDoDia } from "@/lib/agenda";
-import {
-  curta,
-  diasDaSemana,
-  inicioDaSemana,
-  nomeDoDiaCurto,
-  semanaISO,
-} from "@/lib/datas";
+import { ehDe, indexar, ocorrenciasDoDia } from "@/lib/agenda";
+import { curta, diasDaSemana, inicioDaSemana, semanaISO } from "@/lib/datas";
 import { alternarConclusao, useHoje, useZuppas } from "@/lib/store";
 import {
-  BLOCOS,
-  BLOCO_LABEL,
   CATEGORIA_LABEL,
   PESSOAS,
   type Categoria,
@@ -30,18 +24,15 @@ import {
 
 /* A semana: tudo que tem que ser feito, de quem é, e em que dia.
 
-   Reorganizada em 24/07. O que mudou:
+   A mudança principal desta rodada é a **visão em blocos**, pedida depois de
+   as faixas de manhã, tarde e noite funcionarem na tela de hoje: manhã, tarde
+   e noite viram três linhas atravessando os sete dias. É a mesma estrutura do
+   quadro branco que a [[Rotina - Família (Semana 1)]] descreve pra sala, e é a
+   única visão que mostra a forma da semana, não só o conteúdo dela.
 
-   - **Calendário no lugar do "anterior / próxima".** Chegar em setembro exigia
-     sete cliques; agora se aponta o dedo num mês. Seleciona a semana inteira,
-     não o dia, porque a unidade desta tela é a semana.
-   - **Tracker de semanas.** A tabela de 7 dias que está vazia no vault desde
-     16/06, viva e continuando depois da primeira semana. Corrente atual,
-     recorde e oito semanas lado a lado.
-   - **Filtros em popup.** Eram quinze pílulas empilhadas antes de qualquer
-     conteúdo aparecer.
-   - **Coluna do dia mais visual.** Cada bloco tem sua cor e seu ícone, os
-     mesmos das outras telas, e o dia mostra progresso em vez de contagem crua. */
+   As outras duas continuam porque servem a perguntas diferentes: colunas pra
+   ver o detalhe de cada dia, lista pra ler no celular sem rolagem lateral. A
+   escolha fica gravada, então ninguém precisa reescolher todo dia. */
 
 const CATEGORIAS: Categoria[] = [
   "ancora",
@@ -53,13 +44,23 @@ const CATEGORIAS: Categoria[] = [
   "pessoal",
 ];
 
+type Visao = "blocos" | "colunas" | "lista";
+
+const VISOES: { valor: Visao; rotulo: string }[] = [
+  { valor: "blocos", rotulo: "Blocos" },
+  { valor: "colunas", rotulo: "Dias" },
+  { valor: "lista", rotulo: "Lista" },
+];
+
 export default function Semana() {
   const estado = useZuppas();
   const hoje = useHoje();
+  const router = useRouter();
 
   const [ancora, setAncora] = useState<string | null>(null);
   const [pessoa, setPessoa] = useState<Dono | "Todos">("Todos");
   const [categoria, setCategoria] = useState<Categoria | "Tudo">("Tudo");
+  const [visao, setVisao] = useState<Visao>("blocos");
   const [verTracker, setVerTracker] = useState(false);
 
   const referencia = ancora ?? hoje;
@@ -98,26 +99,49 @@ export default function Semana() {
 
   const filtroAtivo = pessoa !== "Todos" || categoria !== "Tudo";
 
+  const props = {
+    dias,
+    hoje,
+    porDia,
+    marcas,
+    aoAlternar: (o: Ocorrencia, dia: string) =>
+      alternarConclusao(o.id, dia, estado.eu),
+    aoAbrirDia: (dia: string) => router.push(`/dia/${dia}`),
+  };
+
   return (
     <main className="veil-bg pb-32">
       <div className="mx-auto w-full max-w-md px-5 pt-8 lg:max-w-[1700px] lg:px-8 lg:pt-12">
-        <header className="mb-5 flex items-start gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="tv-rotulo mb-1.5">
-              Semana {semanaISO(referencia)}
-              {ehSemanaAtual ? " · esta semana" : ""}
-            </p>
-            <h1
-              className="text-3xl lg:text-4xl"
-              style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}
-            >
-              {curta(dias[0])} a {curta(dias[6])}
-            </h1>
-            <p className="mt-1 text-sm" style={{ color: "var(--ink-soft)" }}>
-              {total} na semana · {feitas} {feitas === 1 ? "feita" : "feitas"}
-            </p>
-          </div>
+        <header className="mb-4">
+          <p className="tv-rotulo mb-1.5">
+            Semana {semanaISO(referencia)}
+            {ehSemanaAtual ? " · esta semana" : ""}
+          </p>
+          <h1
+            className="text-3xl lg:text-4xl"
+            style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}
+          >
+            {curta(dias[0])} a {curta(dias[6])}
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--ink-soft)" }}>
+            {total} na semana · {feitas} {feitas === 1 ? "feita" : "feitas"}
+          </p>
         </header>
+
+        {/* Visão */}
+        <div className="mb-3 flex gap-1.5" role="tablist" aria-label="Formato da semana">
+          {VISOES.map((v) => (
+            <button
+              key={v.valor}
+              onClick={() => setVisao(v.valor)}
+              className={`aba ${v.valor === visao ? "aba-ativa" : ""}`}
+              role="tab"
+              aria-selected={v.valor === visao}
+            >
+              {v.rotulo}
+            </button>
+          ))}
+        </div>
 
         {/* Controles */}
         <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -229,23 +253,18 @@ export default function Semana() {
         {verTracker && (
           <section className="mb-6">
             <Rotulo>Progresso das semanas</Rotulo>
-            <Tracker hoje={hoje} itens={estado.itens} feitas={marcas.feitas} />
+            <Tracker
+              hoje={hoje}
+              itens={estado.itens}
+              feitas={marcas.feitas}
+              folgaSemanal={estado.preferencias.folgaSemanal}
+            />
           </section>
         )}
 
-        {/* Os 7 dias */}
-        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-7 lg:items-start lg:gap-3">
-          {porDia.map(({ dia, lista }) => (
-            <ColunaDoDia
-              key={dia}
-              dia={dia}
-              hoje={hoje}
-              ocorrencias={lista}
-              marcas={marcas}
-              aoAlternar={(o) => alternarConclusao(o.id, dia, estado.eu)}
-            />
-          ))}
-        </div>
+        {visao === "blocos" && <VisaoBlocos {...props} />}
+        {visao === "colunas" && <VisaoColunas {...props} />}
+        {visao === "lista" && <VisaoLista {...props} />}
 
         <div className="mt-5">
           <Agendar data={dias[0] > hoje ? dias[0] : hoje} eu={estado.eu} />
@@ -261,129 +280,5 @@ export default function Semana() {
         </section>
       </div>
     </main>
-  );
-}
-
-function ColunaDoDia({
-  dia,
-  hoje,
-  ocorrencias,
-  marcas,
-  aoAlternar,
-}: {
-  dia: string;
-  hoje: string;
-  ocorrencias: Ocorrencia[];
-  marcas: ReturnType<typeof indexar>;
-  aoAlternar: (o: Ocorrencia) => void;
-}) {
-  const ehHoje = dia === hoje;
-  const passou = dia < hoje;
-  const feitas = ocorrencias.filter((o) => marcas.feitas.has(o.chave)).length;
-  const abertas = ocorrencias.filter(
-    (o) => estadoDa(o.chave, marcas) === "aberto"
-  ).length;
-  const fracao = ocorrencias.length === 0 ? 0 : feitas / ocorrencias.length;
-
-  return (
-    <section
-      className={`glass-card overflow-hidden ${ehHoje ? "glass-card-strong" : ""}`}
-      style={{
-        borderColor: ehHoje ? "var(--accent)" : undefined,
-        opacity: passou && abertas === 0 ? 0.55 : 1,
-      }}
-    >
-      {/* Barra de progresso do dia, no topo do cartão */}
-      <div style={{ height: 3, background: "var(--line)" }}>
-        <div
-          style={{
-            height: "100%",
-            width: `${fracao * 100}%`,
-            background: "var(--accent)",
-            transition: "width 0.25s ease",
-          }}
-        />
-      </div>
-
-      <div className="p-3.5">
-        <header className="mb-2.5 flex items-baseline justify-between gap-2">
-          <div>
-            <p
-              className="text-[0.68rem] uppercase tracking-widest"
-              style={{ color: ehHoje ? "var(--accent)" : "var(--ink-soft)" }}
-            >
-              {nomeDoDiaCurto(dia)}
-            </p>
-            <p className="text-lg leading-tight" style={{ fontFamily: "var(--font-display)" }}>
-              {dia.slice(8, 10)}
-            </p>
-          </div>
-          {abertas > 0 && (
-            <span className="parada">{abertas} aberta{abertas > 1 ? "s" : ""}</span>
-          )}
-        </header>
-
-        {ocorrencias.length === 0 ? (
-          <p className="text-xs" style={{ color: "var(--ink-soft)", opacity: 0.7 }}>
-            livre
-          </p>
-        ) : (
-          BLOCOS.map((bloco) => {
-            const doBloco = ocorrencias.filter((o) => o.bloco === bloco);
-            if (doBloco.length === 0) return null;
-            const Icone = ICONE_BLOCO[bloco];
-
-            return (
-              <div key={bloco} className="mb-2.5 last:mb-0">
-                <p
-                  className="mb-1 flex items-center gap-1 text-[0.6rem] uppercase tracking-widest"
-                  style={{ color: COR_BLOCO[bloco] }}
-                >
-                  <Icone className="h-3 w-3" />
-                  {BLOCO_LABEL[bloco]}
-                </p>
-
-                <ul className="flex flex-col gap-1">
-                  {doBloco.map((o) => {
-                    const est = estadoDa(o.chave, marcas);
-                    return (
-                      <li key={o.chave}>
-                        <button
-                          onClick={() => aoAlternar(o)}
-                          className="flex w-full items-start gap-1.5 rounded-lg py-0.5 text-left"
-                          aria-pressed={est === "feito"}
-                          aria-label={`Marcar ${o.titulo} em ${curta(dia)}`}
-                        >
-                          <Marca categoria={o.categoria} tamanho={16} />
-                          <span className="min-w-0 flex-1">
-                            <span
-                              className="block text-[0.78rem] leading-snug"
-                              style={{
-                                opacity: est === "aberto" ? 1 : 0.45,
-                                textDecoration:
-                                  est === "aberto" ? "none" : "line-through",
-                              }}
-                            >
-                              {o.titulo}
-                            </span>
-                            <span
-                              className="text-[0.62rem]"
-                              style={{ color: "var(--ink-soft)" }}
-                            >
-                              {o.horario ? `${o.horario} · ` : ""}
-                              {o.dono}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </section>
   );
 }

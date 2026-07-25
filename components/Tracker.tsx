@@ -1,6 +1,6 @@
 "use client";
 
-import { corrente, diaDoTracker, melhorCorrente } from "@/lib/agenda";
+import { detalheDaCorrente, diaDoTracker, melhorCorrente } from "@/lib/agenda";
 import { curta, diasDaSemana, inicioDaSemana, semanaISO, somarDias } from "@/lib/datas";
 import type { ItemRecorrente } from "@/lib/types";
 
@@ -20,12 +20,15 @@ export default function Tracker({
   hoje,
   itens,
   feitas,
+  folgaSemanal = false,
 }: {
   hoje: string;
   itens: ItemRecorrente[];
   feitas: Set<string>;
+  folgaSemanal?: boolean;
 }) {
-  const atual = corrente(hoje, itens, feitas);
+  const { dias: atual, folgas } = detalheDaCorrente(hoje, itens, feitas, folgaSemanal);
+  const perdoados = new Set(folgas);
   const recorde = melhorCorrente(hoje, itens, feitas);
 
   const inicioAtual = inicioDaSemana(hoje);
@@ -64,14 +67,23 @@ export default function Tracker({
                 {dias.map((dia) => {
                   const d = diaDoTracker(dia, hoje, itens, feitas);
                   const fracao = d.total === 0 ? 0 : d.feitas / d.total;
+                  const folga = perdoados.has(dia);
                   return (
                     <span
                       key={dia}
                       className="tracker-dia"
-                      title={`${curta(dia)}: ${d.feitas} de ${d.total} âncoras`}
+                      title={
+                        folga
+                          ? `${curta(dia)}: folga da semana, a corrente seguiu`
+                          : `${curta(dia)}: ${d.feitas} de ${d.total} âncoras`
+                      }
                       style={{
                         background: d.futuro ? "transparent" : "var(--line)",
-                        border: d.futuro ? "1px dashed var(--line)" : "none",
+                        border: d.futuro
+                          ? "1px dashed var(--line)"
+                          : folga
+                            ? "1.5px dashed var(--sky)"
+                            : "none",
                         outline:
                           dia === hoje ? "1.5px solid var(--accent)" : "none",
                         outlineOffset: "1px",
@@ -96,6 +108,13 @@ export default function Tracker({
       <p className="mt-3 text-[0.68rem]" style={{ color: "var(--ink-soft)" }}>
         Cheio é dia fechado nas 3 âncoras. Meio cheio é dia parcial, que também
         conta como dia salvo.
+        {folgaSemanal && (
+          <>
+            {" "}
+            Contorno tracejado é a folga da semana: um dia perdido por semana não
+            quebra a corrente.
+          </>
+        )}
       </p>
     </div>
   );

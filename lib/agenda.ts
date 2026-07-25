@@ -8,7 +8,13 @@ import {
   type Ocorrencia,
   type Pessoa,
 } from "./types";
-import { diaDaSemana, ehFimDeSemana, semanaISO, somarDias } from "./datas";
+import {
+  diaDaSemana,
+  ehFimDeSemana,
+  inicioDaSemana,
+  semanaISO,
+  somarDias,
+} from "./datas";
 
 /* Motor de agenda: transforma regra em ocorrência.
 
@@ -150,23 +156,79 @@ export function diaFechado(
 
 /** Dias seguidos em que a casa fechou as âncoras, contando pra trás.
 
-    O dia de hoje ainda não acabou: se ele não fechou, a corrente é a de ontem.
-    Quebrar a corrente às 8h da manhã porque o dia mal começou seria punir a
-    família por nada, e o efeito da corrente depende dela ser justa. */
+    Duas regras de justiça, e as duas mudam o resultado:
+
+    **O dia de hoje ainda não acabou.** Se ele não fechou, a corrente é a de
+    ontem. Quebrar a corrente às 8h da manhã porque o dia mal começou seria
+    punir a família por nada, e o efeito da corrente depende dela ser justa.
+
+    **Uma folga por semana** (opcional, ligada por padrão). A corrente funciona
+    por aversão à perda: perder uma sequência de 15 dias dói cerca do dobro do
+    que ganhar 15 dias agrada, e é isso que faz alguém não querer quebrá-la. O
+    problema é que o mesmo mecanismo, sem válvula, faz a pessoa abandonar tudo
+    no primeiro dia perdido. Por isso as ferramentas maduras têm folga ou
+    recuperação. Aqui a folga não é comprada nem ganha: é uma por semana, de
+    graça, porque a própria rotina da casa foi escrita partindo do princípio de
+    que o dia vai ser interrompido. Um dia salvo no caos ainda conta.
+
+    A folga **estende** uma corrente, nunca cria uma do nada. */
 export function corrente(
   hoje: string,
   itens: ItemRecorrente[],
-  concluidas: Set<string>
+  concluidas: Set<string>,
+  folgaSemanal = false
 ): number {
+  return detalheDaCorrente(hoje, itens, concluidas, folgaSemanal).dias;
+}
+
+export interface DetalheCorrente {
+  dias: number;
+  /** Datas que quebrariam a corrente e foram perdoadas pela folga da semana. */
+  folgas: string[];
+}
+
+export function detalheDaCorrente(
+  hoje: string,
+  itens: ItemRecorrente[],
+  concluidas: Set<string>,
+  folgaSemanal = false
+): DetalheCorrente {
   let cursor = diaFechado(hoje, itens, concluidas) ? hoje : somarDias(hoje, -1);
   let dias = 0;
+  const folgas: string[] = [];
+  const usadaNaSemana = new Set<string>();
+
+  /* Uma folga só vale se a corrente **continuar** depois dela. A folga gasta no
+     dia em que a sequência morre de qualquer jeito não perdoou nada, e marcá-la
+     no tracker faria a tela dizer que aquele dia foi salvo quando não foi. Por
+     isso ela fica pendente até um dia seguinte ser efetivamente contado. */
+  let pendente: string | null = null;
+
   /* Trava de segurança: sem ela, um bug de data vira laço infinito na tela da
      família. Um ano de corrente já é mais do que a casa precisa exibir. */
-  while (dias < 366 && diaFechado(cursor, itens, concluidas)) {
-    dias += 1;
+  for (let passo = 0; passo < 366; passo++) {
+    if (diaFechado(cursor, itens, concluidas)) {
+      dias += 1;
+      if (pendente) {
+        folgas.push(pendente);
+        pendente = null;
+      }
+      cursor = somarDias(cursor, -1);
+      continue;
+    }
+
+    /* Sem folga, ou ainda sem corrente pra estender, para aqui. */
+    if (!folgaSemanal || dias === 0) break;
+
+    const semana = inicioDaSemana(cursor);
+    if (usadaNaSemana.has(semana)) break;
+
+    usadaNaSemana.add(semana);
+    pendente = cursor;
     cursor = somarDias(cursor, -1);
   }
-  return dias;
+
+  return { dias, folgas };
 }
 
 /** Índice rápido de conclusões, pra não varrer o array a cada linha.

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Agendar from "@/components/Agendar";
+import Ajustes from "@/components/Ajustes";
 import Linha from "@/components/Linha";
 import Pendencias from "@/components/Pendencias";
 import Popup from "@/components/Popup";
@@ -70,8 +71,8 @@ export default function Hoje() {
   const ancoras = ocorrencias.filter((o) => o.ancora);
   const ancorasFeitas = ancoras.filter((o) => marcas.feitas.has(o.chave)).length;
   const dias = useMemo(
-    () => corrente(hoje, estado.itens, marcas.feitas),
-    [hoje, estado.itens, marcas.feitas]
+    () => corrente(hoje, estado.itens, marcas.feitas, estado.preferencias.folgaSemanal),
+    [hoje, estado.itens, marcas.feitas, estado.preferencias.folgaSemanal]
   );
 
   const blocoAgora = blocoDaHora(horaDoDia());
@@ -180,6 +181,8 @@ export default function Hoje() {
           >
             âncoras {ancorasFeitas}/{ancoras.length}
           </span>
+
+          <Ajustes />
         </div>
 
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] lg:items-start lg:gap-9">

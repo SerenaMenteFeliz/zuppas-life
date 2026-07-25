@@ -108,8 +108,8 @@ export default function TV() {
 
   const ancoras = doDia.filter((o) => o.ancora);
   const dias = useMemo(
-    () => corrente(hoje, estado.itens, concluidas),
-    [hoje, estado.itens, concluidas]
+    () => corrente(hoje, estado.itens, concluidas, estado.preferencias.folgaSemanal),
+    [hoje, estado.itens, concluidas, estado.preferencias.folgaSemanal]
   );
   const recorde = useMemo(
     () => melhorCorrente(hoje, estado.itens, concluidas),
@@ -155,7 +155,7 @@ export default function TV() {
             </div>
           </div>
           <p
-            className="max-w-[26vw] text-right"
+            className="so-modo-cheio max-w-[26vw] text-right"
             style={{
               fontFamily: "var(--font-display)",
               fontSize: "clamp(0.9rem, 1.25vw, 1.5rem)",
@@ -308,7 +308,7 @@ export default function TV() {
             </ul>
           </section>
 
-          <section className="glass-card flex flex-1 flex-col justify-around p-[1.1vw]">
+          <section className="so-modo-cheio glass-card flex flex-1 flex-col justify-around p-[1.1vw]">
             {NUMEROS.map((n) => (
               <div key={n.rotulo}>
                 <div className="tv-numero" style={{ color: "var(--accent)" }}>

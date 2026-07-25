@@ -537,7 +537,220 @@ body {
   color: var(--terracotta);
 }
 
+/* ── Grade da semana (visão Blocos) ────────────────────────────────────────
+   Manhã, tarde e noite como linhas atravessando os sete dias. É a estrutura do
+   quadro branco que a rotina da casa descreve pra sala, e a única visão que
+   mostra a forma da semana em vez do conteúdo dela.
+
+   Rola na horizontal dentro do próprio container: conteúdo largo nunca pode
+   fazer a página inteira rolar de lado. A coluna dos rótulos fica grudada na
+   esquerda, senão quem rola perde a referência de qual faixa está lendo. */
+.grade-rolagem {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+}
+
+.grade-semana {
+  display: grid;
+  grid-template-columns: 4.6rem repeat(7, minmax(7.4rem, 1fr));
+  gap: 2px;
+  min-width: 100%;
+}
+
+.grade-canto {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg);
+}
+
+.grade-cabecalho {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.5rem 0.55rem 0.4rem;
+  border-top: 2px solid transparent;
+  border-radius: 10px 10px 0 0;
+  text-align: left;
+}
+
+.grade-rotulo {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.5rem;
+  border-left: 3px solid transparent;
+  background: var(--bg);
+  color: var(--ink-soft);
+}
+
+.grade-celula {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 3.6rem;
+  padding: 0.35rem;
+  border-radius: 10px;
+  background: var(--glass);
+}
+
+.grade-vazio {
+  color: var(--ink-soft);
+  opacity: 0.35;
+  font-size: 0.75rem;
+}
+
+.grade-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border-left: 3px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.grade-hora {
+  font-size: 0.6rem;
+  color: var(--ink-soft);
+}
+
+.grade-titulo {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+/* ── Barra de desfazer ─────────────────────────────────────────────────────
+   Acima da navegação, some sozinha. Ação destrutiva acontece na hora e fica
+   reversível, em vez de interromper todo mundo com "tem certeza?". */
+.barra-desfazer {
+  position: fixed;
+  overflow: hidden;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(5.2rem + env(safe-area-inset-bottom));
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: calc(100% - 2rem);
+  max-width: 26rem;
+  padding: 0.6rem 0.6rem 0.6rem 1rem;
+  border-radius: 14px;
+  background: var(--surface-dark);
+  color: var(--surface-dark-foreground);
+  box-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.55);
+}
+
+@media (min-width: 1024px) {
+  .barra-desfazer {
+    bottom: 5.6rem;
+  }
+}
+
+/* Barra que drena: mostra quanto tempo sobra pra desfazer sem contador em
+   estado nem leitura de relógio durante a renderização. */
+.desfazer-tempo {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 0 0 14px 14px;
+  background: var(--accent);
+  animation: drenar linear forwards;
+}
+
+@keyframes drenar {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desfazer-tempo { display: none; }
+}
+
+/* ── Chave liga/desliga ─────────────────────────────────────────────────── */
+.chave {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 2.3rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  transition: background-color 0.18s ease;
+}
+
+.chave-bolinha {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  display: block;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 9999px;
+  background: var(--surface);
+  transition: transform 0.18s ease;
+}
+
+/* ── Modo calmo ────────────────────────────────────────────────────────────
+   Um seletor, e o resto do app não sabe que ele existe. Esconde o que não é
+   "o que tem que ser feito": número de negócio, citação rotativa, enfeite.
+   A pesquisa sobre interface pra pessoa neurodivergente pede exatamente isso,
+   um modo de baixa estimulação, e aqui a casa tem motivo concreto. */
+.modo-calmo .so-modo-cheio {
+  display: none !important;
+}
+
+.modo-calmo .float-slow {
+  animation: none;
+}
+
+/* ── Acessibilidade ────────────────────────────────────────────────────────
+   Foco visível de verdade (o anel padrão some em cima de vidro fosco), alvo
+   mínimo de 44px em botão de ícone, e o atalho de pular navegação. */
+:focus-visible {
+  outline: 2.5px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+.pular-para-conteudo {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.75rem 1.1rem;
+  border-radius: 0 0 12px 0;
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.pular-para-conteudo:focus {
+  left: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .float-slow { animation: none; }
-  .linha, .ancora, .aba, .nav-item { transition: none; }
+  .linha, .ancora, .aba, .nav-item, .chave, .chave-bolinha,
+  .tracker-preenchido, .faixa-bloco { transition: none; }
 }

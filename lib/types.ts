@@ -223,6 +223,53 @@ export function chaveConclusao(itemId: string, data: string): string {
   return `${itemId}|${data}`;
 }
 
+/* ── Preferências ────────────────────────────────────────────────────────────
+   Personalização é requisito de acessibilidade, não enfeite. A pesquisa sobre
+   interface pra pessoa neurodivergente é insistente em dois itens: **tamanho de
+   texto ajustável** e um **modo de baixa estimulação** que esconde o que não é
+   essencial. Numa casa com uma criança autista, isso não é hipótese. */
+
+export type TamanhoTexto = "normal" | "grande" | "maior";
+
+export const ESCALA_TEXTO: Record<TamanhoTexto, number> = {
+  normal: 1,
+  grande: 1.12,
+  maior: 1.25,
+};
+
+export interface Preferencias {
+  /** Esconde números do negócio, citações e enfeites. Menos coisa na tela. */
+  modoCalmo: boolean;
+  tamanhoTexto: TamanhoTexto;
+  /** Uma folga por semana antes da corrente quebrar. Ver `corrente()`. */
+  folgaSemanal: boolean;
+}
+
+export const PREFERENCIAS_PADRAO: Preferencias = {
+  modoCalmo: false,
+  tamanhoTexto: "normal",
+  folgaSemanal: true,
+};
+
+/* ── Cor por pessoa ──────────────────────────────────────────────────────────
+   Padrão de qualquer agenda de família: cada pessoa tem uma cor, e ela é a
+   mesma em todas as telas. A cor nunca é a única pista (ícone, inicial e nome
+   sempre acompanham), porque cor sozinha exclui quem não distingue as duas
+   pontas do espectro. */
+
+export const COR_PESSOA: Record<Pessoa, string> = {
+  Yan: "#5b7355",
+  Liz: "#c08a4a",
+  Ge: "#8fadb8",
+  Camilla: "#c17d5c",
+  André: "#7a8fb0",
+  Akiane: "#a98bb5",
+};
+
+export function corDoDono(dono: Dono): string {
+  return dono === "Casa" ? "var(--ink-soft)" : COR_PESSOA[dono];
+}
+
 /* ── Número agregado do negócio, pra TV ──────────────────────────────────────
    Só o agregado atravessa, nunca as linhas de lead. A decisão de 19/07 de
    manter os bancos separados foi sobre não copiar dado de cliente pra um
