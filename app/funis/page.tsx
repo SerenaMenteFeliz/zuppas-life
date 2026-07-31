@@ -84,36 +84,36 @@ async function carregarFunis() {
 
 type EtapaFunilPostHog = { name: string; count: number };
 
-/* Funil clássico da PostHog (não a API nova de HogQL — essa endpoint mais
-   simples já devolve contagem por etapa pronta, sem precisar escrever
-   query). Cada "id" é o nome exato do evento que instrumentamos hoje (ver
-   assets/posthog-init.js do quiz e o webhook do Asaas no serena-app). */
+/* Query API (HogQL) — a conta não tem acesso ao endpoint legado
+   /insights/funnel/ ("Legacy insight endpoints are not available for this
+   user"), então é FunnelsQuery via /query/ mesmo. Cada string em `eventos`
+   é o nome exato do evento que instrumentamos (ver assets/posthog-init.js
+   do quiz e o webhook do Asaas no serena-app). */
 async function consultarFunilPostHog(
   eventos: string[]
 ): Promise<EtapaFunilPostHog[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
 
-  const resp = await fetch(
-    `${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/insights/funnel/`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
+  const resp = await fetch(`${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: {
+        kind: "FunnelsQuery",
+        series: eventos.map((event) => ({ kind: "EventsNode", event })),
+        dateRange: { date_from: "-90d" },
       },
-      body: JSON.stringify({
-        events: eventos.map((id, order) => ({ id, type: "events", order })),
-        funnel_window_days: 30,
-        date_from: "-90d",
-      }),
-      cache: "no-store",
-    }
-  );
+    }),
+    cache: "no-store",
+  });
 
   if (!resp.ok) return null;
   const data = await resp.json().catch(() => null);
-  const steps = Array.isArray(data?.result) ? data.result : Array.isArray(data) ? data : null;
+  const steps = Array.isArray(data?.results) ? data.results : null;
   if (!steps) return null;
 
   return steps.map((s: { name?: string; custom_name?: string; count?: number }) => ({
