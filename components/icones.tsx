@@ -236,3 +236,21 @@ export function Pasta({ className }: Props) {
     </svg>
   );
 }
+
+/* ── Ícones do painel interno ──────────────────────────────────────────── */
+
+export function Funil({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <path d="M4 4.5h16L14 13v6l-4 2v-8z" />
+    </svg>
+  );
+}
+
+export function Raio({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <path d="M13 3L5 13.5h5.5L10 21l8-11h-5.5z" />
+    </svg>
+  );
+}

@@ -22,8 +22,10 @@ export default function Nav() {
   const caminho = usePathname();
 
   /* A TV não tem navegação: nada ali é clicável por decisão de produto, e uma
-     barra de menu numa parede é só ruído que ninguém vai tocar. */
-  if (caminho.startsWith("/tv")) return null;
+     barra de menu numa parede é só ruído que ninguém vai tocar. O painel
+     interno (/painel) tem a própria sidebar (ver components/painel/Sidebar)
+     e não é conteúdo de família — a barra da casa não pertence lá. */
+  if (caminho.startsWith("/tv") || caminho.startsWith("/painel")) return null;
 
   return (
     <nav className="nav-barra">

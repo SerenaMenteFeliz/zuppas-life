@@ -717,6 +717,179 @@ body {
   animation: none;
 }
 
+/* ── Tema Painel (ferramenta interna, não é produto nem tela de família) ──
+   Diferente de .theme-casa (quente, mobile, família) e dos temas de produto
+   (lar-interior/metodo-calice, vidro sobre véu claro): aqui é dashboard —
+   escuro, denso, plano, feito pra uso prolongado numa tela grande, não pra
+   ser bonito num aparelho na cozinha. Vive só dentro de /painel (ver
+   app/painel/layout.tsx), nunca vaza pro resto do app. */
+.theme-painel {
+  --bg: #0d0f13;
+  --ink: #e8eaf0;
+  --ink-soft: #8b93a6;
+  --accent: #5b7cfa;
+  --accent-foreground: #ffffff;
+  --surface: #12141b;
+  --surface-foreground: #e8eaf0;
+  --surface-dark: #05060a;
+  --surface-dark-foreground: #e8eaf0;
+  --glass: rgba(255, 255, 255, 0.04);
+  --glass-strong: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-tint: rgba(0, 0, 0, 0.6);
+  --line: rgba(232, 234, 240, 0.09);
+  --gold: #d7a763;
+  --sage: #7fae86;
+  --terracotta: #d09572;
+}
+
+.painel-bg {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.painel-shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.painel-sidebar {
+  display: flex;
+  flex: none;
+  width: 244px;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem 1rem;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.painel-marca {
+  padding: 0 0.5rem;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.painel-marca-sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.painel-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.painel-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-nav-item:hover {
+  color: var(--ink);
+  background: var(--glass);
+}
+
+.painel-nav-item-ativo {
+  color: var(--ink);
+  background: var(--glass-strong);
+}
+
+.painel-main {
+  flex: 1;
+  min-width: 0;
+  padding: 2.25rem 2.5rem 4rem;
+}
+
+/* Sidebar não é o foco de investimento (ferramenta de uso próprio, telão
+   maior a maior parte do tempo), mas também não pode quebrar num celular. */
+@media (max-width: 760px) {
+  .painel-shell {
+    flex-direction: column;
+  }
+  .painel-sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .painel-marca {
+    display: none;
+  }
+  .painel-nav {
+    flex-direction: row;
+  }
+  .painel-nav-item {
+    flex: none;
+    white-space: nowrap;
+  }
+  .painel-main {
+    padding: 1.5rem 1.25rem 3rem;
+  }
+}
+
+.painel-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.painel-tabela th {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.painel-tabela td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.painel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--glass);
+  color: var(--ink-soft);
+}
+
+.painel-badge-ativo {
+  color: #7fae86;
+  background: rgba(127, 174, 134, 0.16);
+}
+
+.painel-badge-pendente {
+  color: #d09572;
+  background: rgba(208, 149, 114, 0.16);
+}
+
 /* ── Acessibilidade ────────────────────────────────────────────────────────
    Foco visível de verdade (o anel padrão some em cima de vidro fosco), alvo
    mínimo de 44px em botão de ícone, e o atalho de pular navegação. */

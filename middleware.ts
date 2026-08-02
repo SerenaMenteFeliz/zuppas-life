@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Proteção mínima só pra /funis (dado de negócio: leads, conversão, receita
-// — não é pra família ver). O resto do app (rotina) segue público, isso não
-// muda hoje. Sem auth de verdade ainda (Supabase Auth do zuppas-life é passo
-// futuro) — enquanto isso, chave compartilhada via cookie. Ver [[credenciais]]
-// no Vault Zuppas pro valor de ADMIN_KEY.
+// Proteção mínima só pro painel interno (/painel — funis, automações; dado
+// de negócio: leads, conversão, receita, disparo de e-mail — não é pra
+// família ver). /funis vira redirect pra /painel/funis (01/08), mantido no
+// matcher pra não expor nada durante o redirect. Resto do app (rotina) segue
+// público, isso não muda. Sem auth de verdade ainda (Supabase Auth do
+// zuppas-life é passo futuro) — enquanto isso, chave compartilhada via
+// cookie. Ver [[credenciais]] no Vault Zuppas pro valor de ADMIN_KEY.
 const COOKIE_NAME = "zl_admin";
 
 export function middleware(req: NextRequest) {
@@ -33,5 +35,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/funis/:path*"],
+  matcher: ["/painel/:path*", "/funis/:path*"],
 };
