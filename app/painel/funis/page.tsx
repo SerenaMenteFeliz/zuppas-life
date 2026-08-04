@@ -194,9 +194,21 @@ async function consultarStepsQuiz(): Promise<EtapaGaleria[] | null> {
 /* Entrega do material gratuito "O Código Invisível" (material/index.html no
    metodocalice-site) — fecha a ponta que as 18 telas do quiz não cobrem:
    `material_viewed` é disparado em toda visita à página, fora da árvore de
-   `[data-step]` do quiz, por isso não aparece em QUIZ_STEP_LABELS. Sem
-   breakdown (um evento só, não quebrado por propriedade); math: "dau" pelo
-   mesmo motivo do consultarStepsQuiz (pessoa única, não clique/reload). */
+   `[data-step]` do quiz, por isso não aparece em QUIZ_STEP_LABELS.
+
+   HogQLQuery (não TrendsQuery) por dois motivos, os dois achados reais de
+   04/08: (1) math:"dau" somado por dia conta quem volta a ler em dias
+   diferentes mais de uma vez ("continuar de onde parei" existe de
+   propósito) — 17 pessoas vira o número errado; contagem única de verdade
+   pro período inteiro é o que responde "quantas pessoas", não "quantos
+   dias com pelo menos 1 pessoa". (2) "veio do quiz" exige o JOIN: só conta
+   quem também tem quiz_step_viewed com step_index=17 (Resultado completo)
+   no mesmo período — sem isso, visita de outra sessão/aparelho (ex: clicar
+   o link do e-mail de nutrição num celular diferente de onde fez o quiz)
+   contava como pessoa nova sem ligação com o quiz nenhum. A correção real
+   da atribuição é do lado da captura (?cid= em material/index.html +
+   quiz/index.html + lib/nutricao-sequence.js, identifica a visita não
+   importa o aparelho); esta query já reflete isso pra quem tiver o cid. */
 async function consultarMaterialViewed(): Promise<number | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
@@ -206,10 +218,21 @@ async function consultarMaterialViewed(): Promise<number | null> {
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       query: {
-        kind: "TrendsQuery",
-        series: [{ kind: "EventsNode", event: "material_viewed", math: "dau" }],
-        dateRange: { date_from: "-90d" },
-        interval: "day",
+        kind: "HogQLQuery",
+        query: `
+          SELECT count(DISTINCT person_id)
+          FROM events
+          WHERE event = {matEvent}
+            AND timestamp > now() - INTERVAL 90 DAY
+            AND person_id IN (
+              SELECT DISTINCT person_id
+              FROM events
+              WHERE event = {quizEvent}
+                AND properties.step_index = {stepIndex}
+                AND timestamp > now() - INTERVAL 90 DAY
+            )
+        `,
+        values: { matEvent: "material_viewed", quizEvent: "quiz_step_viewed", stepIndex: 17 },
       },
     }),
     cache: "no-store",
@@ -217,10 +240,8 @@ async function consultarMaterialViewed(): Promise<number | null> {
 
   if (!resp.ok) return null;
   const data = await resp.json().catch(() => null);
-  const results = Array.isArray(data?.results) ? data.results : null;
-  if (!results || results.length === 0) return null;
-
-  return (results[0]?.count as number) ?? 0;
+  const val = data?.results?.[0]?.[0];
+  return typeof val === "number" ? val : null;
 }
 
 /* Funil do Lar Interior: página única (não tem "telas" como o quiz), então
