@@ -149,7 +149,15 @@ const QUIZ_STEP_LABELS = [
 /* Detalhe por tela do quiz, via TrendsQuery com breakdown na propriedade
    `step_index` (gravada em cada quiz_step_viewed, ver assets/posthog-init.js
    + quiz/index.html). Um evento só, quebrado por valor de propriedade —
-   diferente do consultarFunilPostHog acima, que soma eventos distintos. */
+   diferente do consultarFunilPostHog acima, que soma eventos distintos.
+
+   math: "dau" (achado 04/08) — sem isso a contagem é de EVENTO bruto, não
+   de pessoa única, e goToStep() no quiz não tem trava contra clique duplo
+   (toque duplo no "Continuar" antes do fade de 160ms terminar dispara
+   quiz_step_viewed duas vezes pra mesma pessoa). Com ~18-20 visitas totais
+   um único evento duplicado já inverte a direção do funil visualmente
+   (etapa "ganhando" gente em vez de perder). dau resolve porque conta cada
+   pessoa uma vez por dia, não por clique. */
 async function consultarStepsQuiz(): Promise<EtapaGaleria[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
@@ -160,7 +168,7 @@ async function consultarStepsQuiz(): Promise<EtapaGaleria[] | null> {
     body: JSON.stringify({
       query: {
         kind: "TrendsQuery",
-        series: [{ kind: "EventsNode", event: "quiz_step_viewed" }],
+        series: [{ kind: "EventsNode", event: "quiz_step_viewed", math: "dau" }],
         breakdownFilter: { breakdown_type: "event", breakdown: "step_index" },
         dateRange: { date_from: "-90d" },
         interval: "day",
