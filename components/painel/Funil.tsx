@@ -101,8 +101,13 @@ export function GaleriaFunil({
     <>
       <div className="painel-carrossel -mx-2.5 flex gap-3 overflow-x-auto px-2.5 pb-3">
         {etapas.map((etapa, i) => {
-          const anterior = i > 0 ? etapas[i - 1].views : null;
-          const passagem = anterior && anterior > 0 ? (etapa.views / anterior) * 100 : null;
+          // Passagem/perda ficam na etapa de ORIGEM, não na de chegada — "82%
+          // passou pra próxima etapa" descreve o que aconteceu depois desta
+          // etapa, não antes dela (achado real 04/08: o rótulo já dizia
+          // "próxima etapa" mas a conta usava a etapa anterior, descompasso
+          // entre texto e número). Última etapa não tem próxima, fica "—".
+          const proxima = i < etapas.length - 1 ? etapas[i + 1].views : null;
+          const passagem = proxima !== null && etapa.views > 0 ? (proxima / etapa.views) * 100 : null;
           const perda = passagem !== null ? 100 - passagem : null;
           const doTopo = (etapa.views / topo) * 100;
           const url = previewUrlTemplate?.replace("{i}", String(i));
