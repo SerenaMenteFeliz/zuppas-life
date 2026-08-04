@@ -294,6 +294,7 @@ export default async function FunisPage() {
         <GaleriaFunil
           etapas={stepsQuiz ?? []}
           vazio={stepsQuiz === null ? "Não consegui consultar a PostHog agora." : "Sem visita registrada ainda nesse funil."}
+          previewUrlTemplate="https://metodocalice.serenamentefeliz.com/quiz?preview=1&preview_step={i}"
         />
       </section>
 
@@ -302,6 +303,7 @@ export default async function FunisPage() {
         <GaleriaFunil
           etapas={funilLarInterior ?? []}
           vazio={funilLarInterior === null ? "Não consegui consultar a PostHog agora." : "Sem visita registrada ainda nesse funil."}
+          previewUrlTemplate="https://larinterior.serenamentefeliz.com/desafio-7-dias?preview=1"
         />
       </section>
     </div>

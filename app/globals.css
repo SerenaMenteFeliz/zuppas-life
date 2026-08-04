@@ -719,28 +719,33 @@ body {
 
 /* ── Tema Painel (ferramenta interna, não é produto nem tela de família) ──
    Diferente de .theme-casa (quente, mobile, família) e dos temas de produto
-   (lar-interior/metodo-calice, vidro sobre véu claro): aqui é dashboard —
-   escuro, denso, plano, feito pra uso prolongado numa tela grande, não pra
-   ser bonito num aparelho na cozinha. Vive só dentro de /painel (ver
-   app/painel/layout.tsx), nunca vaza pro resto do app. */
+   (lar-interior/metodo-calice, vidro sobre véu claro): aqui é dashboard de
+   uso prolongado numa tela grande. Claro, branco puxado pro lavanda, acento
+   roxo — trocado do escuro original em 04/08/2026 a pedido do Yan (pesquisa
+   de referência: Linear/Attio/Stripe em modo claro usam a mesma fórmula —
+   superfície neutra clara + um roxo só de acento + glass-card branco
+   translúcido sobre o fundo tingido, em vez de sólido). Vive só dentro de
+   /painel (ver app/painel/layout.tsx), nunca vaza pro resto do app. */
 .theme-painel {
-  --bg: #0d0f13;
-  --ink: #e8eaf0;
-  --ink-soft: #8b93a6;
-  --accent: #5b7cfa;
+  --bg: #f6f3fc;
+  --ink: #241c36;
+  --ink-soft: #8981a0;
+  --accent: #6d4fe0;
   --accent-foreground: #ffffff;
-  --surface: #12141b;
-  --surface-foreground: #e8eaf0;
-  --surface-dark: #05060a;
-  --surface-dark-foreground: #e8eaf0;
-  --glass: rgba(255, 255, 255, 0.04);
-  --glass-strong: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --shadow-tint: rgba(0, 0, 0, 0.6);
-  --line: rgba(232, 234, 240, 0.09);
-  --gold: #d7a763;
-  --sage: #7fae86;
-  --terracotta: #d09572;
+  --surface: #ffffff;
+  --surface-foreground: #241c36;
+  --surface-dark: #2b1e42;
+  --surface-dark-foreground: #f3effc;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(109, 79, 224, 0.12);
+  --shadow-tint: rgba(76, 47, 143, 0.16);
+  --line: rgba(36, 28, 54, 0.1);
+  --gold: #b8863e;
+  --sage: #5c8a68;
+  --terracotta: #b56a44;
+  --accent-wash: rgba(109, 79, 224, 0.08);
+  --accent-wash-strong: rgba(109, 79, 224, 0.14);
 }
 
 .painel-bg {
@@ -752,17 +757,20 @@ body {
 
 .painel-shell {
   display: flex;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .painel-sidebar {
   display: flex;
   flex: none;
   width: 244px;
+  height: 100%;
   flex-direction: column;
   gap: 1.5rem;
   padding: 1.5rem 1rem;
+  overflow-y: auto;
   background: var(--surface);
   border-right: 1px solid var(--line);
 }
@@ -802,17 +810,19 @@ body {
 
 .painel-nav-item:hover {
   color: var(--ink);
-  background: var(--glass);
+  background: var(--accent-wash);
 }
 
 .painel-nav-item-ativo {
-  color: var(--ink);
-  background: var(--glass-strong);
+  color: var(--accent);
+  background: var(--accent-wash-strong);
 }
 
 .painel-main {
   flex: 1;
   min-width: 0;
+  height: 100%;
+  overflow-y: auto;
   padding: 2.25rem 2.5rem 4rem;
 }
 
@@ -824,11 +834,13 @@ body {
   }
   .painel-sidebar {
     width: 100%;
+    height: auto;
     flex-direction: row;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
     overflow-x: auto;
+    overflow-y: visible;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
@@ -888,6 +900,122 @@ body {
 .painel-badge-pendente {
   color: #d09572;
   background: rgba(208, 149, 114, 0.16);
+}
+
+/* ── Carrossel de etapas (GaleriaFunil) ──────────────────────────────────
+   Scroll horizontal com trilho fino em vez da barra padrão do sistema —
+   webkit + Firefox (scrollbar-width/-color não têm equivalente ::-webkit
+   comum, então os dois blocos coexistem, cada navegador usa o seu). */
+.painel-carrossel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(109, 79, 224, 0.45) transparent;
+}
+
+.painel-carrossel::-webkit-scrollbar {
+  height: 6px;
+}
+
+.painel-carrossel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.painel-carrossel::-webkit-scrollbar-thumb {
+  background: rgba(109, 79, 224, 0.45);
+  border-radius: 9999px;
+}
+
+.painel-carrossel::-webkit-scrollbar-thumb:hover {
+  background: rgba(109, 79, 224, 0.7);
+}
+
+/* ── Card de etapa clicável + popup de preview ao vivo ───────────────────
+   O card abre um iframe real do site em produção (quiz/landing), não uma
+   imagem estática — pedido explícito do Yan (04/08): a etapa tem que estar
+   viva, não ser um print. Ver preview_step/preview=1 no metodocalice-site
+   e no larinterior-site. */
+.painel-card-clicavel {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.painel-card-clicavel:hover,
+.painel-card-clicavel:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(109, 79, 224, 0.35);
+  box-shadow: 0 14px 28px -16px var(--shadow-tint);
+}
+
+.painel-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(36, 28, 54, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.painel-modal {
+  display: flex;
+  width: min(430px, 92vw);
+  height: min(800px, 86vh);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 30px 70px -24px rgba(36, 28, 54, 0.5);
+}
+
+.painel-modal-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+
+.painel-modal-fechar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.painel-modal-fechar:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+
+.painel-modal-frame {
+  flex: 1;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.painel-modal-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+@media (max-width: 480px) {
+  .painel-modal {
+    width: 100%;
+    height: 90vh;
+  }
 }
 
 /* ── Acessibilidade ────────────────────────────────────────────────────────
