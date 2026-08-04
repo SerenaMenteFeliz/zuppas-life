@@ -892,14 +892,18 @@ body {
   color: var(--ink-soft);
 }
 
+/* Cor via var(--sage)/var(--terracotta), não hex fixo (achado na revisão
+   04/08): estavam hardcoded, então o redesenho claro/roxo do .theme-painel
+   passou batido por eles — funcionava por coincidência de contraste, não
+   porque os badges de fato seguiam o tema. */
 .painel-badge-ativo {
-  color: #7fae86;
-  background: rgba(127, 174, 134, 0.16);
+  color: var(--sage);
+  background: color-mix(in srgb, var(--sage) 16%, transparent);
 }
 
 .painel-badge-pendente {
-  color: #d09572;
-  background: rgba(208, 149, 114, 0.16);
+  color: var(--terracotta);
+  background: color-mix(in srgb, var(--terracotta) 16%, transparent);
 }
 
 /* ── Carrossel de etapas (GaleriaFunil) ──────────────────────────────────

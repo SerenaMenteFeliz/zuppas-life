@@ -232,7 +232,16 @@ async function consultarMaterialViewed(): Promise<number | null> {
                 AND timestamp > now() - INTERVAL 90 DAY
             )
         `,
-        values: { matEvent: "material_viewed", quizEvent: "quiz_step_viewed", stepIndex: 17 },
+        values: {
+          matEvent: "material_viewed",
+          quizEvent: "quiz_step_viewed",
+          // último índice de QUIZ_STEP_LABELS ("Resultado completo"), não
+          // hardcoded — achado na revisão (04/08): estava fixo em 17 mesmo
+          // o código já tendo o padrão de derivar de QUIZ_STEP_LABELS.length
+          // em outro lugar (previewUrlsQuiz); se o quiz ganhar/perder uma
+          // tela, esse número tinha que ser lembrado à mão nos dois lugares.
+          stepIndex: QUIZ_STEP_LABELS.length - 1,
+        },
       },
     }),
     cache: "no-store",

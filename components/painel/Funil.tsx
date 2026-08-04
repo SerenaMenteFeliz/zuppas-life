@@ -218,8 +218,14 @@ export function FunilEtapas({ etapas, vazio }: { etapas: EtapaContagem[]; vazio:
   return (
     <div className="glass-card flex flex-col gap-3 p-5 lg:flex-row lg:items-stretch lg:gap-2">
       {etapas.map((etapa, i) => {
-        const anterior = i > 0 ? etapas[i - 1].count : null;
-        const passagem = anterior && anterior > 0 ? (etapa.count / anterior) * 100 : null;
+        // Mesmo bug do GaleriaFunil (achado e corrigido lá primeiro, 04/08):
+        // a seta é desenhada DEPOIS do card i, mas calculava com a etapa
+        // ANTERIOR — a % de "Início → Quiz concluído" aparecia na seta
+        // entre "Quiz concluído" e "Virou lead", deslocada uma posição, e a
+        // última transição real nunca era mostrada (i da última etapa não
+        // desenha seta). Corrigido pra próxima etapa, igual lá.
+        const proxima = i < etapas.length - 1 ? etapas[i + 1].count : null;
+        const passagem = proxima !== null && etapa.count > 0 ? (proxima / etapa.count) * 100 : null;
         const doTotal = (etapa.count / primeira) * 100;
 
         return (
