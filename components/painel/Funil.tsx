@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Vazio } from "@/components/ui";
 
 /* Peças visuais de funil, extraídas de app/funis/page.tsx em 01/08 quando o
@@ -116,7 +116,7 @@ export function GaleriaFunil({
                     role: "button" as const,
                     tabIndex: 0,
                     onClick: () => setAberta({ url, label: etapa.label }),
-                    onKeyDown: (e: KeyboardEvent) => {
+                    onKeyDown: (e: ReactKeyboardEvent) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         setAberta({ url, label: etapa.label });
