@@ -191,6 +191,38 @@ async function consultarStepsQuiz(): Promise<EtapaGaleria[] | null> {
   return QUIZ_STEP_LABELS.map((label, idx) => ({ label, views: porIndice.get(idx) ?? 0 }));
 }
 
+/* Entrega do material gratuito "O Código Invisível" (material/index.html no
+   metodocalice-site) — fecha a ponta que as 18 telas do quiz não cobrem:
+   `material_viewed` é disparado em toda visita à página, fora da árvore de
+   `[data-step]` do quiz, por isso não aparece em QUIZ_STEP_LABELS. Sem
+   breakdown (um evento só, não quebrado por propriedade); math: "dau" pelo
+   mesmo motivo do consultarStepsQuiz (pessoa única, não clique/reload). */
+async function consultarMaterialViewed(): Promise<number | null> {
+  const key = process.env.POSTHOG_PERSONAL_API_KEY;
+  if (!key) return null;
+
+  const resp = await fetch(`${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: {
+        kind: "TrendsQuery",
+        series: [{ kind: "EventsNode", event: "material_viewed", math: "dau" }],
+        dateRange: { date_from: "-90d" },
+        interval: "day",
+      },
+    }),
+    cache: "no-store",
+  });
+
+  if (!resp.ok) return null;
+  const data = await resp.json().catch(() => null);
+  const results = Array.isArray(data?.results) ? data.results : null;
+  if (!results || results.length === 0) return null;
+
+  return (results[0]?.count as number) ?? 0;
+}
+
 /* Funil do Lar Interior: página única (não tem "telas" como o quiz), então
    as etapas são visita -> começou a preencher -> virou lead. $pageview
    filtrado por $host porque o mesmo projeto PostHog cobre os 3 sites — sem
@@ -243,11 +275,25 @@ export default async function FunisPage() {
   const funis = await carregarFunis();
   const semDados = funis.every((f) => f.totalLeads === 0);
 
-  const [funilQuiz, stepsQuiz, funilLarInterior] = await Promise.all([
+  const [funilQuiz, stepsQuiz, materialViews, funilLarInterior] = await Promise.all([
     consultarFunilPostHog(["quiz_started", "quiz_completed", "lead_submitted", "purchase"]),
     consultarStepsQuiz(),
+    consultarMaterialViewed(),
     consultarFunilLarInterior(),
   ]);
+
+  // Card extra (19º) anexado só quando as 18 telas vieram — dá pra "Resultado
+  // completo" (a última tela do quiz) ter passagem/perda de verdade em vez
+  // de "—", e responde "quantos chegaram no material?" na mesma galeria.
+  const stepsComMaterial =
+    stepsQuiz && materialViews !== null
+      ? [...stepsQuiz, { label: "Material entregue", views: materialViews }]
+      : stepsQuiz;
+  const previewUrlsQuiz = stepsComMaterial?.map((_, i) =>
+    i < QUIZ_STEP_LABELS.length
+      ? `https://metodocalice.serenamentefeliz.com/quiz?preview=1&preview_step=${i}`
+      : "https://metodocalice.serenamentefeliz.com/material?preview=1&r=aprovador"
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1200px]">
@@ -298,11 +344,11 @@ export default async function FunisPage() {
       </section>
 
       <section className="mb-8">
-        <Rotulo>Quiz do Método Cálice — as 18 telas, uma por uma</Rotulo>
+        <Rotulo>Quiz do Método Cálice — as 18 telas + entrega do material</Rotulo>
         <GaleriaFunil
-          etapas={stepsQuiz ?? []}
+          etapas={stepsComMaterial ?? []}
           vazio={stepsQuiz === null ? "Não consegui consultar a PostHog agora." : "Sem visita registrada ainda nesse funil."}
-          previewUrlTemplate="https://metodocalice.serenamentefeliz.com/quiz?preview=1&preview_step={i}"
+          previewUrls={previewUrlsQuiz}
         />
       </section>
 
@@ -311,7 +357,7 @@ export default async function FunisPage() {
         <GaleriaFunil
           etapas={funilLarInterior ?? []}
           vazio={funilLarInterior === null ? "Não consegui consultar a PostHog agora." : "Sem visita registrada ainda nesse funil."}
-          previewUrlTemplate="https://larinterior.serenamentefeliz.com/desafio-7-dias?preview=1"
+          previewUrls={funilLarInterior?.map(() => "https://larinterior.serenamentefeliz.com/desafio-7-dias?preview=1")}
         />
       </section>
     </div>

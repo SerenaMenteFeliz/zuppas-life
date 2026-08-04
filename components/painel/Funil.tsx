@@ -73,21 +73,23 @@ export function SetaMetrica() {
    Views totais, % do início (taxa de visualização), % de passagem pra
    próxima etapa e % de perda.
 
-   `previewUrlTemplate`, quando passado, torna cada card clicável: abre a
-   etapa AO VIVO (iframe pra dentro do site real, com o preview mode dele —
-   ver quiz/index.html e assets/posthog-init.js no metodocalice-site), não
-   um screenshot. É string, não função — Server Component não pode passar
-   função como prop pra Client Component (RSC serializa por JSON). O token
-   `{i}` no template é trocado pelo índice da etapa; sem token, todo card
-   aponta pra mesma URL (funil de página única, como o do Lar Interior). */
+   `previewUrls`, quando passado, torna cada card clicável: abre a etapa AO
+   VIVO (iframe pra dentro do site real, com o preview mode dele — ver
+   quiz/index.html e assets/posthog-init.js no metodocalice-site), não um
+   screenshot. É array de string (alinhado por índice com `etapas`), não
+   função — Server Component não pode passar função como prop pra Client
+   Component (RSC serializa por JSON); o caller monta o array pronto,
+   inclusive quando etapas de natureza diferente precisam de URL diferente
+   (ex: as 18 telas do quiz + o card extra do material, ver funis/page.tsx).
+   `null`/posição faltando = card não clicável. */
 export function GaleriaFunil({
   etapas,
   vazio,
-  previewUrlTemplate,
+  previewUrls,
 }: {
   etapas: EtapaGaleria[];
   vazio: string;
-  previewUrlTemplate?: string;
+  previewUrls?: (string | null)[];
 }) {
   const [aberta, setAberta] = useState<{ url: string; label: string } | null>(null);
 
@@ -110,7 +112,7 @@ export function GaleriaFunil({
           const passagem = proxima !== null && etapa.views > 0 ? (proxima / etapa.views) * 100 : null;
           const perda = passagem !== null ? 100 - passagem : null;
           const doTopo = (etapa.views / topo) * 100;
-          const url = previewUrlTemplate?.replace("{i}", String(i));
+          const url = previewUrls?.[i] ?? undefined;
 
           return (
             <div
