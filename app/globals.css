@@ -1022,6 +1022,45 @@ body {
   }
 }
 
+/* ── Preview embutido (tela de detalhe de um funil, 05/08) ───────────────
+   Mesma linguagem visual do popup acima (largura de celular, moldura fixa
+   com scroll interno), mas fica fixo na página em vez de sobrepor — a
+   página inteira É o preview, não tem "abrir"/"fechar". */
+.painel-preview-panel {
+  display: flex;
+  width: min(390px, 100%);
+  height: min(760px, 80vh);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.painel-preview-header {
+  flex: none;
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+
+.painel-preview-frame {
+  flex: 1;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.painel-preview-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.painel-card-ativo {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
 /* ── Acessibilidade ────────────────────────────────────────────────────────
    Foco visível de verdade (o anel padrão some em cima de vidro fosco), alvo
    mínimo de 44px em botão de ícone, e o atalho de pular navegação. */

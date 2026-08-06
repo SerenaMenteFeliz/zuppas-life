@@ -7,89 +7,44 @@ import { Vazio } from "@/components/ui";
    painel ganhou sidebar e uma segunda seção (Automações) que precisa do
    mesmo tipo de visualização (etapas em sequência, com queda entre elas) —
    sem isso, cada página reimplementaria o mesmo card. Virou "use client" em
-   04/08 pro card de etapa poder abrir o popup de preview ao vivo — o resto
-   do arquivo (CardMetrica, FunilEtapas) segue puramente apresentacional,
-   os dados continuam vindo prontos do Server Component pai. */
+   04/08 pro card de etapa poder abrir o popup de preview ao vivo, e ganhou
+   `onSelecionar` em 05/08 pra também servir de seletor do preview embutido
+   em FunilPreview.tsx (tela de detalhe). Os dados continuam vindo prontos
+   do Server Component pai. */
 
 export type EtapaContagem = { label: string; count: number };
 export type EtapaGaleria = { label: string; views: number };
-
-export function CardMetrica({
-  titulo,
-  principal,
-  principalRotulo,
-  principalNota,
-  secundario,
-  secundarioRotulo,
-  secundarioNota,
-}: {
-  titulo: string;
-  principal: number;
-  principalRotulo: string;
-  principalNota: string;
-  secundario: number;
-  secundarioRotulo: string;
-  secundarioNota: string;
-}) {
-  return (
-    <div className="glass-card p-5">
-      <h3 className="mb-4 text-lg" style={{ fontFamily: "var(--font-display)" }}>
-        {titulo}
-      </h3>
-      <div className="flex items-stretch gap-3">
-        <EtapaMetrica rotulo={principalRotulo} valor={principal} nota={principalNota} />
-        <SetaMetrica />
-        <EtapaMetrica rotulo={secundarioRotulo} valor={secundario} nota={secundarioNota} />
-      </div>
-    </div>
-  );
-}
-
-export function EtapaMetrica({ rotulo, valor, nota }: { rotulo: string; valor: number; nota: string }) {
-  return (
-    <div className="flex-1 rounded-2xl p-3 text-center" style={{ background: "var(--glass)" }}>
-      <p className="text-[0.7rem] uppercase tracking-widest" style={{ color: "var(--ink-soft)" }}>
-        {rotulo}
-      </p>
-      <p className="text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-        {valor}
-      </p>
-      <p className="text-[0.7rem]" style={{ color: "var(--ink-soft)" }}>
-        {nota}
-      </p>
-    </div>
-  );
-}
-
-export function SetaMetrica() {
-  return (
-    <div className="flex flex-none items-center" style={{ color: "var(--ink-soft)" }}>
-      →
-    </div>
-  );
-}
 
 /* Gallery view de uma linha só — um card por etapa, rolagem horizontal.
    Views totais, % do início (taxa de visualização), % de passagem pra
    próxima etapa e % de perda.
 
-   `previewUrls`, quando passado, torna cada card clicável: abre a etapa AO
+   `previewUrls`, quando passado, torna cada card clicável: leva a etapa AO
    VIVO (iframe pra dentro do site real, com o preview mode dele — ver
    quiz/index.html e assets/posthog-init.js no metodocalice-site), não um
    screenshot. É array de string (alinhado por índice com `etapas`), não
    função — Server Component não pode passar função como prop pra Client
-   Component (RSC serializa por JSON); o caller monta o array pronto,
-   inclusive quando etapas de natureza diferente precisam de URL diferente
-   (ex: as 18 telas do quiz + o card extra do material, ver funis/page.tsx).
-   `null`/posição faltando = card não clicável. */
+   Component (RSC serializa por JSON); o caller monta o array pronto.
+   `null`/posição faltando = card não clicável.
+
+   Dois modos de uso (05/08, quando o painel de funis virou lista + detalhe):
+   - `onSelecionar` informado (tela de detalhe) → clique troca o preview
+     GRANDE e fixo em cima (dono do estado é FunilPreview.tsx), o card fica
+     só como seletor, sem popup próprio.
+   - `onSelecionar` ausente (uso solto/futuro) → mantém o comportamento
+     antigo, abre um popup com o preview daquela etapa. */
 export function GaleriaFunil({
   etapas,
   vazio,
   previewUrls,
+  ativo,
+  onSelecionar,
 }: {
   etapas: EtapaGaleria[];
   vazio: string;
   previewUrls?: (string | null)[];
+  ativo?: number;
+  onSelecionar?: (indice: number) => void;
 }) {
   const [aberta, setAberta] = useState<{ url: string; label: string } | null>(null);
 
@@ -113,20 +68,27 @@ export function GaleriaFunil({
           const perda = passagem !== null ? 100 - passagem : null;
           const doTopo = (etapa.views / topo) * 100;
           const url = previewUrls?.[i] ?? undefined;
+          const selecionada = onSelecionar !== undefined && ativo === i;
+
+          const acionar = () => {
+            if (!url) return;
+            if (onSelecionar) onSelecionar(i);
+            else setAberta({ url, label: etapa.label });
+          };
 
           return (
             <div
               key={`${etapa.label}-${i}`}
-              className={`glass-card w-[168px] flex-none p-4${url ? " painel-card-clicavel" : ""}`}
+              className={`glass-card w-[168px] flex-none p-4${url ? " painel-card-clicavel" : ""}${selecionada ? " painel-card-ativo" : ""}`}
               {...(url
                 ? {
                     role: "button" as const,
                     tabIndex: 0,
-                    onClick: () => setAberta({ url, label: etapa.label }),
+                    onClick: acionar,
                     onKeyDown: (e: ReactKeyboardEvent) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setAberta({ url, label: etapa.label });
+                        acionar();
                       }
                     },
                   }
@@ -164,7 +126,7 @@ export function GaleriaFunil({
 
               {url && (
                 <p className="mt-3 text-[0.65rem] font-semibold" style={{ color: "var(--accent)" }}>
-                  Ver ao vivo →
+                  {onSelecionar ? (selecionada ? "Vendo agora" : "Ver aqui →") : "Ver ao vivo →"}
                 </p>
               )}
             </div>
@@ -172,7 +134,7 @@ export function GaleriaFunil({
         })}
       </div>
 
-      {aberta && <PreviewAoVivo url={aberta.url} label={aberta.label} onFechar={() => setAberta(null)} />}
+      {!onSelecionar && aberta && <PreviewAoVivo url={aberta.url} label={aberta.label} onFechar={() => setAberta(null)} />}
     </>
   );
 }
