@@ -1098,3 +1098,460 @@ textarea {
   .linha, .ancora, .aba, .nav-item, .chave, .chave-bolinha,
   .tracker-preenchido, .faixa-bloco { transition: none; }
 }
+
+/* ── Painel de Conteúdo (11/08/2026) ─────────────────────────────────────────
+   Vive só dentro de /painel, herda o .theme-painel (claro/roxo). Nada aqui
+   usa hex fixo: o achado da revisão de 04/08 foi exatamente que badge com cor
+   travada sobrevive a uma troca de tema por coincidência de contraste, não
+   porque segue o tema. Tudo abaixo sai de var(). */
+
+.conteudo-ponto {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 9999px;
+  margin-right: 0.35rem;
+}
+
+/* Criar post é uma linha só, sempre no topo: capturar ideia tem que ser mais
+   barato que qualquer outra ação da tela, senão a ideia vai pro bloco de notas
+   do celular e nunca chega aqui. */
+.conteudo-novo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+}
+
+.conteudo-novo-titulo {
+  flex: 1 1 320px;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.conteudo-select,
+.conteudo-select-status {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.conteudo-select-status {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.conteudo-botao {
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-foreground);
+  background: var(--accent);
+  border-radius: 9px;
+  transition: opacity 0.15s ease;
+}
+
+.conteudo-botao:hover {
+  opacity: 0.88;
+}
+
+.conteudo-botao:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.conteudo-excluir {
+  font-size: 0.75rem;
+  color: var(--terracotta);
+}
+
+.conteudo-excluir:hover {
+  text-decoration: underline;
+}
+
+.conteudo-erro {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.78rem;
+  color: var(--terracotta);
+  background: color-mix(in srgb, var(--terracotta) 10%, transparent);
+  border-radius: 9px;
+}
+
+.conteudo-vazio-inline {
+  padding: 1rem 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+/* ── Quadro ── */
+
+/* Rolagem horizontal em vez de colunas encolhendo: com seis status, espremer
+   pra caber deixaria cada card com duas palavras por linha. Rolar é o
+   comportamento que todo quadro tem, e o painel é desktop por decisão. */
+.conteudo-quadro {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(230px, 1fr);
+  gap: 0.9rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+}
+
+.conteudo-coluna {
+  min-width: 0;
+  padding: 0.75rem;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+}
+
+.conteudo-coluna-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.conteudo-coluna-titulo {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.conteudo-coluna-contagem {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.conteudo-coluna-ajuda {
+  margin: 0.15rem 0 0.75rem;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.conteudo-coluna-vazia {
+  padding: 0.5rem 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.conteudo-card {
+  padding: 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.conteudo-card:hover {
+  border-color: var(--glass-border);
+}
+
+.conteudo-card-titulo {
+  display: block;
+  font-size: 0.84rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.conteudo-card-titulo:hover {
+  color: var(--accent);
+}
+
+.conteudo-card-meta,
+.conteudo-card-rodape {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+}
+
+.conteudo-card-rodape {
+  justify-content: space-between;
+}
+
+.conteudo-card-sep {
+  opacity: 0.5;
+}
+
+/* ── Calendário ── */
+
+.conteudo-calendario {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.conteudo-cal-cabecalho {
+  padding: 0.45rem 0.5rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--surface);
+}
+
+.conteudo-cal-celula {
+  min-height: 96px;
+  padding: 0.35rem;
+  background: var(--surface);
+}
+
+.conteudo-cal-fora {
+  background: var(--bg);
+}
+
+.conteudo-cal-fora .conteudo-cal-numero {
+  opacity: 0.4;
+}
+
+.conteudo-cal-hoje {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.conteudo-cal-numero {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+}
+
+.conteudo-cal-post {
+  display: block;
+  margin-bottom: 0.2rem;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: var(--ink);
+  background: var(--accent-wash);
+  border-left: 3px solid var(--ink-soft);
+  border-radius: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conteudo-cal-post:hover {
+  background: var(--accent-wash-strong);
+}
+
+/* Post já publicado fica riscado: assim o calendário é registro do que saiu,
+   não só previsão do que sai. */
+.conteudo-cal-post-feito {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+/* ── Formulário e roteiro ── */
+
+.conteudo-grade {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.conteudo-campo {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+.conteudo-campo-largo {
+  grid-column: span 2;
+}
+
+.conteudo-campo-total {
+  grid-column: 1 / -1;
+}
+
+.conteudo-campo input,
+.conteudo-campo select,
+.conteudo-campo textarea {
+  width: 100%;
+  padding: 0.42rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.conteudo-campo textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.conteudo-campo input:focus,
+.conteudo-campo select:focus,
+.conteudo-campo textarea:focus,
+.conteudo-fala-texto:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (max-width: 1000px) {
+  .conteudo-grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.conteudo-roteiro-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.conteudo-fala {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.conteudo-fala-lateral {
+  display: flex;
+  flex: none;
+  width: 1.9rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding-top: 0.35rem;
+}
+
+.conteudo-fala-numero {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+.conteudo-fala-gravada input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--sage);
+}
+
+.conteudo-fala-texto {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.conteudo-fala-texto:hover {
+  border-color: var(--line);
+}
+
+.conteudo-fala-linha {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.conteudo-cena {
+  min-width: 0;
+  flex: 1;
+}
+
+.conteudo-cena-resumo {
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  background: var(--accent-wash);
+  border-radius: 7px;
+  list-style: none;
+}
+
+.conteudo-cena-resumo::-webkit-details-marker {
+  display: none;
+}
+
+.conteudo-cena-campos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  background: var(--bg);
+  border-radius: 9px;
+}
+
+@media (max-width: 900px) {
+  .conteudo-cena-campos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.conteudo-fala-acoes {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.conteudo-mini {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  border-radius: 6px;
+}
+
+.conteudo-mini:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+
+.conteudo-metrica-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.conteudo-metrica-form .conteudo-campo {
+  width: 92px;
+}
+
+.conteudo-metrica-form .conteudo-campo:first-of-type {
+  width: 140px;
+}

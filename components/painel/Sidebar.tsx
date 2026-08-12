@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Funil, Raio } from "@/components/icones";
+import { Claquete, Funil, Raio } from "@/components/icones";
 
 /* Sidebar do painel interno — só pro Yan (ver middleware.ts). Diferente da
    Nav da família (5 destinos fixos, barra embaixo no celular): aqui é
@@ -12,6 +12,7 @@ import { Funil, Raio } from "@/components/icones";
 const DESTINOS = [
   { href: "/painel/funis", rotulo: "Funis", Icone: Funil },
   { href: "/painel/automacoes", rotulo: "Automações", Icone: Raio },
+  { href: "/painel/conteudo", rotulo: "Conteúdo", Icone: Claquete },
 ];
 
 export default function Sidebar() {

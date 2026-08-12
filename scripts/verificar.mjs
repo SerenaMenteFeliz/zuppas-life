@@ -37,6 +37,7 @@ try {
       "lib/agenda.ts",
       "lib/dados.ts",
       "lib/texto.ts",
+      "lib/conteudo-calendario.ts",
       "--outDir",
       saida,
       "--module",
@@ -81,6 +82,9 @@ try {
   const { diaDaSemana, inicioDaSemana, diasDaSemana, haQuantoTempo, porExtenso } =
     await import(pathToFileURL(join(saida, "datas.js")).href);
   const { interpretar } = await import(pathToFileURL(join(saida, "texto.js")).href);
+  const { gradeDoMes, deslocarMes, mesValido } = await import(
+    pathToFileURL(join(saida, "conteudo-calendario.js")).href
+  );
   const { ITENS, PENDENCIAS, COMPROMISSOS, VOLTA_ANDRE, VOLTA_AKIANE } =
     await import(pathToFileURL(join(saida, "dados.js")).href);
   const { faixaDe, PESSOAS } = await import(
@@ -274,6 +278,33 @@ try {
     interpretar("amanhã ligar pro médico", HOJE).titulo === "ligar pro médico",
     interpretar("amanhã ligar pro médico", HOJE).titulo
   );
+
+  console.log("\n── Calendário do painel de conteúdo ───────────────────");
+  /* Grade de mês erra por um dia sem nada acusar, e o efeito é a Ge ver o post
+     no dia errado. Os casos abaixo são as três armadilhas clássicas: mês que
+     começa exatamente na segunda (nada de recuo), mês que começa no domingo
+     (recuo de 6, o máximo) e fevereiro. */
+  const agosto = gradeDoMes("2026-08");
+  ok("agosto/2026 cabe em 6 semanas de 7 dias", agosto.length === 6 && agosto.every((s) => s.length === 7));
+  ok("a grade começa numa segunda", agosto[0][0].iso === "2026-07-27", agosto[0][0].iso);
+  ok("todo dia do mês aparece uma vez", agosto.flat().filter((c) => c.doMes).length === 31);
+  ok("dia de fora vem marcado", agosto[0][0].doMes === false);
+
+  const marco = gradeDoMes("2026-03"); // 2026-03-01 é domingo: recuo máximo
+  ok("mês que começa no domingo recua 6 dias", marco[0][0].iso === "2026-02-23", marco[0][0].iso);
+  ok("março tem 31 dias na grade", marco.flat().filter((c) => c.doMes).length === 31);
+
+  const junho = gradeDoMes("2026-06"); // 2026-06-01 é segunda: sem recuo
+  ok("mês que começa na segunda não recua", junho[0][0].iso === "2026-06-01", junho[0][0].iso);
+
+  ok("fevereiro de ano comum tem 28", gradeDoMes("2026-02").flat().filter((c) => c.doMes).length === 28);
+  ok("fevereiro bissexto tem 29", gradeDoMes("2028-02").flat().filter((c) => c.doMes).length === 29);
+
+  ok("virada de ano pra frente", deslocarMes("2026-12", 1) === "2027-01", deslocarMes("2026-12", 1));
+  ok("virada de ano pra trás", deslocarMes("2026-01", -1) === "2025-12", deslocarMes("2026-01", -1));
+  ok("mês inválido na URL cai no mês de referência", mesValido("banana", "2026-08-11") === "2026-08");
+  ok("mês 13 é recusado", mesValido("2026-13", "2026-08-11") === "2026-08");
+  ok("mês válido na URL é respeitado", mesValido("2026-05", "2026-08-11") === "2026-05");
 
   console.log(
     falhas.length

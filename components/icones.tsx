@@ -254,3 +254,15 @@ export function Raio({ className }: Props) {
     </svg>
   );
 }
+
+/* Claquete — o painel de conteúdo. Vídeo curto é o formato central da rede de
+   perfis, então o ícone fala da gravação, não de "documento". */
+export function Claquete({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <path d="M3 9.5h18V19a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 19z" />
+      <path d="M3 9.5l1.4-4.3a1.5 1.5 0 011.9-1l13.3 3.4a1.5 1.5 0 011 1.9z" />
+      <path d="M8.8 4.6L7.4 8.9M13.6 5.8l-1.4 4.3M18.4 7l-1.4 4.3" />
+    </svg>
+  );
+}
