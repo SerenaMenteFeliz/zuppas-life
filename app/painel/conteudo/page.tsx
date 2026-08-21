@@ -87,7 +87,13 @@ export default async function ConteudoPage({
         </nav>
 
         <div className="flex flex-wrap items-center gap-2">
-          <FiltroPerfil valor={perfilFiltro} href={(perfil) => link({ perfil })} />
+          <FiltroPerfil
+            valor={perfilFiltro}
+            opcoes={[
+              { id: "", rotulo: "Todos", href: link({ perfil: undefined }) },
+              ...PERFIS.map((p) => ({ id: p.id, rotulo: p.dono, href: link({ perfil: p.id }) })),
+            ]}
+          />
 
           {/* Um clique e nada mais. O post nasce sem título e a tela seguinte
               abre com o campo focado. */}

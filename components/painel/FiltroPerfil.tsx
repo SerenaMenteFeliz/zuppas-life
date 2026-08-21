@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { PERFIS } from "@/lib/conteudo-tipos";
 
 /* Filtro de perfil como dropdown, não como fileira de chips (Yan, 21/08/2026).
 
@@ -12,13 +11,21 @@ import { PERFIS } from "@/lib/conteudo-tipos";
 
    O valor continua vivendo na URL (`?perfil=`), então compartilhar o link e o
    botão voltar seguem funcionando. A mudança é só de aparência, não de
-   comportamento. */
+   comportamento.
+
+   As opções chegam com o href já montado, em vez de este componente receber a
+   função que monta a URL: função não atravessa a fronteira servidor/cliente, e
+   passar uma derruba a página inteira com 500 (foi o que aconteceu no primeiro
+   deploy desta tela). Assim a regra de montar URL continua vivendo só na
+   página, e o que cruza a fronteira é texto. */
+export type OpcaoPerfil = { id: string; rotulo: string; href: string };
+
 export default function FiltroPerfil({
   valor,
-  href,
+  opcoes,
 }: {
   valor?: string;
-  href: (perfil?: string) => string;
+  opcoes: OpcaoPerfil[];
 }) {
   const router = useRouter();
 
@@ -28,12 +35,14 @@ export default function FiltroPerfil({
       <select
         className="conteudo-select"
         value={valor ?? ""}
-        onChange={(e) => router.push(href(e.target.value || undefined))}
+        onChange={(e) => {
+          const escolhida = opcoes.find((o) => o.id === e.target.value);
+          if (escolhida) router.push(escolhida.href);
+        }}
       >
-        <option value="">Todos</option>
-        {PERFIS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.dono}
+        {opcoes.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.rotulo}
           </option>
         ))}
       </select>
