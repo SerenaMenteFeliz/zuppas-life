@@ -41,23 +41,31 @@ function numero(fd: FormData, campo: string): number | null {
    Bug real pego testando ao vivo em 11/08 às 23h35: marcar o post como
    "postado" carimbou data_publicada = 12/08, porque em UTC o dia já tinha
    virado. Efeito prático: todo post marcado depois das 21h de Brasília cairia
-   no dia seguinte no calendário — e postar à noite é o normal, não a exceção.
+   no dia seguinte no calendário, e postar à noite é o normal, não a exceção.
    É exatamente o deslocamento que lib/datas.ts existe pra resolver. */
 
 function statusValido(v: unknown): Status {
   return STATUS.includes(v as Status) ? (v as Status) : "ideia";
 }
 
-export async function criarPostAcao(fd: FormData) {
-  const titulo = texto(fd, "titulo");
-  const perfil = texto(fd, "perfil");
-  if (!titulo || !perfil) return;
+/* "Criar" é um clique só e nada mais (Yan, 21/08/2026). Antes era escrever o
+   título, escolher perfil, escolher formato e só então criar: quatro gestos na
+   frente de quem só quer anotar uma ideia antes de esquecer.
 
-  const post = await criarPost({ titulo, perfil, formato: texto(fd, "formato") });
+   O post nasce sem título e a tela de detalhe abre com o campo vazio e focado,
+   onde ela escreve título, perfil, formato e já o roteiro no mesmo lugar.
+   Custo assumido: clicar e sair deixa um "Sem título" no quadro. É barato de
+   apagar e melhor que perder a ideia por causa de um formulário.
+
+   O perfil vem do filtro ativo quando existe: filtrando por Ge e criando dali,
+   o post nasce dela. */
+export async function criarPostAcao(fd: FormData) {
+  const post = await criarPost({
+    titulo: "",
+    perfil: texto(fd, "perfil") ?? "geovana",
+    formato: null,
+  });
   revalidatePath("/painel/conteudo");
-  /* Vai direto pro detalhe: quem acabou de anotar uma ideia quase sempre quer
-     escrever o roteiro agora, e voltar pro quadro só pra clicar no card que
-     acabou de criar é passo perdido. */
   redirect("/painel/conteudo/" + post.id);
 }
 
@@ -69,7 +77,7 @@ export async function salvarDadosAcao(fd: FormData) {
 
   /* Carimba a data de publicação sozinho quando o status vira "postado" e
      ninguém preencheu a data. Sem isso o calendário perde o post exatamente
-     no momento em que ele passa a ser o dado mais importante — o que de fato
+     no momento em que ele passa a ser o dado mais importante, que é o que de fato
      saiu. Se a pessoa preencheu à mão, a mão manda. */
   let dataPublicada = texto(fd, "data_publicada");
   if (status === "postado" && !dataPublicada) {
@@ -77,7 +85,10 @@ export async function salvarDadosAcao(fd: FormData) {
   }
 
   await atualizarPost(id, {
-    titulo: texto(fd, "titulo") ?? "Sem título",
+    /* Vazio continua vazio, e quem exibe resolve com tituloDe(). Carimbar
+       "Sem título" aqui gravaria no banco um texto que ninguém escreveu, e
+       depois ela teria que apagar isso pra dar o nome de verdade. */
+    titulo: texto(fd, "titulo") ?? "",
     perfil: texto(fd, "perfil") ?? "liz",
     formato: texto(fd, "formato"),
     pilar: texto(fd, "pilar"),
@@ -170,8 +181,9 @@ export async function excluirMetricaAcao(id: string, postId: string) {
   revalidatePath("/painel/conteudo/" + postId);
 }
 
-export async function excluirPostAcao(fd: FormData) {
-  const id = texto(fd, "id");
+/* Recebe o id direto, e não FormData: desde 21/08 quem chama é o botão de
+   confirmação em dois passos, que não é um `<form>`. */
+export async function excluirPostAcao(id: string) {
   if (!id) return;
   await excluirPost(id);
   revalidatePath("/painel/conteudo");

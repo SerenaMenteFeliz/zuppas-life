@@ -8,13 +8,14 @@ import {
   STATUS_QUADRO,
   dataDoPost,
   perfilPorId,
+  tituloDe,
   type Post,
   type Status,
 } from "@/lib/conteudo-tipos";
 
 type Contagem = { total: number; gravadas: number };
 
-/* Quadro por status — a visão que responde "onde cada coisa travou".
+/* Quadro por status, a visão que responde "onde cada coisa travou".
 
    O status é trocável direto no card, sem abrir o post: mover coisa de coluna
    é o gesto mais frequente do quadro, e obrigar a abrir/salvar/voltar pra cada
@@ -62,7 +63,7 @@ function Card({ post, contagem }: { post: Post; contagem?: Contagem }) {
   return (
     <article className="conteudo-card" style={{ opacity: pendente ? 0.5 : 1 }}>
       <Link href={"/painel/conteudo/" + post.id} className="conteudo-card-titulo">
-        {post.titulo}
+        {tituloDe(post)}
       </Link>
 
       <div className="conteudo-card-meta">
@@ -82,7 +83,7 @@ function Card({ post, contagem }: { post: Post; contagem?: Contagem }) {
       </div>
 
       <select
-        aria-label={"Status de " + post.titulo}
+        aria-label={"Status de " + tituloDe(post)}
         className="conteudo-select-status"
         value={post.status}
         disabled={pendente}

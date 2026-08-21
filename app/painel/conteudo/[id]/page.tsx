@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ConfirmarAcao from "@/components/painel/ConfirmarAcao";
 import RoteiroEditor from "@/components/painel/RoteiroEditor";
 import { carregarFalas, carregarMetricas, carregarPost } from "@/lib/conteudo";
 import {
@@ -9,6 +10,7 @@ import {
   PRODUTOS,
   STATUS,
   STATUS_INFO,
+  tituloDe,
   type Metrica,
   type Status,
 } from "@/lib/conteudo-tipos";
@@ -17,7 +19,7 @@ import { excluirPostAcao, salvarDadosAcao, salvarMetricaAcao } from "../acoes";
 
 /* Detalhe do post: os dados, o roteiro e as métricas.
 
-   A ordem da página é a ordem do trabalho — primeiro o que é o post, depois o
+   A ordem da página é a ordem do trabalho: primeiro o que é o post, depois o
    que vai ser falado, por último o que aconteceu depois de publicar. */
 
 export const dynamic = "force-dynamic";
@@ -45,7 +47,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
 
      Achado testando ao vivo (11/08): o upsert é por linha inteira, então
      registrar de novo no mesmo dia preenchendo só "views" zerava alcance,
-     salvos e seguidores — perda de dado silenciosa, o oposto do que o resto
+     salvos e seguidores, perda de dado silenciosa, o oposto do que o resto
      desta seção foi desenhado pra evitar. Prefiro resolver mostrando o que já
      está gravado a fazer merge parcial escondido no servidor: assim a pessoa
      VÊ os números da coleta de hoje e corrige o que quiser, em vez de
@@ -60,8 +62,15 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
           ‹ Conteúdo
         </Link>
         <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
-          <h1 className="text-3xl" style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}>
-            {post.titulo}
+          <h1
+            className="text-3xl"
+            style={{
+              fontFamily: "var(--font-display)",
+              lineHeight: 1.1,
+              opacity: post.titulo.trim() === "" ? 0.45 : 1,
+            }}
+          >
+            {tituloDe(post)}
           </h1>
           <span className="painel-badge">{STATUS_INFO[post.status as Status]?.rotulo ?? post.status}</span>
         </div>
@@ -73,7 +82,16 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         <div className="conteudo-grade">
           <label className="conteudo-campo conteudo-campo-largo">
             <span>Título</span>
-            <input type="text" name="titulo" defaultValue={post.titulo} required />
+            {/* Post recém-criado chega aqui sem título e com o campo já focado:
+                "Criar" é um clique só, e escrever o nome é o primeiro gesto
+                seguinte. Em post que já tem nome não rouba o foco. */}
+            <input
+              type="text"
+              name="titulo"
+              defaultValue={post.titulo}
+              placeholder="Sobre o que é esse post?"
+              autoFocus={post.titulo.trim() === ""}
+            />
           </label>
 
           <label className="conteudo-campo">
@@ -195,8 +213,8 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         <p className="mb-4 text-xs" style={{ color: "var(--ink-soft)" }}>
           Uma linha por coleta, não um número só: reel continua rendendo por semanas, e o que
           interessa é a curva. Coletar de novo no mesmo dia corrige a linha em vez de duplicar.
-          Entrada manual por enquanto — a API do Instagram exige conta Business ligada a uma Página,
-          revisão da Meta e um piso de seguidores.
+          Entrada manual por enquanto, porque a API do Instagram exige conta Business ligada a uma
+          Página, revisão da Meta e um piso de seguidores.
         </p>
 
         {metricas.length > 0 && (
@@ -254,12 +272,25 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         </form>
       </div>
 
-      <form action={excluirPostAcao} className="mb-10">
-        <input type="hidden" name="id" value={post.id} />
-        <button type="submit" className="conteudo-excluir">
-          Excluir este post
-        </button>
-      </form>
+      <div className="mb-10">
+        <ConfirmarAcao
+          aoConfirmar={async () => {
+            "use server";
+            await excluirPostAcao(post.id);
+          }}
+          rotulo="Excluir este post"
+          pergunta={
+            "Apagar “" +
+            tituloDe(post) +
+            "” de vez? O roteiro" +
+            (falas.length > 0 ? " (" + falas.length + (falas.length === 1 ? " fala" : " falas") + ")" : "") +
+            " e o histórico de métricas" +
+            (metricas.length > 0 ? " (" + metricas.length + ")" : "") +
+            " vão junto, e não tem como desfazer."
+          }
+          confirmacao="Sim, apagar"
+        />
+      </div>
     </div>
   );
 }

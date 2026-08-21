@@ -1114,29 +1114,17 @@ textarea {
   margin-right: 0.35rem;
 }
 
-/* Criar post é uma linha só, sempre no topo: capturar ideia tem que ser mais
-   barato que qualquer outra ação da tela, senão a ideia vai pro bloco de notas
-   do celular e nunca chega aqui. */
-.conteudo-novo {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  padding: 0.75rem;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
+/* Filtro de perfil: rótulo e dropdown na mesma caixa, pra ler como um controle
+   só em vez de duas coisas soltas ao lado do botão de criar. */
+.conteudo-filtro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
-.conteudo-novo-titulo {
-  flex: 1 1 320px;
-  min-width: 0;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 9px;
+.conteudo-filtro > span {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
 }
 
 .conteudo-select,
@@ -1182,6 +1170,93 @@ textarea {
 
 .conteudo-excluir:hover {
   text-decoration: underline;
+}
+
+/* ── Confirmação de exclusão ──
+   A pergunta nasce no lugar do botão, não num diálogo do navegador: assim ela
+   pode dizer o que exatamente vai sumir (quantas falas, quantas coletas) e o
+   dedo já está onde precisa clicar. O "cancelar" é o botão sólido e o "apagar"
+   é o discreto, de propósito — o caminho fácil tem que ser o que não destrói. */
+.conteudo-confirma {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 560px;
+  padding: 0.7rem 0.85rem;
+  background: color-mix(in srgb, var(--terracotta) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--terracotta) 35%, transparent);
+  border-radius: 11px;
+}
+
+.conteudo-confirma-pergunta {
+  flex: 1 1 240px;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.conteudo-confirma-botoes {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.conteudo-confirma-sim,
+.conteudo-confirma-nao {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.conteudo-confirma-sim {
+  color: var(--terracotta);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--terracotta) 45%, transparent);
+}
+
+.conteudo-confirma-sim:hover {
+  color: var(--surface);
+  background: var(--terracotta);
+}
+
+.conteudo-confirma-sim:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.conteudo-confirma-nao {
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.conteudo-confirma-nao:hover {
+  background: var(--bg);
+}
+
+/* Dentro da fala a confirmação é uma faixa, não uma caixa: a linha do roteiro
+   já é estreita e uma caixa flutuando ali empurraria as falas de baixo. */
+.conteudo-fala-confirma {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.76rem;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--terracotta) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--terracotta) 30%, transparent);
+  border-radius: 9px;
+}
+
+.conteudo-fala-confirma > span {
+  flex: 1 1 auto;
 }
 
 .conteudo-erro {

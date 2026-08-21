@@ -2,21 +2,22 @@ import Link from "next/link";
 import { Vazio } from "@/components/ui";
 import ConteudoQuadro from "@/components/painel/ConteudoQuadro";
 import ConteudoCalendario from "@/components/painel/ConteudoCalendario";
+import FiltroPerfil from "@/components/painel/FiltroPerfil";
 import { contarFalas, listarPosts } from "@/lib/conteudo";
 import { mesValido } from "@/lib/conteudo-calendario";
 import {
-  FORMATOS,
   PERFIS,
   STATUS_INFO,
   dataDoPost,
   perfilPorId,
+  tituloDe,
   type Post,
   type Status,
 } from "@/lib/conteudo-tipos";
 import { hojeISO } from "@/lib/datas";
 import { criarPostAcao } from "./acoes";
 
-/* Painel de Conteúdo (11/08/2026) — a metade esquerda do funil.
+/* Painel de Conteúdo (11/08/2026), a metade esquerda do funil.
 
    O /painel/funis só enxerga a partir de "visitou o quiz": tudo que acontece
    antes (que post levou a pessoa até a bio) era cego. Esta seção é onde o
@@ -85,60 +86,22 @@ export default async function ConteudoPage({
           ))}
         </nav>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
-            Perfil:
-          </span>
-          <Link href={link({ perfil: undefined })} className={"chip" + (!perfilFiltro ? " chip-ativo" : "")}>
-            todos
-          </Link>
-          {PERFIS.map((p) => (
-            <Link
-              key={p.id}
-              href={link({ perfil: p.id })}
-              className={"chip" + (p.id === perfilFiltro ? " chip-ativo" : "")}
-            >
-              <span className="conteudo-ponto" style={{ background: p.cor }} />
-              {p.dono}
-            </Link>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <FiltroPerfil valor={perfilFiltro} href={(perfil) => link({ perfil })} />
+
+          {/* Um clique e nada mais. O post nasce sem título e a tela seguinte
+              abre com o campo focado. */}
+          <form action={criarPostAcao}>
+            <input type="hidden" name="perfil" value={perfilFiltro ?? "geovana"} />
+            <button type="submit" className="conteudo-botao">
+              + Criar
+            </button>
+          </form>
         </div>
       </div>
 
-      <form action={criarPostAcao} className="conteudo-novo">
-        <input
-          type="text"
-          name="titulo"
-          required
-          placeholder="Ideia nova: sobre o que é esse post?"
-          className="conteudo-novo-titulo"
-        />
-        <select name="perfil" className="conteudo-select" defaultValue={perfilFiltro ?? "geovana"}>
-          {PERFIS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.rotulo}
-            </option>
-          ))}
-        </select>
-        <select name="formato" className="conteudo-select" defaultValue="">
-          <option value="">formato</option>
-          {FORMATOS.map((f) => (
-            <option key={f} value={f}>
-              {f}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="conteudo-botao">
-          Criar
-        </button>
-      </form>
-
       {todos.length === 0 ? (
-        <Vazio>
-          Nenhum post ainda. Se você já rodou o sql/0001_conteudo.sql no Supabase, é só criar o
-          primeiro acima. Se a caixa acima der erro ao criar, provavelmente a migration ainda não
-          foi aplicada.
-        </Vazio>
+        <Vazio>Nenhum post ainda. Aperte &ldquo;Criar&rdquo; para começar o primeiro.</Vazio>
       ) : visao === "quadro" ? (
         <ConteudoQuadro posts={posts} contagens={Object.fromEntries(contagens)} />
       ) : visao === "calendario" ? (
@@ -180,7 +143,7 @@ function Lista({
               <tr key={p.id}>
                 <td>
                   <Link href={"/painel/conteudo/" + p.id} style={{ color: "var(--accent)" }}>
-                    {p.titulo}
+                    {tituloDe(p)}
                   </Link>
                 </td>
                 <td>

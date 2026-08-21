@@ -126,6 +126,14 @@ export type Post = {
   atualizado_em: string;
 };
 
+/* Post recém-criado nasce sem título de propósito (21/08/2026): "Criar" é um
+   clique só, e o campo abre vazio e focado na tela de detalhe pra escrever
+   direto. Como o banco guarda string vazia e não NULL, quem exibe título
+   precisa passar por aqui, senão o quadro mostra um card sem nada clicável. */
+export function tituloDe(p: { titulo: string }): string {
+  return p.titulo.trim() === "" ? "Sem título" : p.titulo;
+}
+
 export type Metrica = {
   id: string;
   post_id: string;

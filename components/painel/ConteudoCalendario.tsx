@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { DIAS_DA_SEMANA, deslocarMes, gradeDoMes, rotuloDoMes } from "@/lib/conteudo-calendario";
-import { dataDoPost, perfilPorId, type Post } from "@/lib/conteudo-tipos";
+import { dataDoPost, perfilPorId, tituloDe, type Post } from "@/lib/conteudo-tipos";
 
-/* Calendário do mês — "o que já saiu e o que vai sair", numa olhada.
+/* Calendário do mês: "o que já saiu e o que vai sair", numa olhada.
 
    Sem componente de cliente: navegar mês é link com query string, não estado.
    Assim a URL do mês é compartilhável e o botão voltar do navegador funciona,
@@ -74,13 +74,13 @@ export default function ConteudoCalendario({
                     key={p.id}
                     href={"/painel/conteudo/" + p.id}
                     className="conteudo-cal-post"
-                    title={p.titulo + " — " + (perfil?.rotulo ?? p.perfil)}
+                    title={tituloDe(p) + " · " + (perfil?.rotulo ?? p.perfil)}
                     style={{ borderLeftColor: perfil?.cor ?? "var(--ink-soft)" }}
                   >
                     <span
                       className={p.status === "postado" ? "conteudo-cal-post-feito" : undefined}
                     >
-                      {p.titulo}
+                      {tituloDe(p)}
                     </span>
                   </Link>
                 );
@@ -108,7 +108,7 @@ export default function ConteudoCalendario({
                   className="conteudo-cal-post"
                   style={{ borderLeftColor: perfil?.cor ?? "var(--ink-soft)" }}
                 >
-                  {p.titulo}
+                  {tituloDe(p)}
                 </Link>
               );
             })}

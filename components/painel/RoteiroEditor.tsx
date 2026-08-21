@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { salvarRoteiroAcao } from "@/app/painel/conteudo/acoes";
 import { FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
 
-/* Editor do roteiro — o miolo do painel de conteúdo.
+/* Editor do roteiro, o miolo do painel de conteúdo.
 
    O roteiro é lista de falas porque a gravação é frase por frase (Yan, 11/08).
    Isso muda o que a tela é: não é um documento pra ler enquanto grava, é uma
@@ -29,12 +29,16 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
   const [sujo, setSujo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [abrirTodas, setAbrirTodas] = useState(false);
+  const [confirmando, setConfirmando] = useState<number | null>(null);
   const [salvando, iniciar] = useTransition();
 
   function mexer(proximo: Fala[]) {
     setFalas(proximo.map((f, i) => ({ ...f, ordem: i + 1 })));
     setSujo(true);
     setErro(null);
+    /* A confirmação é guardada por índice, e mover ou apagar reordena a lista:
+       sem limpar aqui, a pergunta ficaria apontando pra outra fala. */
+    setConfirmando(null);
   }
 
   function alterar(indice: number, campo: keyof Fala, valor: string | boolean) {
@@ -71,6 +75,25 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
     mexer(falas.filter((_, i) => i !== indice));
   }
 
+  /* Fala em branco some no clique: não há nada pra perder, e pedir confirmação
+     pra apagar o vazio ensina a clicar em "sim" sem ler, que é justamente o
+     que estraga a confirmação onde ela importa. Fala escrita pergunta. */
+  function pedirRemover(indice: number) {
+    const f = falas[indice];
+    const escrita = [
+      f.texto,
+      f.enquadramento,
+      f.cenario,
+      f.acao,
+      f.broll,
+      f.texto_tela,
+      f.observacao,
+    ].some((v) => (v ?? "").trim() !== "");
+
+    if (!escrita) remover(indice);
+    else setConfirmando(indice);
+  }
+
   function salvar() {
     setErro(null);
     iniciar(async () => {
@@ -97,7 +120,10 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
           <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
             {falas.length === 0
               ? "nenhuma fala ainda"
-              : falas.length + " falas · " + gravadas + (gravadas === 1 ? " gravada" : " gravadas")}
+              : falas.length +
+                (falas.length === 1 ? " fala · " : " falas · ") +
+                gravadas +
+                (gravadas === 1 ? " gravada" : " gravadas")}
           </span>
         </div>
 
@@ -208,6 +234,32 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
                   </div>
                 </details>
               </div>
+
+              {confirmando === i && (
+                <div
+                  className="conteudo-fala-confirma"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setConfirmando(null);
+                  }}
+                >
+                  <span>Apagar esta fala?</span>
+                  <button
+                    type="button"
+                    className="conteudo-confirma-sim"
+                    onClick={() => remover(i)}
+                  >
+                    Apagar
+                  </button>
+                  <button
+                    type="button"
+                    className="conteudo-confirma-nao"
+                    autoFocus
+                    onClick={() => setConfirmando(null)}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="conteudo-fala-acoes">
@@ -217,7 +269,12 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
               <button type="button" className="conteudo-mini" title="descer" onClick={() => mover(i, 1)}>
                 ↓
               </button>
-              <button type="button" className="conteudo-mini" title="remover" onClick={() => remover(i)}>
+              <button
+                type="button"
+                className="conteudo-mini"
+                title="remover"
+                onClick={() => pedirRemover(i)}
+              >
                 ×
               </button>
             </div>
@@ -229,7 +286,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
 }
 
 /* O resumo é o que fica visível com a cena fechada. Se nada foi planejado, ele
-   diz isso em vez de mostrar um triângulo mudo — cena vazia num roteiro pronto
+   diz isso em vez de mostrar um triângulo mudo: cena vazia num roteiro pronto
    pra gravar é informação, não ausência de informação. */
 function resumoDaCena(f: Fala): string {
   const partes = [f.enquadramento, f.cenario, f.acao, f.broll, f.texto_tela].filter(
