@@ -10,6 +10,13 @@ import type { Fala, Metrica, Post } from "@/lib/conteudo-tipos";
    este arquivo. Se query de conteúdo começar a nascer solta nas telas, essa
    saída se fecha sem ninguém perceber. */
 
+/* Latência: este banco fica em São Paulo, e por isso `vercel.json` fixa as
+   funções em `gru1`. Sem esse arquivo a Vercel usa o padrão dela (`iad1`,
+   Washington) e toda query daqui atravessa o hemisfério duas vezes — medido em
+   21/08/2026: 0,75s a 2,5s de TTFB no painel de conteúdo contra 0,04s numa
+   página estática, com UM post no banco. O `vercel.json` não aceita comentário,
+   então o motivo mora aqui. Se um dia o banco mudar de região, os dois mudam
+   juntos. */
 function rest() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -47,16 +54,21 @@ async function ler<T>(path: string): Promise<T[]> {
   return resp.json();
 }
 
+/* `prefer` é parâmetro porque escrita em lote quer duas coisas que a escrita
+   avulsa não quer: `resolution=merge-duplicates` (upsert) e `return=minimal`
+   (não trazer de volta as linhas gravadas). Num roteiro de 40 falas a
+   representação de volta é o maior corpo da requisição inteira, e ninguém lê. */
 async function escrever<T>(
   path: string,
   metodo: "POST" | "PATCH" | "DELETE",
   corpo?: unknown,
+  prefer = "return=representation",
 ): Promise<T[]> {
   const cfg = rest();
   if (!cfg) throw new Error(SEM_CHAVE);
   const resp = await fetch(cfg.url + "/" + path, {
     method: metodo,
-    headers: headers(cfg.key, { Prefer: "return=representation" }),
+    headers: headers(cfg.key, { Prefer: prefer }),
     body: corpo === undefined ? undefined : JSON.stringify(corpo),
     cache: "no-store",
   });
@@ -155,27 +167,51 @@ export async function excluirPost(id: string): Promise<void> {
     gravação. Então as que têm id viram PATCH, as novas viram POST, e as que
     sumiram da tela viram DELETE. */
 export async function salvarRoteiro(postId: string, falas: Fala[]): Promise<void> {
-  const existentes = await carregarFalas(postId);
-  const idsNaTela = new Set(falas.map((f) => f.id).filter(Boolean) as string[]);
-
-  for (const f of existentes) {
-    if (f.id && !idsNaTela.has(f.id)) {
-      await escrever("conteudo_falas?id=eq." + f.id, "DELETE");
-    }
-  }
-
-  for (const f of falas) {
-    if (f.id) await escrever("conteudo_falas?id=eq." + f.id, "PATCH", corpoFala(f));
-  }
-
+  const comId = falas.filter((f) => f.id);
   const novas = falas.filter((f) => !f.id);
-  if (novas.length > 0) {
-    await escrever(
-      "conteudo_falas",
-      "POST",
-      novas.map((f) => ({ post_id: postId, ...corpoFala(f) })),
-    );
-  }
+  const idsNaTela = comId.map((f) => f.id as string);
+
+  /* No máximo 3 requisições, e esse número não muda se o roteiro tiver 5 ou 50
+     falas (achado em 21/08/2026).
+
+     Antes era uma leitura + um `await` por fala dentro de um `for`: roteiro de
+     12 falas virava 13 idas ao banco em fila, e o custo crescia junto com o
+     roteiro, que é justamente a parte que cresce. Era o clique mais lento do
+     painel inteiro.
+
+     A leitura prévia sumiu porque `id=not.in.(...)` já diz "apague o que não
+     está mais na tela" sem precisar descobrir antes o que existia. */
+  await escrever(
+    idsNaTela.length > 0
+      ? "conteudo_falas?post_id=eq." + postId + "&id=not.in.(" + idsNaTela.join(",") + ")"
+      : "conteudo_falas?post_id=eq." + postId,
+    "DELETE",
+    undefined,
+    "return=minimal",
+  );
+
+  /* O DELETE acima roda ANTES destas duas, nunca em paralelo: fala nova nasce
+     com id gerado pelo banco, que por definição não está em `idsNaTela`, então
+     um DELETE concorrente apagaria exatamente a fala recém-inserida. Estas
+     duas, entre si, tocam conjuntos disjuntos e podem ir juntas. */
+  await Promise.all([
+    comId.length > 0
+      ? escrever(
+          "conteudo_falas?on_conflict=id",
+          "POST",
+          comId.map((f) => ({ id: f.id, post_id: postId, ...corpoFala(f) })),
+          "resolution=merge-duplicates,return=minimal",
+        )
+      : null,
+    novas.length > 0
+      ? escrever(
+          "conteudo_falas",
+          "POST",
+          novas.map((f) => ({ post_id: postId, ...corpoFala(f) })),
+          "return=minimal",
+        )
+      : null,
+  ]);
 }
 
 function corpoFala(f: Fala) {
