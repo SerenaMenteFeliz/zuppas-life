@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /* Avisos do painel (21/08/2026): a resposta visível a uma ação que terminou.
 
@@ -47,39 +48,43 @@ export function avisarNaProxima(texto: string, tipo: "ok" | "erro" = "ok") {
 
 export default function Avisos() {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
+  const proximoId = useRef(1);
+  /* Este componente mora no layout do painel, que NÃO remonta quando o app
+     navega de uma tela pra outra: sem observar o caminho, o aviso guardado
+     antes de um redirect nunca seria lido (achado testando em 21/08/2026, o
+     "Post apagado" simplesmente não aparecia). */
+  const caminho = usePathname();
+
+  const receber = useCallback((texto: string, tipo: "ok" | "erro") => {
+    const id = proximoId.current++;
+    setAvisos((atuais) => [...atuais, { id, texto, tipo }]);
+    if (tipo === "ok") {
+      setTimeout(() => setAvisos((atuais) => atuais.filter((a) => a.id !== id)), 4000);
+    }
+  }, []);
 
   useEffect(() => {
-    let proximo = 1;
-
-    const receber = (texto: string, tipo: "ok" | "erro") => {
-      const id = proximo++;
-      setAvisos((atuais) => [...atuais, { id, texto, tipo }]);
-      if (tipo === "ok") {
-        setTimeout(() => setAvisos((atuais) => atuais.filter((a) => a.id !== id)), 4000);
-      }
-    };
-
     const ouvir = (e: Event) => {
       const d = (e as CustomEvent).detail as { texto: string; tipo: "ok" | "erro" };
       receber(d.texto, d.tipo);
     };
     window.addEventListener(EVENTO, ouvir);
+    return () => window.removeEventListener(EVENTO, ouvir);
+  }, [receber]);
 
+  useEffect(() => {
     /* Aviso que atravessou uma navegação. Lido e apagado no mesmo gesto, senão
        reaparece a cada visita à página. */
     try {
       const guardado = sessionStorage.getItem(GUARDADO);
-      if (guardado) {
-        sessionStorage.removeItem(GUARDADO);
-        const d = JSON.parse(guardado) as { texto: string; tipo: "ok" | "erro" };
-        receber(d.texto, d.tipo);
-      }
+      if (!guardado) return;
+      sessionStorage.removeItem(GUARDADO);
+      const d = JSON.parse(guardado) as { texto: string; tipo: "ok" | "erro" };
+      receber(d.texto, d.tipo);
     } catch {
-      /* idem */
+      /* Aba anônima ou storage bloqueado: perder o aviso é aceitável. */
     }
-
-    return () => window.removeEventListener(EVENTO, ouvir);
-  }, []);
+  }, [caminho, receber]);
 
   if (avisos.length === 0) return null;
 
