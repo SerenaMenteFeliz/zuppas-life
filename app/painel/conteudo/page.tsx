@@ -4,7 +4,7 @@ import ConteudoQuadro from "@/components/painel/ConteudoQuadro";
 import ConteudoCalendario from "@/components/painel/ConteudoCalendario";
 import FiltroPerfil from "@/components/painel/FiltroPerfil";
 import { contarFalas, listarPosts } from "@/lib/conteudo";
-import { mesValido } from "@/lib/conteudo-calendario";
+import { mesValido, semanaValida } from "@/lib/conteudo-calendario";
 import {
   PERFIS,
   STATUS_INFO,
@@ -30,7 +30,7 @@ import { criarPostAcao } from "./acoes";
 
 export const dynamic = "force-dynamic";
 
-type Busca = { v?: string; perfil?: string; mes?: string };
+type Busca = { v?: string; perfil?: string; mes?: string; semana?: string; janela?: string };
 
 const VISOES = [
   { id: "quadro", rotulo: "Quadro" },
@@ -52,58 +52,76 @@ export default async function ConteudoPage({
 
   const hoje = hojeISO();
   const mes = mesValido(busca.mes, hoje);
+  const semana = semanaValida(busca.semana, hoje);
+  /* Mês é o padrão: quem abre o calendário quase sempre quer a visão larga
+     primeiro, e a semana é o zoom que se pede. */
+  const janela = busca.janela === "semana" ? "semana" : "mes";
 
   const link = (mudanca: Partial<Busca>) => {
-    const atual: Busca = { v: visao, perfil: perfilFiltro, mes: busca.mes, ...mudanca };
+    const atual: Busca = {
+      v: visao,
+      perfil: perfilFiltro,
+      mes: busca.mes,
+      semana: busca.semana,
+      janela: busca.janela,
+      ...mudanca,
+    };
     const qs = new URLSearchParams();
     if (atual.v) qs.set("v", atual.v);
     if (atual.perfil) qs.set("perfil", atual.perfil);
     if (atual.mes) qs.set("mes", atual.mes);
+    if (atual.semana) qs.set("semana", atual.semana);
+    if (atual.janela) qs.set("janela", atual.janela);
     return "/painel/conteudo?" + qs.toString();
   };
 
   return (
     <div className="mx-auto w-full max-w-[1400px]">
       <header className="mb-6">
-        <p className="text-[0.68rem] uppercase tracking-widest" style={{ color: "var(--ink-soft)" }}>
-          Painel interno
-        </p>
         <h1 className="text-3xl" style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}>
           Conteúdo
         </h1>
       </header>
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <nav className="flex items-center gap-1.5">
-          {VISOES.map((v) => (
-            <Link
-              key={v.id}
-              href={link({ v: v.id })}
-              className={"chip" + (v.id === visao ? " chip-ativo" : "")}
-            >
-              {v.rotulo}
-            </Link>
-          ))}
-        </nav>
+        {/* Os dois controles juntos à esquerda, a ação sozinha à direita: filtrar
+            e escolher visão são a mesma família de gesto, criar não é.
 
-        <div className="flex flex-wrap items-center gap-2">
+            A visão continua em botões colados e não em dropdown (decidido com o
+            Yan em 21/08): são três opções e são a navegação principal da tela,
+            então valem os três à vista e a troca em um clique. O dropdown ficou
+            pro perfil, que tem mais opções e é filtro secundário. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <nav className="conteudo-visoes">
+            {VISOES.map((v) => (
+              <Link
+                key={v.id}
+                href={link({ v: v.id })}
+                aria-current={v.id === visao ? "page" : undefined}
+                className={"conteudo-visao" + (v.id === visao ? " conteudo-visao-ativa" : "")}
+              >
+                {v.rotulo}
+              </Link>
+            ))}
+          </nav>
+
           <FiltroPerfil
             valor={perfilFiltro}
             opcoes={[
-              { id: "", rotulo: "Todos", href: link({ perfil: undefined }) },
-              ...PERFIS.map((p) => ({ id: p.id, rotulo: p.dono, href: link({ perfil: p.id }) })),
+              { id: "", rotulo: "Todos os perfis", href: link({ perfil: undefined }) },
+              ...PERFIS.map((p) => ({ id: p.id, rotulo: p.rotulo, href: link({ perfil: p.id }) })),
             ]}
           />
-
-          {/* Um clique e nada mais. O post nasce sem título e a tela seguinte
-              abre com o campo focado. */}
-          <form action={criarPostAcao}>
-            <input type="hidden" name="perfil" value={perfilFiltro ?? "geovana"} />
-            <button type="submit" className="conteudo-botao">
-              + Criar
-            </button>
-          </form>
         </div>
+
+        {/* Um clique e nada mais. O post nasce sem título e a tela seguinte
+            abre com o campo focado. */}
+        <form action={criarPostAcao}>
+          <input type="hidden" name="perfil" value={perfilFiltro ?? "geovana"} />
+          <button type="submit" className="conteudo-botao">
+            + Criar
+          </button>
+        </form>
       </div>
 
       {todos.length === 0 ? (
@@ -111,7 +129,14 @@ export default async function ConteudoPage({
       ) : visao === "quadro" ? (
         <ConteudoQuadro posts={posts} contagens={Object.fromEntries(contagens)} />
       ) : visao === "calendario" ? (
-        <ConteudoCalendario mes={mes} posts={posts} hoje={hoje} perfilFiltro={perfilFiltro} />
+        <ConteudoCalendario
+          mes={mes}
+          semana={semana}
+          janela={janela}
+          posts={posts}
+          hoje={hoje}
+          perfilFiltro={perfilFiltro}
+        />
       ) : (
         <Lista posts={posts} contagens={contagens} />
       )}

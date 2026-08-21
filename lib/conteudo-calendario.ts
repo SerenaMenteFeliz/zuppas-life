@@ -11,6 +11,8 @@
    Brasília o "hoje" em UTC já é amanhã, e a célula do calendário mudaria de
    lugar dependendo da hora em que a página foi aberta. */
 
+import { diasDaSemana, inicioDaSemana, somarDias } from "./datas";
+
 export type Celula = { iso: string; doMes: boolean };
 
 const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -91,3 +93,62 @@ export function rotuloDoMes(mes: string): string {
 }
 
 export const DIAS_DA_SEMANA = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+
+/* ── Visão de semana (21/08/2026) ──
+
+   O mês responde "como está o mês"; a semana responde "o que eu faço agora".
+   São perguntas diferentes e por isso são duas visões, não um zoom da mesma.
+
+   A semana é identificada pela segunda-feira dela (`?semana=2026-08-17`), e não
+   por número de semana: número ISO é preciso e ilegível, e a URL aqui é pra
+   pessoa ler e compartilhar. As contas reusam lib/datas.ts em vez de refazer a
+   aritmética aqui, senão o app passaria a ter duas ideias de quando a semana
+   começa. */
+
+const RE_DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+function diaReal(bruto: string): boolean {
+  if (!RE_DIA.test(bruto)) return false;
+  /* Regex não pega 2026-02-31: só a volta pelo Date confirma que o dia existe
+     de fato no calendário. */
+  const d = new Date(bruto + "T00:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === bruto;
+}
+
+/** Normaliza o parâmetro de semana da URL para a segunda-feira dela. Qualquer
+    dia da semana serve de entrada; entrada inválida cai na semana da
+    referência, mesma política do mês. */
+export function semanaValida(bruto: string | undefined, referencia: string): string {
+  return inicioDaSemana(bruto && diaReal(bruto) ? bruto : referencia);
+}
+
+export function deslocarSemana(segunda: string, passos: number): string {
+  return somarDias(segunda, passos * 7);
+}
+
+export function gradeDaSemana(segunda: string): Celula[] {
+  /* `doMes` é sempre true aqui: na visão de semana não existe "dia de fora",
+     todo dia mostrado pertence à semana. O campo fica pro tipo continuar o
+     mesmo e a célula do calendário não precisar saber em qual visão está. */
+  return diasDaSemana(segunda).map((dia) => ({ iso: dia, doMes: true }));
+}
+
+export function rotuloDaSemana(segunda: string): string {
+  const dias = diasDaSemana(segunda);
+  const domingo = dias[6];
+
+  const numero = (d: string) => String(Number(d.slice(8, 10)));
+  const mes = (d: string) => MESES[Number(d.slice(5, 7)) - 1];
+  const ano = (d: string) => d.slice(0, 4);
+
+  if (ano(segunda) !== ano(domingo)) {
+    return (
+      numero(segunda) + " de " + mes(segunda) + " de " + ano(segunda) +
+      " a " + numero(domingo) + " de " + mes(domingo) + " de " + ano(domingo)
+    );
+  }
+  if (mes(segunda) !== mes(domingo)) {
+    return numero(segunda) + " de " + mes(segunda) + " a " + numero(domingo) + " de " + mes(domingo);
+  }
+  return numero(segunda) + " a " + numero(domingo) + " de " + mes(segunda);
+}

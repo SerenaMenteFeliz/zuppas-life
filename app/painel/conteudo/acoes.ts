@@ -10,7 +10,7 @@ import {
   salvarMetrica,
   salvarRoteiro,
 } from "@/lib/conteudo";
-import { STATUS, type Fala, type Status } from "@/lib/conteudo-tipos";
+import { statusVivo, type Fala } from "@/lib/conteudo-tipos";
 import { hojeISO } from "@/lib/datas";
 
 /* Mutações do painel de conteúdo.
@@ -44,8 +44,11 @@ function numero(fd: FormData, campo: string): number | null {
    no dia seguinte no calendário, e postar à noite é o normal, não a exceção.
    É exatamente o deslocamento que lib/datas.ts existe pra resolver. */
 
-function statusValido(v: unknown): Status {
-  return STATUS.includes(v as Status) ? (v as Status) : "ideia";
+/** Campo em branco vira NULL, nunca string vazia. Sem isso "nunca preenchi" e
+    "preenchi e apaguei" ficam indistinguíveis no banco. */
+function vazioNulo(v: string | null | undefined): string | null {
+  const t = (v ?? "").trim();
+  return t === "" ? null : t;
 }
 
 /* "Criar" é um clique só e nada mais (Yan, 21/08/2026). Antes era escrever o
@@ -69,43 +72,62 @@ export async function criarPostAcao(fd: FormData) {
   redirect("/painel/conteudo/" + post.id);
 }
 
-export async function salvarDadosAcao(fd: FormData) {
-  const id = texto(fd, "id");
-  if (!id) return;
+/* Recebe objeto e não FormData desde 21/08/2026: quem chama é o autosave, que
+   não tem `<form>` sendo submetido, e montar um FormData falso só pra
+   desmontar do outro lado seria cerimônia sem ganho.
 
-  const status = statusValido(fd.get("status"));
+   `produto`, `responsavel` e `referencia` saíram da tela na mesma data, e por
+   isso não aparecem aqui. As COLUNAS continuam no banco de propósito: como
+   `atualizarPost` faz PATCH só com o que recebe, o que estiver gravado nelas
+   fica intacto, e trazer os campos de volta é mudança de tela, não migration. */
+export type DadosDoPost = {
+  id: string;
+  titulo: string;
+  perfil: string;
+  formato: string | null;
+  pilar: string | null;
+  status: string;
+  data_planejada: string | null;
+  data_publicada: string | null;
+  link: string | null;
+  legenda: string | null;
+  hashtags: string | null;
+  observacao: string | null;
+};
+
+export async function salvarDadosAcao(d: DadosDoPost) {
+  if (!d?.id) return;
+
+  const status = statusVivo(d.status);
 
   /* Carimba a data de publicação sozinho quando o status vira "postado" e
      ninguém preencheu a data. Sem isso o calendário perde o post exatamente
      no momento em que ele passa a ser o dado mais importante, que é o que de fato
      saiu. Se a pessoa preencheu à mão, a mão manda. */
-  let dataPublicada = texto(fd, "data_publicada");
+  let dataPublicada = vazioNulo(d.data_publicada);
   if (status === "postado" && !dataPublicada) {
     dataPublicada = hojeISO();
   }
 
-  await atualizarPost(id, {
+  await atualizarPost(d.id, {
     /* Vazio continua vazio, e quem exibe resolve com tituloDe(). Carimbar
        "Sem título" aqui gravaria no banco um texto que ninguém escreveu, e
        depois ela teria que apagar isso pra dar o nome de verdade. */
-    titulo: texto(fd, "titulo") ?? "",
-    perfil: texto(fd, "perfil") ?? "liz",
-    formato: texto(fd, "formato"),
-    pilar: texto(fd, "pilar"),
-    produto: texto(fd, "produto"),
+    titulo: (d.titulo ?? "").trim(),
+    perfil: vazioNulo(d.perfil) ?? "liz",
+    formato: vazioNulo(d.formato),
+    pilar: vazioNulo(d.pilar),
     status,
-    data_planejada: texto(fd, "data_planejada"),
+    data_planejada: vazioNulo(d.data_planejada),
     data_publicada: dataPublicada,
-    link: texto(fd, "link"),
-    legenda: texto(fd, "legenda"),
-    hashtags: texto(fd, "hashtags"),
-    responsavel: texto(fd, "responsavel"),
-    referencia: texto(fd, "referencia"),
-    observacao: texto(fd, "observacao"),
+    link: vazioNulo(d.link),
+    legenda: vazioNulo(d.legenda),
+    hashtags: vazioNulo(d.hashtags),
+    observacao: vazioNulo(d.observacao),
   });
 
   revalidatePath("/painel/conteudo");
-  revalidatePath("/painel/conteudo/" + id);
+  revalidatePath("/painel/conteudo/" + d.id);
 }
 
 /** Troca só o status. Existe separada da action de salvar dados porque o
@@ -113,7 +135,7 @@ export async function salvarDadosAcao(fd: FormData) {
     apagaria todo campo que a tela do quadro não carrega. */
 export async function mudarStatusAcao(id: string, novo: string) {
   if (!id) return;
-  const status = statusValido(novo);
+  const status = statusVivo(novo);
   const campos: Record<string, unknown> = { status };
   if (status === "postado") {
     campos.data_publicada = hojeISO();

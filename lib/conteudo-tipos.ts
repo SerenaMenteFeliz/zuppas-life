@@ -4,10 +4,20 @@
    são componentes de cliente e precisam das mesmas listas pra montar os
    selects. Aqui não entra nada que toque no banco. */
 
+/* "Pronto pra gravar" saiu em 21/08/2026, juntado com "Roteiro".
+
+   A separação entre "escrevendo" e "pronto pra gravar" só se paga quando quem
+   escreve e quem grava são pessoas diferentes: aí "pronto" é sinal de entrega,
+   alguém para de escrever e outra pessoa começa a produzir. Hoje é a Ge fazendo
+   as duas coisas, então o handoff não existe e a coluna virava lugar onde card
+   entra e ninguém move. Status que ninguém preenche envenena o quadro inteiro,
+   porque ensina que ele mente.
+
+   Volta no dia em que a Liz gravar o que a Ge escreve. Feito agora custou zero
+   porque não havia nenhum post no banco. */
 export const STATUS = [
   "ideia",
   "roteiro",
-  "pronto",
   "gravado",
   "agendado",
   "postado",
@@ -17,40 +27,45 @@ export const STATUS = [
 export type Status = (typeof STATUS)[number];
 
 /* Rótulo e explicação de cada status. A explicação existe porque o quadro é
-   pra Ge e Liz também: "pronto" sozinho não diz pronto pra quê. */
+   pra Ge e Liz também: rótulo sozinho não diz o que a etapa espera. */
 export const STATUS_INFO: Record<Status, { rotulo: string; ajuda: string }> = {
   ideia: { rotulo: "Ideia", ajuda: "só o tema ou o gancho, sem roteiro ainda" },
-  roteiro: { rotulo: "Roteiro", ajuda: "escrevendo as falas" },
-  pronto: { rotulo: "Pronto pra gravar", ajuda: "roteiro fechado, cenas planejadas" },
+  roteiro: { rotulo: "Roteiro", ajuda: "escrevendo as falas e planejando as cenas" },
   gravado: { rotulo: "Gravado", ajuda: "bruto na mão, falta editar" },
   agendado: { rotulo: "Agendado", ajuda: "editado, com data marcada" },
   postado: { rotulo: "Postado", ajuda: "no ar, com link" },
   descartado: { rotulo: "Descartado", ajuda: "não vai virar post" },
 };
 
+/* Linha morta que ainda pode existir no banco de instalações antigas. Cai em
+   "roteiro", que é onde o trabalho dela estava, e não em "ideia", que jogaria o
+   post pro começo da esteira. */
+const STATUS_APOSENTADOS: Record<string, Status> = { pronto: "roteiro" };
+
+export function statusVivo(bruto: unknown): Status {
+  if (typeof bruto === "string" && bruto in STATUS_APOSENTADOS) return STATUS_APOSENTADOS[bruto];
+  return STATUS.includes(bruto as Status) ? (bruto as Status) : "ideia";
+}
+
 /* O quadro mostra só o caminho normal. `descartado` fica de fora de propósito:
    é saída da esteira, não etapa dela, e uma coluna de descarte convida a
    encher de coisa morta. Continua acessível pelo filtro da lista. */
-export const STATUS_QUADRO: Status[] = [
-  "ideia",
-  "roteiro",
-  "pronto",
-  "gravado",
-  "agendado",
-  "postado",
-];
+export const STATUS_QUADRO: Status[] = ["ideia", "roteiro", "gravado", "agendado", "postado"];
 
 /* Perfis da rede (ver "Estratégia de Conteúdo - Fase 1" no vault: satélite
    diverge no topo, converge no fundo). A cor é usada no calendário pra dar
    leitura de quem posta o quê sem precisar de legenda.
 
-   Camilla entra sem @ porque o handle do TikTok dela não está registrado em
-   lugar nenhum do vault — preencher com palpite viraria dado errado com cara
-   de dado certo. Corrigir aqui quando o Yan confirmar. */
+   @consciente.momento saiu em 21/08/2026: o Yan não vai postar lá, e perfil que
+   ninguém usa só ocupa espaço no filtro. A conta continua existindo no vault
+   (ver "Estratégia de Conteúdo - Fase 1"); o que saiu foi a linha desta lista.
+
+   Camilla segue sem @ porque o handle do TikTok dela não está registrado em
+   lugar nenhum do vault. Preencher com palpite viraria dado errado com cara de
+   dado certo. Corrigir aqui quando o Yan confirmar. */
 export const PERFIS = [
   { id: "liz", rotulo: "@liz.zuppa", dono: "Liz", cor: "var(--accent)" },
   { id: "geovana", rotulo: "@geovana_zuppa", dono: "Ge", cor: "var(--terracotta)" },
-  { id: "consciente", rotulo: "@consciente.momento", dono: "Yan", cor: "var(--sage)" },
   { id: "camilla", rotulo: "Camilla (TikTok)", dono: "Camilla", cor: "var(--gold)" },
 ] as const;
 

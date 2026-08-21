@@ -1,26 +1,20 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import ConfirmarAcao from "@/components/painel/ConfirmarAcao";
+import CabecalhoEDados from "@/components/painel/CabecalhoEDados";
+import ExcluirPost from "@/components/painel/ExcluirPost";
 import RoteiroEditor from "@/components/painel/RoteiroEditor";
 import { carregarFalas, carregarMetricas, carregarPost } from "@/lib/conteudo";
-import {
-  FORMATOS,
-  PERFIS,
-  PILARES,
-  PRODUTOS,
-  STATUS,
-  STATUS_INFO,
-  tituloDe,
-  type Metrica,
-  type Status,
-} from "@/lib/conteudo-tipos";
+import { statusVivo, tituloDe, type Metrica } from "@/lib/conteudo-tipos";
 import { hojeISO } from "@/lib/datas";
-import { excluirPostAcao, salvarDadosAcao, salvarMetricaAcao } from "../acoes";
+import { salvarMetricaAcao } from "../acoes";
 
 /* Detalhe do post: os dados, o roteiro e as métricas.
 
    A ordem da página é a ordem do trabalho: primeiro o que é o post, depois o
-   que vai ser falado, por último o que aconteceu depois de publicar. */
+   que vai ser falado, por último o que aconteceu depois de publicar.
+
+   O cabeçalho e o formulário de dados vivem num componente de cliente só
+   (CabecalhoEDados) porque o `h1` reflete o título sendo digitado ao vivo, e
+   isso não funciona com os dois em árvores separadas. */
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +31,13 @@ const CAMPOS_METRICA: { chave: keyof Metrica; rotulo: string }[] = [
 export default async function PostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const post = await carregarPost(id);
-  if (!post) notFound();
+  const bruto = await carregarPost(id);
+  if (!bruto) notFound();
+
+  /* Normaliza o status na entrada: "pronto pra gravar" foi aposentado em
+     21/08 e uma linha antiga com esse valor deixaria o select sem opção
+     correspondente, mostrando a primeira da lista sem avisar. */
+  const post = { ...bruto, status: statusVivo(bruto.status) };
 
   const [falas, metricas] = await Promise.all([carregarFalas(id), carregarMetricas(id)]);
   const hoje = hojeISO();
@@ -57,150 +56,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="mx-auto w-full max-w-[1100px]">
-      <header className="mb-6">
-        <Link href="/painel/conteudo" className="text-xs" style={{ color: "var(--ink-soft)" }}>
-          ‹ Conteúdo
-        </Link>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
-          <h1
-            className="text-3xl"
-            style={{
-              fontFamily: "var(--font-display)",
-              lineHeight: 1.1,
-              opacity: post.titulo.trim() === "" ? 0.45 : 1,
-            }}
-          >
-            {tituloDe(post)}
-          </h1>
-          <span className="painel-badge">{STATUS_INFO[post.status as Status]?.rotulo ?? post.status}</span>
-        </div>
-      </header>
-
-      <form action={salvarDadosAcao} className="glass-card mb-6 p-5">
-        <input type="hidden" name="id" value={post.id} />
-
-        <div className="conteudo-grade">
-          <label className="conteudo-campo conteudo-campo-largo">
-            <span>Título</span>
-            {/* Post recém-criado chega aqui sem título e com o campo já focado:
-                "Criar" é um clique só, e escrever o nome é o primeiro gesto
-                seguinte. Em post que já tem nome não rouba o foco. */}
-            <input
-              type="text"
-              name="titulo"
-              defaultValue={post.titulo}
-              placeholder="Sobre o que é esse post?"
-              autoFocus={post.titulo.trim() === ""}
-            />
-          </label>
-
-          <label className="conteudo-campo">
-            <span>Perfil</span>
-            <select name="perfil" defaultValue={post.perfil}>
-              {PERFIS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.rotulo}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="conteudo-campo">
-            <span>Formato</span>
-            <select name="formato" defaultValue={post.formato ?? ""}>
-              <option value="">—</option>
-              {FORMATOS.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="conteudo-campo">
-            <span>Pilar</span>
-            <select name="pilar" defaultValue={post.pilar ?? ""}>
-              <option value="">—</option>
-              {PILARES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="conteudo-campo">
-            <span>Destino</span>
-            <select name="produto" defaultValue={post.produto ?? ""}>
-              {PRODUTOS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.rotulo}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="conteudo-campo">
-            <span>Status</span>
-            <select name="status" defaultValue={post.status}>
-              {STATUS.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_INFO[s].rotulo}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="conteudo-campo">
-            <span>Quem grava</span>
-            <input type="text" name="responsavel" defaultValue={post.responsavel ?? ""} placeholder="Ge, Liz..." />
-          </label>
-
-          <label className="conteudo-campo">
-            <span>Data planejada</span>
-            <input type="date" name="data_planejada" defaultValue={post.data_planejada ?? ""} />
-          </label>
-
-          <label className="conteudo-campo">
-            <span>Data publicada</span>
-            <input type="date" name="data_publicada" defaultValue={post.data_publicada ?? ""} />
-          </label>
-
-          <label className="conteudo-campo conteudo-campo-largo">
-            <span>Link do post publicado</span>
-            <input type="url" name="link" defaultValue={post.link ?? ""} placeholder="https://" />
-          </label>
-
-          <label className="conteudo-campo conteudo-campo-largo">
-            <span>Referência (swipe file, print, vídeo que inspirou)</span>
-            <input type="text" name="referencia" defaultValue={post.referencia ?? ""} />
-          </label>
-
-          <label className="conteudo-campo conteudo-campo-total">
-            <span>Legenda</span>
-            <textarea name="legenda" rows={4} defaultValue={post.legenda ?? ""} />
-          </label>
-
-          <label className="conteudo-campo conteudo-campo-total">
-            <span>Hashtags</span>
-            <input type="text" name="hashtags" defaultValue={post.hashtags ?? ""} />
-          </label>
-
-          <label className="conteudo-campo conteudo-campo-total">
-            <span>Observação</span>
-            <textarea name="observacao" rows={2} defaultValue={post.observacao ?? ""} />
-          </label>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between">
-          <button type="submit" className="conteudo-botao">
-            Salvar dados
-          </button>
-          <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
-            O roteiro abaixo tem botão de salvar próprio.
-          </span>
-        </div>
-      </form>
+      <CabecalhoEDados post={post} />
 
       <div className="glass-card mb-6 p-5">
         <RoteiroEditor postId={post.id} iniciais={falas} />
@@ -242,7 +98,11 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
 
-        {/* `key` derivada dos valores: input com defaultValue é não-controlado e
+        {/* Métrica continua com botão, e de propósito: não é texto sendo
+            escrito, é um número colhido de uma vez. Autosave aqui gravaria
+            leitura pela metade enquanto os dígitos ainda estão sendo digitados.
+
+            `key` derivada dos valores: input com defaultValue é não-controlado e
             não reflete um re-render do servidor sozinho. Sem isso, salvar
             deixaria a caixa mostrando o valor antigo. */}
         <form
@@ -272,23 +132,14 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         </form>
       </div>
 
-      <div className="mb-10">
-        <ConfirmarAcao
-          aoConfirmar={async () => {
-            "use server";
-            await excluirPostAcao(post.id);
-          }}
-          rotulo="Excluir este post"
-          pergunta={
-            "Apagar “" +
-            tituloDe(post) +
-            "” de vez? O roteiro" +
-            (falas.length > 0 ? " (" + falas.length + (falas.length === 1 ? " fala" : " falas") + ")" : "") +
-            " e o histórico de métricas" +
-            (metricas.length > 0 ? " (" + metricas.length + ")" : "") +
-            " vão junto, e não tem como desfazer."
-          }
-          confirmacao="Sim, apagar"
+      {/* Excluir mora embaixo e à direita: fim da página, longe do caminho de
+          quem só está escrevendo, e no canto onde a ação final costuma estar. */}
+      <div className="mb-10 flex justify-end">
+        <ExcluirPost
+          id={post.id}
+          titulo={tituloDe(post)}
+          falas={falas.length}
+          coletas={metricas.length}
         />
       </div>
     </div>

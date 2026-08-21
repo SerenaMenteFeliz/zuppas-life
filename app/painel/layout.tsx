@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Avisos from "@/components/painel/Avisos";
 import Sidebar from "@/components/painel/Sidebar";
 
 /* Casca do painel interno — sidebar fixa + tema escuro próprio (.theme-painel,
@@ -18,6 +19,9 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
         <Sidebar />
         <main className="painel-main">{children}</main>
       </div>
+      {/* Fica na casca e não em cada tela: aviso disparado antes de uma
+          navegação precisa de alguém escutando do outro lado dela. */}
+      <Avisos />
     </div>
   );
 }

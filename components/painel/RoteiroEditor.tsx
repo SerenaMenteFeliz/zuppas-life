@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { salvarRoteiroAcao } from "@/app/painel/conteudo/acoes";
+import { avisar } from "@/components/painel/Avisos";
+import { IndicadorSalvo } from "@/components/painel/CabecalhoEDados";
 import { FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
 
 /* Editor do roteiro, o miolo do painel de conteúdo.
@@ -18,28 +20,87 @@ import { FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
       telas de formulário e ninguém conseguiria ler o texto como texto. O botão
       "abrir todas as cenas" existe pro dia de planejar, que é o outro modo.
 
-   Salva tudo de uma vez, com botão explícito. Salvar a cada tecla parece
-   moderno e é ruim aqui: o texto está sendo escrito, e gravar versão a meio
-   caminho enche o histórico de lixo sem nenhum ganho real. */
+   ── Autosave (21/08/2026) ──
+
+   O botão "Salvar roteiro" saiu. A versão anterior deste comentário defendia o
+   botão dizendo que gravar a meio caminho encheria o histórico de lixo, e o
+   argumento não se sustentava: não existe histórico nenhum no schema, só a
+   linha atual da fala. O que existia de verdade era risco de perder roteiro
+   escrito quando a aba morresse antes do clique.
+
+   Fica um risco novo, e ele é real: **duas abas abertas no mesmo post viram
+   perda silenciosa**, porque salvar apaga do banco toda fala que não está na
+   tela, e agora isso acontece sozinho. Antes exigia um clique deliberado. A
+   saída certa é marcar versão na linha e recusar escrita velha; até lá, isto
+   está escrito aqui e na nota do projeto pra não ser descoberto pela Ge. */
 
 type Props = { postId: string; iniciais: Fala[] };
 
+type Estado = "parado" | "sujo" | "salvando" | "salvo" | "erro";
+
 export default function RoteiroEditor({ postId, iniciais }: Props) {
   const [falas, setFalas] = useState<Fala[]>(iniciais);
-  const [sujo, setSujo] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
   const [abrirTodas, setAbrirTodas] = useState(false);
   const [confirmando, setConfirmando] = useState<number | null>(null);
-  const [salvando, iniciar] = useTransition();
+  const [estado, setEstado] = useState<Estado>("parado");
+  const [horaSalvo, setHoraSalvo] = useState<string | null>(null);
+
+  /* Espelho do estado pros gatilhos que rodam de dentro de listeners
+     registrados uma vez só (aba escondida, desmontagem): sem ele, eles
+     enxergariam as falas da primeira renderização pra sempre. Atualizado dentro
+     de `mexer`, nunca durante o render. */
+  const atuais = useRef(falas);
+  const sujo = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const gravar = useCallback(async () => {
+    if (!sujo.current) return;
+    sujo.current = false;
+    setEstado("salvando");
+    try {
+      await salvarRoteiroAcao(postId, JSON.stringify(atuais.current));
+      setEstado("salvo");
+      setHoraSalvo(
+        new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      );
+    } catch (e) {
+      sujo.current = true;
+      setEstado("erro");
+      avisar(e instanceof Error ? e.message : "Não consegui salvar o roteiro.", "erro");
+    }
+  }, [postId]);
 
   function mexer(proximo: Fala[]) {
-    setFalas(proximo.map((f, i) => ({ ...f, ordem: i + 1 })));
-    setSujo(true);
-    setErro(null);
+    const numeradas = proximo.map((f, i) => ({ ...f, ordem: i + 1 }));
+    atuais.current = numeradas;
+    setFalas(numeradas);
     /* A confirmação é guardada por índice, e mover ou apagar reordena a lista:
        sem limpar aqui, a pergunta ficaria apontando pra outra fala. */
     setConfirmando(null);
+
+    sujo.current = true;
+    setEstado("sujo");
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void gravar(), 900);
   }
+
+  function agora() {
+    if (timer.current) clearTimeout(timer.current);
+    void gravar();
+  }
+
+  useEffect(() => {
+    const aoEsconder = () => {
+      if (document.visibilityState === "hidden") agora();
+    };
+    document.addEventListener("visibilitychange", aoEsconder);
+    return () => {
+      document.removeEventListener("visibilitychange", aoEsconder);
+      if (timer.current) clearTimeout(timer.current);
+      void gravar();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gravar]);
 
   function alterar(indice: number, campo: keyof Fala, valor: string | boolean) {
     mexer(falas.map((f, i) => (i === indice ? { ...f, [campo]: valor } : f)));
@@ -94,20 +155,6 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
     else setConfirmando(indice);
   }
 
-  function salvar() {
-    setErro(null);
-    iniciar(async () => {
-      try {
-        await salvarRoteiroAcao(postId, JSON.stringify(falas));
-        setSujo(false);
-      } catch (e) {
-        /* Erro aparece na tela, não só no console. Roteiro que some sem avisar
-           é a mesma classe de falha silenciosa que custou 23 leads em 04/08. */
-        setErro(e instanceof Error ? e.message : "Não consegui salvar o roteiro.");
-      }
-    });
-  }
-
   const gravadas = falas.filter((f) => f.gravada).length;
 
   return (
@@ -134,18 +181,9 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
           <button type="button" className="chip" onClick={adicionar}>
             + fala
           </button>
-          <button
-            type="button"
-            className="conteudo-botao"
-            onClick={salvar}
-            disabled={salvando || !sujo}
-          >
-            {salvando ? "salvando..." : sujo ? "Salvar roteiro" : "Salvo"}
-          </button>
+          <IndicadorSalvo estado={estado} hora={horaSalvo} />
         </div>
       </div>
-
-      {erro && <p className="conteudo-erro">{erro}</p>}
 
       {falas.length === 0 && (
         <p className="conteudo-vazio-inline">
@@ -175,6 +213,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
                 placeholder="a frase, do jeito exato que vai ser falada"
                 value={fala.texto}
                 onChange={(e) => alterar(i, "texto", e.target.value)}
+                onBlur={agora}
               />
 
               <div className="conteudo-fala-linha">
@@ -200,36 +239,42 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
                       valor={fala.enquadramento}
                       exemplo="close, plano médio, de costas"
                       aoMudar={(v) => alterar(i, "enquadramento", v)}
+                      aoSair={agora}
                     />
                     <Campo
                       rotulo="Cenário"
                       valor={fala.cenario}
                       exemplo="praia, cozinha, quarto"
                       aoMudar={(v) => alterar(i, "cenario", v)}
+                      aoSair={agora}
                     />
                     <Campo
                       rotulo="Ação"
                       valor={fala.acao}
                       exemplo="andando, sentada, servindo o chá"
                       aoMudar={(v) => alterar(i, "acao", v)}
+                      aoSair={agora}
                     />
                     <Campo
                       rotulo="B-roll"
                       valor={fala.broll}
                       exemplo="o que entra por cima da fala"
                       aoMudar={(v) => alterar(i, "broll", v)}
+                      aoSair={agora}
                     />
                     <Campo
                       rotulo="Texto na tela"
                       valor={fala.texto_tela}
                       exemplo="o que aparece escrito"
                       aoMudar={(v) => alterar(i, "texto_tela", v)}
+                      aoSair={agora}
                     />
                     <Campo
                       rotulo="Observação"
                       valor={fala.observacao}
                       exemplo="direção, tom, pausa"
                       aoMudar={(v) => alterar(i, "observacao", v)}
+                      aoSair={agora}
                     />
                   </div>
                 </details>
@@ -300,11 +345,13 @@ function Campo({
   valor,
   exemplo,
   aoMudar,
+  aoSair,
 }: {
   rotulo: string;
   valor: string | null;
   exemplo: string;
   aoMudar: (v: string) => void;
+  aoSair: () => void;
 }) {
   return (
     <label className="conteudo-campo">
@@ -314,6 +361,7 @@ function Campo({
         value={valor ?? ""}
         placeholder={exemplo}
         onChange={(e) => aoMudar(e.target.value)}
+        onBlur={aoSair}
       />
     </label>
   );

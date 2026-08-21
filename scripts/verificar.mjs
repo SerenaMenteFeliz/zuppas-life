@@ -82,7 +82,15 @@ try {
   const { diaDaSemana, inicioDaSemana, diasDaSemana, haQuantoTempo, porExtenso } =
     await import(pathToFileURL(join(saida, "datas.js")).href);
   const { interpretar } = await import(pathToFileURL(join(saida, "texto.js")).href);
-  const { gradeDoMes, deslocarMes, mesValido } = await import(
+  const {
+    gradeDoMes,
+    deslocarMes,
+    mesValido,
+    gradeDaSemana,
+    deslocarSemana,
+    semanaValida,
+    rotuloDaSemana,
+  } = await import(
     pathToFileURL(join(saida, "conteudo-calendario.js")).href
   );
   const { ITENS, PENDENCIAS, COMPROMISSOS, VOLTA_ANDRE, VOLTA_AKIANE } =
@@ -305,6 +313,53 @@ try {
   ok("mês inválido na URL cai no mês de referência", mesValido("banana", "2026-08-11") === "2026-08");
   ok("mês 13 é recusado", mesValido("2026-13", "2026-08-11") === "2026-08");
   ok("mês válido na URL é respeitado", mesValido("2026-05", "2026-08-11") === "2026-05");
+
+  console.log("\n── Visão de semana do calendário ──────────────────────");
+  /* Mesma classe de erro da grade de mês, e mais fácil de cometer: aqui a conta
+     é "recuar até a segunda", e errar um dia coloca o post na célula errada sem
+     nada acusar. Os casos cobrem cada dia da semana como entrada, virada de mês
+     no meio da semana e virada de ano. */
+  const semanaDeSexta = gradeDaSemana(semanaValida("2026-08-21", "2026-08-21")); // 21/08 é sexta
+  ok("a semana começa na segunda", semanaDeSexta[0].iso === "2026-08-17", semanaDeSexta[0].iso);
+  ok("a semana tem 7 dias", semanaDeSexta.length === 7);
+  ok("a semana termina no domingo", semanaDeSexta[6].iso === "2026-08-23", semanaDeSexta[6].iso);
+  ok("todo dia da semana é do período", semanaDeSexta.every((c) => c.doMes));
+
+  ok(
+    "segunda como entrada não recua",
+    gradeDaSemana(semanaValida("2026-08-17", "2026-08-17"))[0].iso === "2026-08-17"
+  );
+  ok(
+    "domingo como entrada recua 6 dias",
+    gradeDaSemana(semanaValida("2026-08-23", "2026-08-23"))[0].iso === "2026-08-17",
+    gradeDaSemana(semanaValida("2026-08-23", "2026-08-23"))[0].iso
+  );
+
+  ok("semana inválida na URL cai na semana de hoje", semanaValida("banana", "2026-08-21") === "2026-08-17");
+  ok("31 de fevereiro é recusado", semanaValida("2026-02-31", "2026-08-21") === "2026-08-17");
+  ok("semana válida na URL é respeitada", semanaValida("2026-05-06", "2026-08-21") === "2026-05-04");
+
+  ok("avançar uma semana anda 7 dias", deslocarSemana("2026-08-17", 1) === "2026-08-24");
+  ok("voltar uma semana anda 7 dias", deslocarSemana("2026-08-17", -1) === "2026-08-10");
+  ok("virada de mês no meio da semana", deslocarSemana("2026-08-31", -1) === "2026-08-24");
+  ok("virada de ano pra frente na semana", deslocarSemana("2026-12-28", 1) === "2027-01-04");
+  ok("virada de ano pra trás na semana", deslocarSemana("2027-01-04", -1) === "2026-12-28");
+
+  ok(
+    "rótulo de semana dentro do mesmo mês",
+    rotuloDaSemana("2026-08-17") === "17 a 23 de agosto",
+    rotuloDaSemana("2026-08-17")
+  );
+  ok(
+    "rótulo de semana que vira o mês",
+    rotuloDaSemana("2026-08-31") === "31 de agosto a 6 de setembro",
+    rotuloDaSemana("2026-08-31")
+  );
+  ok(
+    "rótulo de semana que vira o ano",
+    rotuloDaSemana("2026-12-28") === "28 de dezembro de 2026 a 3 de janeiro de 2027",
+    rotuloDaSemana("2026-12-28")
+  );
 
   console.log(
     falhas.length

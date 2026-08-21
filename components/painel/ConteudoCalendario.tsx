@@ -1,25 +1,43 @@
 import Link from "next/link";
-import { DIAS_DA_SEMANA, deslocarMes, gradeDoMes, rotuloDoMes } from "@/lib/conteudo-calendario";
+import {
+  DIAS_DA_SEMANA,
+  deslocarMes,
+  deslocarSemana,
+  gradeDaSemana,
+  gradeDoMes,
+  rotuloDaSemana,
+  rotuloDoMes,
+} from "@/lib/conteudo-calendario";
 import { dataDoPost, perfilPorId, tituloDe, type Post } from "@/lib/conteudo-tipos";
 
-/* Calendário do mês: "o que já saiu e o que vai sair", numa olhada.
+/* Calendário: "o que já saiu e o que vai sair", numa olhada.
 
-   Sem componente de cliente: navegar mês é link com query string, não estado.
-   Assim a URL do mês é compartilhável e o botão voltar do navegador funciona,
-   que é o que se espera de um calendário. Arrastar pra remarcar exigiria
-   cliente e fica pra depois da direção assentar. */
+   Duas janelas desde 21/08/2026, e não uma com zoom: o **mês** responde "como
+   está o mês" e a **semana** responde "o que eu faço agora". São perguntas
+   diferentes, e a semana pode dar altura de sobra pra cada dia justamente
+   porque só mostra sete.
+
+   Sem componente de cliente: navegar é link com query string, não estado.
+   Assim a URL é compartilhável e o botão voltar do navegador funciona, que é o
+   que se espera de um calendário. Arrastar pra remarcar exigiria cliente e fica
+   pra depois da direção assentar. */
 export default function ConteudoCalendario({
   mes,
+  semana,
+  janela,
   posts,
   hoje,
   perfilFiltro,
 }: {
   mes: string;
+  semana: string;
+  janela: "mes" | "semana";
   posts: Post[];
   hoje: string;
   perfilFiltro?: string;
 }) {
-  const semanas = gradeDoMes(mes);
+  const naSemana = janela === "semana";
+  const celulas = naSemana ? gradeDaSemana(semana) : gradeDoMes(mes).flat();
 
   const porDia = new Map<string, Post[]>();
   for (const p of posts) {
@@ -31,31 +49,69 @@ export default function ConteudoCalendario({
   }
 
   const semData = posts.filter((p) => !dataDoPost(p));
-  const query = (m: string) =>
-    "/painel/conteudo?v=calendario&mes=" + m + (perfilFiltro ? "&perfil=" + perfilFiltro : "");
+
+  const query = (mudanca: { mes?: string; semana?: string; janela?: "mes" | "semana" }) => {
+    const qs = new URLSearchParams({ v: "calendario" });
+    const j = mudanca.janela ?? janela;
+    /* Cada janela carrega só a própria posição na URL. Trocar de janela e
+       voltar preserva onde a pessoa estava na outra, porque o parâmetro da
+       outra continua na URL sem ser usado. */
+    if (j === "semana") qs.set("semana", mudanca.semana ?? semana);
+    else qs.set("mes", mudanca.mes ?? mes);
+    if (j === "semana" && mes) qs.set("mes", mes);
+    if (j === "mes") qs.set("semana", semana);
+    qs.set("janela", j);
+    if (perfilFiltro) qs.set("perfil", perfilFiltro);
+    return "/painel/conteudo?" + qs.toString();
+  };
+
+  const anterior = naSemana
+    ? query({ semana: deslocarSemana(semana, -1) })
+    : query({ mes: deslocarMes(mes, -1) });
+  const proximo = naSemana
+    ? query({ semana: deslocarSemana(semana, 1) })
+    : query({ mes: deslocarMes(mes, 1) });
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <Link href={query(deslocarMes(mes, -1))} className="chip">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Link href={anterior} className="chip">
           ‹ anterior
         </Link>
-        <p className="text-sm" style={{ fontFamily: "var(--font-display)" }}>
-          {rotuloDoMes(mes)}
-        </p>
-        <Link href={query(deslocarMes(mes, 1))} className="chip">
+
+        <div className="flex items-center gap-3">
+          <p className="text-sm" style={{ fontFamily: "var(--font-display)" }}>
+            {naSemana ? rotuloDaSemana(semana) : rotuloDoMes(mes)}
+          </p>
+          <nav className="conteudo-visoes">
+            <Link
+              href={query({ janela: "mes" })}
+              className={"conteudo-visao" + (naSemana ? "" : " conteudo-visao-ativa")}
+            >
+              Mês
+            </Link>
+            <Link
+              href={query({ janela: "semana" })}
+              className={"conteudo-visao" + (naSemana ? " conteudo-visao-ativa" : "")}
+            >
+              Semana
+            </Link>
+          </nav>
+        </div>
+
+        <Link href={proximo} className="chip">
           próximo ›
         </Link>
       </div>
 
-      <div className="conteudo-calendario">
+      <div className={"conteudo-calendario" + (naSemana ? " conteudo-calendario-semana" : "")}>
         {DIAS_DA_SEMANA.map((d) => (
           <div key={d} className="conteudo-cal-cabecalho">
             {d}
           </div>
         ))}
 
-        {semanas.flat().map((celula) => {
+        {celulas.map((celula) => {
           const doDia = porDia.get(celula.iso) ?? [];
           return (
             <div
