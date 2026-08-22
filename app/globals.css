@@ -1174,11 +1174,29 @@ textarea {
   position: sticky;
   top: 0;
   z-index: 40;
-  margin: -2.25rem -2.5rem 1.5rem;
+  margin: 0 -2.5rem 1.5rem;
   padding: 1rem 2.5rem;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--bg);
   border-bottom: 1px solid var(--line);
+}
+
+/* `sticky` gruda no topo do PADDING box do container que rola, não no topo do
+   scrollport, e o `.painel-main` tem `padding-top: 2.25rem`. Resultado medido
+   em 21/08/2026: a barra parava 36px abaixo do topo e o conteúdo aparecia
+   passando por essa faixa. Este bloco cobre exatamente ela.
+
+   A alternativa seria tirar o padding do `.painel-main`, mas ele é a casca de
+   todas as telas do painel e só esta tem barra fixa. Fundo opaco em vez de
+   translúcido com blur pelo mesmo motivo: dois elementos com `backdrop-filter`
+   encostados não casam o borrão e a emenda aparece. */
+.conteudo-topo-fixo::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 2.5rem;
+  background: var(--bg);
 }
 
 .conteudo-topo-h1 {
