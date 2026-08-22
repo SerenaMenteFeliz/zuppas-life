@@ -13,9 +13,9 @@ import { salvarMetricaAcao } from "../acoes";
    A ordem da página é a ordem do trabalho: primeiro o que é o post, depois o
    que vai ser falado, por último o que aconteceu depois de publicar.
 
-   O cabeçalho e o formulário de dados vivem num componente de cliente só
-   (CabecalhoEDados) porque o `h1` reflete o título sendo digitado ao vivo, e
-   isso não funciona com os dois em árvores separadas. */
+   `PostShell` envolve tudo porque carrega duas coisas que atravessam a tela:
+   o header fixo (título e status ao vivo, estado do autosave, voltar) e a
+   caixa por onde os dois editores reportam se o trabalho já foi pro banco. */
 
 export const dynamic = "force-dynamic";
 
