@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { salvarDadosAcao, type DadosDoPost } from "@/app/painel/conteudo/acoes";
 import { avisar } from "@/components/painel/Avisos";
 import CampoTexto from "@/components/painel/CampoTexto";
+import Dropdown from "@/components/painel/Dropdown";
 import { usePostShell } from "@/components/painel/PostShell";
 import {
   FORMATOS,
@@ -137,20 +138,22 @@ export default function DadosPost({ post }: { post: Post }) {
           />
         </label>
 
-        <label className="conteudo-campo">
+        {/* Os quatro dropdowns daqui não são `<label>` porque o controle não é
+            mais um `<select>`: rótulo de formulário aponta pra um campo nativo,
+            e clicar nele com um botão dentro dispara duas vezes. O nome do
+            campo continua ligado ao controle pelo `rotuloAcessivel`. */}
+        <div className="conteudo-campo">
           <span>Perfil</span>
-          <select
-            value={valores.perfil}
-            onChange={(e) => mexer({ perfil: e.target.value })}
-            onBlur={agora}
-          >
-            {PERFIS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.rotulo}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Dropdown
+            rotuloAcessivel="Perfil"
+            valor={valores.perfil}
+            opcoes={PERFIS.map((p) => ({ valor: p.id, rotulo: p.rotulo, cor: p.cor }))}
+            aoEscolher={(v) => {
+              mexer({ perfil: v });
+              agora();
+            }}
+          />
+        </div>
 
         {/* Ordem trocada em 22/08/2026 (Yan): Status subiu pro fim da primeira
             linha, e Formato e Pilar desceram pra segunda. Faz sentido de leitura
@@ -158,52 +161,58 @@ export default function DadosPost({ post }: { post: Post }) {
             perfil, status), e a segunda "como vai ser e quando sai". Status é o
             campo que mais muda ao longo da vida do post, então merece o lugar
             mais alto; formato e pilar se escolhem uma vez e ficam. */}
-        <label className="conteudo-campo">
+        <div className="conteudo-campo">
           <span>Status</span>
-          <select
-            value={valores.status}
-            onChange={(e) => mexer({ status: e.target.value as Status })}
-            onBlur={agora}
-          >
-            {STATUS.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_INFO[s].rotulo}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Dropdown
+            rotuloAcessivel="Status"
+            largura={260}
+            valor={valores.status}
+            opcoes={STATUS.map((s) => ({
+              valor: s,
+              rotulo: STATUS_INFO[s].rotulo,
+              ajuda: STATUS_INFO[s].ajuda,
+            }))}
+            aoEscolher={(v) => {
+              mexer({ status: v as Status });
+              agora();
+            }}
+          />
+        </div>
 
-        <label className="conteudo-campo">
+        <div className="conteudo-campo">
           <span>Formato</span>
-          <select
-            value={valores.formato ?? ""}
-            onChange={(e) => mexer({ formato: e.target.value })}
-            onBlur={agora}
-          >
-            <option value="">sem formato</option>
-            {FORMATOS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Dropdown
+            rotuloAcessivel="Formato"
+            vazio="sem formato"
+            valor={valores.formato ?? ""}
+            opcoes={[
+              { valor: "", rotulo: "sem formato" },
+              ...FORMATOS.map((f) => ({ valor: f, rotulo: f })),
+            ]}
+            aoEscolher={(v) => {
+              mexer({ formato: v });
+              agora();
+            }}
+          />
+        </div>
 
-        <label className="conteudo-campo">
+        <div className="conteudo-campo">
           <span>Pilar</span>
-          <select
-            value={valores.pilar ?? ""}
-            onChange={(e) => mexer({ pilar: e.target.value })}
-            onBlur={agora}
-          >
-            <option value="">sem pilar</option>
-            {PILARES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Dropdown
+            rotuloAcessivel="Pilar"
+            vazio="sem pilar"
+            largura={240}
+            valor={valores.pilar ?? ""}
+            opcoes={[
+              { valor: "", rotulo: "sem pilar" },
+              ...PILARES.map((p) => ({ valor: p, rotulo: p })),
+            ]}
+            aoEscolher={(v) => {
+              mexer({ pilar: v });
+              agora();
+            }}
+          />
+        </div>
 
         {/* "Quando quero postar" e "Quando saiu" em vez de "Data planejada" e
             "Data publicada" (Yan, 21/08): "planejada" colidia com o status

@@ -19,15 +19,54 @@ import { salvarMetricaAcao } from "../acoes";
 
 export const dynamic = "force-dynamic";
 
-const CAMPOS_METRICA: { chave: keyof Metrica; rotulo: string }[] = [
-  { chave: "views", rotulo: "Views" },
-  { chave: "alcance", rotulo: "Alcance" },
-  { chave: "salvos", rotulo: "Salvos" },
-  { chave: "compartilhamentos", rotulo: "Compart." },
-  { chave: "comentarios", rotulo: "Coment." },
-  { chave: "seguidores", rotulo: "Seg.+" },
-  { chave: "cliques", rotulo: "Cliques" },
+/* Ordem e agrupamento das métricas (22/08/2026).
+
+   A ordem antiga era a de quem escreveu o schema. Esta é a do funil: começa em
+   quanta gente viu e termina em quanta gente andou na direção do produto.
+
+   **Não é um funil de verdade e não finge ser** (ressalva do Yan): num quiz uma
+   etapa exige a anterior, aqui não — dá pra compartilhar sem ter salvado, e
+   comentar sem seguir. O que existe é um degrau de ESFORÇO: ver é de graça,
+   salvar é pra mim, comentar é público, compartilhar empresta a própria
+   reputação, seguir é compromisso e clicar é sair da plataforma. Por isso são
+   três grupos, e não sete etapas numeradas — o agrupamento carrega a leitura
+   sem prometer uma sequência que o dado não tem.
+
+   "Avançaram" fecha a conta com o /painel/funis: cliques é o único número aqui
+   que continua do outro lado, como visita ao quiz. */
+const GRUPOS_METRICA: {
+  id: string;
+  titulo: string;
+  campos: { chave: keyof Metrica; rotulo: string }[];
+}[] = [
+  {
+    id: "viram",
+    titulo: "Viram",
+    campos: [
+      { chave: "views", rotulo: "Views" },
+      { chave: "alcance", rotulo: "Alcance" },
+    ],
+  },
+  {
+    id: "reagiram",
+    titulo: "Reagiram",
+    campos: [
+      { chave: "salvos", rotulo: "Salvos" },
+      { chave: "comentarios", rotulo: "Coment." },
+      { chave: "compartilhamentos", rotulo: "Compart." },
+    ],
+  },
+  {
+    id: "avancaram",
+    titulo: "Avançaram",
+    campos: [
+      { chave: "seguidores", rotulo: "Seg.+" },
+      { chave: "cliques", rotulo: "Cliques" },
+    ],
+  },
 ];
+
+const CAMPOS_METRICA = GRUPOS_METRICA.flatMap((g) => g.campos);
 
 export default async function PostPage({
   params,
@@ -125,24 +164,45 @@ export default async function PostPage({
             className="conteudo-metrica-form"
           >
             <input type="hidden" name="post_id" value={post.id} />
-            <label className="conteudo-campo">
-              <span>Coletado em</span>
-              <input type="date" name="coletado_em" defaultValue={hoje} />
-            </label>
-            {CAMPOS_METRICA.map((c) => (
-              <label key={String(c.chave)} className="conteudo-campo">
-                <span>{c.rotulo}</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  name={String(c.chave)}
-                  defaultValue={
-                    (metricaDeHoje?.[c.chave] as number | null) ?? ""
-                  }
-                />
-              </label>
+
+            {/* `flexGrow` pelo número de campos: o grupo de 3 fica mais largo
+                que os de 2, e as caixas de número ficam todas do mesmo tamanho
+                entre grupos. Vive aqui e não no CSS porque só aqui se sabe
+                quantos campos cada grupo tem. */}
+            <div className="conteudo-metrica-grupo" style={{ flex: "1 1 130px" }}>
+              <span className="conteudo-metrica-titulo">Quando</span>
+              <div className="conteudo-metrica-campos">
+                <label className="conteudo-campo">
+                  <span>Coletado em</span>
+                  <input type="date" name="coletado_em" defaultValue={hoje} />
+                </label>
+              </div>
+            </div>
+
+            {GRUPOS_METRICA.map((g) => (
+              <div
+                key={g.id}
+                className="conteudo-metrica-grupo"
+                style={{ flex: g.campos.length + " 1 " + g.campos.length * 82 + "px" }}
+              >
+                <span className="conteudo-metrica-titulo">{g.titulo}</span>
+                <div className="conteudo-metrica-campos">
+                  {g.campos.map((c) => (
+                    <label key={String(c.chave)} className="conteudo-campo">
+                      <span>{c.rotulo}</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        name={String(c.chave)}
+                        defaultValue={(metricaDeHoje?.[c.chave] as number | null) ?? ""}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
             ))}
-            <button type="submit" className="conteudo-botao">
+
+            <button type="submit" className="conteudo-botao conteudo-metrica-enviar">
               {metricaDeHoje ? "Atualizar hoje" : "Registrar"}
             </button>
           </form>

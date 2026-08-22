@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { mudarStatusAcao } from "@/app/painel/conteudo/acoes";
+import Dropdown from "@/components/painel/Dropdown";
 import {
   STATUS_INFO,
   STATUS_QUADRO,
@@ -82,25 +83,22 @@ function Card({ post, contagem }: { post: Post; contagem?: Contagem }) {
         )}
       </div>
 
-      <select
-        aria-label={"Status de " + tituloDe(post)}
-        className="conteudo-select-status"
-        value={post.status}
-        disabled={pendente}
-        onChange={(e) => {
-          const novo = e.target.value as Status;
+      <Dropdown
+        className="conteudo-status-card"
+        rotuloAcessivel={"Status de " + tituloDe(post)}
+        largura={230}
+        valor={post.status}
+        opcoes={[...STATUS_QUADRO, "descartado" as Status].map((s) => ({
+          valor: s,
+          rotulo: STATUS_INFO[s].rotulo,
+          ajuda: STATUS_INFO[s].ajuda,
+        }))}
+        aoEscolher={(v) => {
           iniciar(() => {
-            void mudarStatusAcao(post.id, novo);
+            void mudarStatusAcao(post.id, v as Status);
           });
         }}
-      >
-        {STATUS_QUADRO.map((s) => (
-          <option key={s} value={s}>
-            {STATUS_INFO[s].rotulo}
-          </option>
-        ))}
-        <option value="descartado">{STATUS_INFO.descartado.rotulo}</option>
-      </select>
+      />
     </article>
   );
 }

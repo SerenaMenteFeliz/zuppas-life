@@ -1170,9 +1170,38 @@ textarea {
    só em vez de duas coisas soltas ao lado do botão de criar. */
 /* Sem `> span` aqui desde 22/08/2026: o rótulo "Perfil" saiu do lado do
    dropdown (a opção selecionada já se explica) e virou `aria-label`. */
-.conteudo-filtro {
-  display: inline-flex;
-  align-items: center;
+/* Seletor duplo de propósito: `.pn-drop` declara `min-width: 0` e vem depois
+   neste arquivo, então `.conteudo-filtro` sozinho perdia a disputa e a largura
+   voltava pro tamanho do texto. Largura fixa aqui existe pra faixa do topo não
+   dançar ao trocar "Todos os perfis" por "@liz.zuppa". */
+.pn-drop.conteudo-filtro {
+  min-width: 172px;
+}
+
+/* Dropdown de status dentro do card do quadro: ocupa a largura do card e fica
+   discreto, porque ali ele é rodapé de um cartão, não o campo principal. */
+.conteudo-status-card {
+  display: flex;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.conteudo-status-card .pn-drop-botao {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+/* Dropdown de função da fala: largura fixa pra que trocar "sem função" por
+   "Contexto" não faça a linha inteira do roteiro dançar. */
+.conteudo-fala-funcao {
+  width: 138px;
+  flex: none;
+}
+
+.conteudo-fala-funcao .pn-drop-botao {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
 }
 
 /* Seletor de visão: botões colados num bloco só, não chips soltos. Colados,
@@ -1375,19 +1404,35 @@ textarea {
   min-width: 0;
 }
 
+/* Botão secundário do painel. Era branco sobre o lavanda do fundo, e o branco
+   quase não se separa dele: lia como um retângulo pálido, não como botão (Yan,
+   22/08/2026). Agora é o roxo de contorno, a mesma linguagem do "abrir cenas"
+   do roteiro — contorno = "leva a algum lugar ou muda o que está à vista",
+   preenchido = "cria coisa". Voltar pra lista é navegação, então contorno. */
 .conteudo-botao-claro {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  gap: 0.3rem;
   padding: 0.45rem 0.9rem;
   font-size: 0.78rem;
-  color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--line);
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   border-radius: 9px;
   white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .conteudo-botao-claro:hover {
-  background: var(--bg);
+  background: var(--accent-wash-strong);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.conteudo-botao-claro:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .conteudo-botao-perigo {
@@ -1880,6 +1925,144 @@ textarea {
   overflow: hidden;
 }
 
+/* ── Dropdown próprio do painel (ver Dropdown.tsx) ──────────────────────────
+   Prefixo `pn-` (painel) e não `conteudo-`: nasceu na aba de Conteúdo mas é
+   peça de plataforma, e vai servir Funis e Automações quando elas ganharem
+   filtro. Nomear pelo lugar de nascimento é como se acumula CSS que ninguém
+   ousa reaproveitar. */
+.pn-drop {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.pn-drop-botao {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pn-drop-botao:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+
+.pn-drop-botao[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.pn-drop-botao:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Nada escolhido lê como texto de apoio, não como valor: assim dá pra varrer a
+   tela e ver o que falta preencher sem ler campo por campo. */
+.pn-drop-botao-vazio .pn-drop-texto {
+  color: var(--ink-soft);
+}
+
+.pn-drop-texto {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pn-drop-seta {
+  flex: none;
+  width: 10px;
+  height: 6px;
+  color: var(--ink-soft);
+  transition: transform 0.15s ease;
+}
+
+.pn-drop-botao[aria-expanded="true"] .pn-drop-seta {
+  transform: rotate(180deg);
+}
+
+.pn-drop-lista {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 60;
+  min-width: 100%;
+  max-height: 17rem;
+  padding: 0.25rem;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px -10px var(--shadow-tint);
+}
+
+.pn-drop-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.82rem;
+  color: var(--ink);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+/* Uma marcação só pra teclado e mouse: a linha "sob o cursor" e a linha "sob a
+   seta do teclado" são a mesma coisa, senão a lista mostra dois focos ao mesmo
+   tempo e nenhum dos dois parece o de verdade. */
+.pn-drop-item-marcada {
+  background: var(--accent-wash);
+}
+
+.pn-drop-item-escolhida {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.pn-drop-item-texto {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.pn-drop-item-ajuda {
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+
+.pn-drop-item-check {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin-top: 0.15rem;
+  color: var(--accent);
+}
+
+/* A bolinha de cor precisa não encolher dentro do flex do item. */
+.pn-drop-item > .conteudo-ponto,
+.pn-drop-botao > .conteudo-ponto {
+  flex: none;
+  margin-top: 0.35rem;
+}
+
+.pn-drop-botao > .conteudo-ponto {
+  margin-top: 0;
+}
+
 /* Seta própria em TODO select do painel (22/08/2026).
 
    A seta nativa do Chrome é desenhada colada na borda direita e ignora o
@@ -1979,25 +2162,55 @@ textarea {
   border-radius: 11px;
 }
 
+/* Fala gravada: fundo levemente verde e número esmaecido. Serve pra bater o
+   olho na lista e ver quanto do roteiro já está na caixa, sem contar item. */
+.conteudo-fala-ok {
+  background: color-mix(in srgb, var(--sage) 5%, var(--surface));
+  border-color: color-mix(in srgb, var(--sage) 25%, var(--line));
+}
+
 .conteudo-fala-lateral {
   display: flex;
   flex: none;
-  width: 1.9rem;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  padding-top: 0.35rem;
+  padding-top: 0.3rem;
 }
 
-.conteudo-fala-numero {
-  font-size: 0.7rem;
+/* Número da fala e "marcar como gravada" no mesmo alvo (22/08/2026). Eram dois
+   elementos empilhados, um deles uma caixinha de 15px — abaixo do piso de 24px
+   que a régua de acessibilidade usa pra alvo de ponteiro, e sem rótulo. Agora
+   é um só, de 28px, que mostra o número enquanto não está gravada e vira ✓
+   verde quando está. */
+.conteudo-fala-marca {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
   color: var(--ink-soft);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.conteudo-fala-gravada input {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--sage);
+.conteudo-fala-marca:hover {
+  color: var(--sage);
+  border-color: color-mix(in srgb, var(--sage) 45%, transparent);
+  background: color-mix(in srgb, var(--sage) 10%, var(--surface));
+}
+
+.conteudo-fala-marca[aria-checked="true"] {
+  color: var(--surface);
+  background: var(--sage);
+  border-color: var(--sage);
+}
+
+.conteudo-fala-marca:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .conteudo-fala-texto {
@@ -2065,33 +2278,117 @@ textarea {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: 0.15rem;
+  align-items: center;
+  gap: 0.25rem;
 }
 
+/* Alvo maior sem desenho maior (22/08/2026).
+
+   O botão desenha 26px e o `::after` estica a área clicável pros lados até
+   26×36. Esticar na horizontal e não na vertical é de propósito: os três
+   botões são empilhados, e crescer pra cima e pra baixo faria as áreas de
+   "descer" e "apagar" se encostarem — errar o clique e apagar uma fala é
+   exatamente o erro que não pode ficar mais fácil. Pros lados só existe o
+   padding do card, então o ganho é de graça.
+
+   O piso de acessibilidade pra alvo de ponteiro é 24px; 26 com folga lateral
+   passa dele sem engordar a coluna. */
 .conteudo-mini {
-  width: 1.5rem;
-  height: 1.5rem;
-  font-size: 0.8rem;
+  position: relative;
+  display: flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
   color: var(--ink-soft);
-  border-radius: 6px;
+  border-radius: 7px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.conteudo-mini::after {
+  content: "";
+  position: absolute;
+  inset: 0 -5px;
 }
 
 .conteudo-mini:hover {
-  color: var(--ink);
+  color: var(--accent);
   background: var(--accent-wash);
 }
 
+.conteudo-mini:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Apagar fala se separa das setas pela cor no hover, não por tamanho ou por
+   estar longe: as três continuam iguais em repouso, e a diferença aparece no
+   instante em que o ponteiro chega — que é quando ela importa. */
+.conteudo-mini-perigo:hover {
+  color: var(--perigo);
+  background: color-mix(in srgb, var(--perigo) 9%, transparent);
+}
+
+/* Métricas em grupos que ocupam a linha inteira (22/08/2026).
+
+   Antes eram nove caixas de largura fixa numa fileira, sobrando meia tela vazia
+   à direita e sem nenhuma leitura de ordem. Agora cada grupo é uma coluna que
+   cresce na proporção de quantos campos tem (`flex: N`), com o título em cima e
+   um filete separando: a linha fecha de ponta a ponta e o degrau de esforço
+   (viram → reagiram → avançaram) fica visível sem precisar de legenda.
+
+   `flex` proporcional e não `1fr` igual pra todos: com 2, 3 e 2 campos, colunas
+   iguais deixariam as caixas do grupo do meio menores que as das pontas, e
+   caixa de número menor não quer dizer número menor.
+
+   A proporção vem do JSX (`flexGrow` = quantos campos o grupo tem), não de
+   `nth-child` aqui. Foi a primeira tentativa e saiu errada: o `<input
+   type="hidden">` no começo do form conta como filho pro seletor mesmo sem
+   ocupar espaço, então todo índice andava um, e "Viram" (2 campos) ficou mais
+   largo que "Reagiram" (3). Derivar do próprio array acaba com a classe de
+   erro: acrescentar uma métrica ajusta a largura sozinho. */
 .conteudo-metrica-form {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.6rem;
+  align-items: stretch;
+  gap: 0 1rem;
 }
 
-.conteudo-metrica-form .conteudo-campo {
-  width: 92px;
+.conteudo-metrica-grupo {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-.conteudo-metrica-form .conteudo-campo:first-of-type {
-  width: 140px;
+/* O filete começa no segundo grupo: separar é o que ele faz, e antes do
+   primeiro não há o que separar. */
+.conteudo-metrica-grupo + .conteudo-metrica-grupo {
+  padding-left: 1rem;
+  border-left: 1px solid var(--line);
+}
+
+.conteudo-metrica-titulo {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.conteudo-metrica-campos {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.conteudo-metrica-campos .conteudo-campo {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* O botão desce até o fim da linha pra ficar alinhado com as caixas, e não com
+   os títulos dos grupos. */
+.conteudo-metrica-enviar {
+  align-self: flex-end;
+  flex: none;
 }

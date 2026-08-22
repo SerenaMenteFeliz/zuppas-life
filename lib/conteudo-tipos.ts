@@ -108,13 +108,27 @@ export const PRODUTOS = [
   { id: "lar-interior", rotulo: "Lar Interior" },
 ] as const;
 
-/* Função da fala dentro do roteiro. É a estrutura que a pesquisa de roteiro de
-   vídeo curto converge (gancho nos primeiros segundos → desenvolvimento →
-   CTA único no fim); serve pra enxergar num relance se um roteiro tem gancho
-   ou começa devagar. */
+/* Função da fala dentro do roteiro: que trabalho esta frase faz na história.
+   É a estrutura em que a pesquisa de roteiro de vídeo curto converge (gancho
+   nos primeiros segundos → desenvolvimento → CTA único no fim), e serve pra
+   enxergar num relance se um roteiro tem gancho ou começa devagar.
+
+   O VALOR fica minúsculo porque é dado gravado no banco e chave de comparação;
+   o RÓTULO é apresentação e vai capitalizado (Yan, 22/08/2026: "por que os
+   itens estão tudo minúsculo?" — estavam porque a tela exibia o valor cru).
+   A `ajuda` aparece embaixo do rótulo no dropdown: "função" não se explica
+   sozinho, e explicar no momento da escolha é melhor que explicar depois. */
 export const FUNCOES_FALA = ["gancho", "contexto", "virada", "prova", "cta"] as const;
 
 export type FuncaoFala = (typeof FUNCOES_FALA)[number];
+
+export const FUNCAO_INFO: Record<FuncaoFala, { rotulo: string; ajuda: string }> = {
+  gancho: { rotulo: "Gancho", ajuda: "a primeira frase, que segura quem ia passar direto" },
+  contexto: { rotulo: "Contexto", ajuda: "situa a dor ou a cena antes de propor algo" },
+  virada: { rotulo: "Virada", ajuda: "o ponto em que muda de ideia sobre o assunto" },
+  prova: { rotulo: "Prova", ajuda: "história, número ou exemplo que sustenta a virada" },
+  cta: { rotulo: "CTA", ajuda: "o único pedido do vídeo: comenta, salva, clica" },
+};
 
 export type Fala = {
   id?: string;

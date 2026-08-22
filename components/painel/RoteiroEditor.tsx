@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { salvarRoteiroAcao } from "@/app/painel/conteudo/acoes";
+import { Check, Lixeira } from "@/components/icones";
 import { avisar } from "@/components/painel/Avisos";
 import CampoTexto from "@/components/painel/CampoTexto";
+import Dropdown from "@/components/painel/Dropdown";
 import { usePostShell } from "@/components/painel/PostShell";
-import { FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
+import { FUNCAO_INFO, FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
 
 /* Editor do roteiro, o miolo do painel de conteúdo.
 
@@ -198,16 +200,28 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
 
       <ol className="flex flex-col gap-2">
         {falas.map((fala, i) => (
-          <li key={fala.id ?? "nova-" + i} className="conteudo-fala">
+          <li
+            key={fala.id ?? "nova-" + i}
+            className={"conteudo-fala" + (fala.gravada ? " conteudo-fala-ok" : "")}
+          >
+            {/* Marcar como gravada é o gesto que a Ge faz com o celular na mão,
+                entre uma tomada e outra, e era uma caixinha de 15px sem rótulo
+                (Yan, 22/08/2026). Virou um botão redondo com o número da fala
+                dentro: um alvo só, de 28px, que já diz qual fala é e vira um
+                ✓ verde quando gravada. Menos elemento na tela e mais área
+                clicável ao mesmo tempo. */}
             <div className="conteudo-fala-lateral">
-              <span className="conteudo-fala-numero">{i + 1}</span>
-              <label className="conteudo-fala-gravada" title="marcar como gravada">
-                <input
-                  type="checkbox"
-                  checked={fala.gravada}
-                  onChange={(e) => alterar(i, "gravada", e.target.checked)}
-                />
-              </label>
+              <button
+                type="button"
+                className="conteudo-fala-marca"
+                role="switch"
+                aria-checked={fala.gravada}
+                aria-label={"Fala " + (i + 1) + (fala.gravada ? ", gravada" : ", marcar como gravada")}
+                title={fala.gravada ? "gravada — clique pra desmarcar" : "marcar como gravada"}
+                onClick={() => alterar(i, "gravada", !fala.gravada)}
+              >
+                {fala.gravada ? <Check className="h-3.5 w-3.5" /> : <span>{i + 1}</span>}
+              </button>
             </div>
 
             <div className="min-w-0 flex-1">
@@ -225,19 +239,22 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
               />
 
               <div className="conteudo-fala-linha">
-                <select
-                  className="conteudo-select"
-                  aria-label={"Função da fala " + (i + 1)}
-                  value={fala.funcao ?? ""}
-                  onChange={(e) => alterar(i, "funcao", e.target.value)}
-                >
-                  <option value="">função</option>
-                  {FUNCOES_FALA.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  className="conteudo-fala-funcao"
+                  rotuloAcessivel={"Função da fala " + (i + 1)}
+                  vazio="função da fala"
+                  largura={280}
+                  valor={fala.funcao ?? ""}
+                  opcoes={[
+                    { valor: "", rotulo: "sem função", ajuda: "ainda não decidi o papel desta frase" },
+                    ...FUNCOES_FALA.map((f) => ({
+                      valor: f,
+                      rotulo: FUNCAO_INFO[f].rotulo,
+                      ajuda: FUNCAO_INFO[f].ajuda,
+                    })),
+                  ]}
+                  aoEscolher={(v) => alterar(i, "funcao", v)}
+                />
 
                 <details open={abrirTodas} className="conteudo-cena">
                   <summary className="conteudo-cena-resumo">{resumoDaCena(fala)}</summary>
@@ -315,20 +332,46 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
               )}
             </div>
 
+            {/* Alvos maiores sem ficarem maiores na tela: cada botão tem 26px
+                de desenho e 26×36 de área clicável (o `::after` no CSS estica
+                pros lados, onde há espaço sobrando e nenhum vizinho). Os
+                glifos ↑ ↓ × viraram traços de verdade, que é o que permitiu
+                encolher o desenho e ganhar clique ao mesmo tempo.
+
+                Primeira e última fala não mostram a seta que não faz nada:
+                botão desabilitado que continua ali é ruído, e nesta coluna o
+                que sobra é justamente espaço pros outros dois. */}
             <div className="conteudo-fala-acoes">
-              <button type="button" className="conteudo-mini" title="subir" onClick={() => mover(i, -1)}>
-                ↑
-              </button>
-              <button type="button" className="conteudo-mini" title="descer" onClick={() => mover(i, 1)}>
-                ↓
-              </button>
+              {i > 0 && (
+                <button
+                  type="button"
+                  className="conteudo-mini"
+                  title="subir esta fala"
+                  aria-label={"Subir a fala " + (i + 1)}
+                  onClick={() => mover(i, -1)}
+                >
+                  <SetaMini para="cima" />
+                </button>
+              )}
+              {i < falas.length - 1 && (
+                <button
+                  type="button"
+                  className="conteudo-mini"
+                  title="descer esta fala"
+                  aria-label={"Descer a fala " + (i + 1)}
+                  onClick={() => mover(i, 1)}
+                >
+                  <SetaMini para="baixo" />
+                </button>
+              )}
               <button
                 type="button"
-                className="conteudo-mini"
-                title="remover"
+                className="conteudo-mini conteudo-mini-perigo"
+                title="apagar esta fala"
+                aria-label={"Apagar a fala " + (i + 1)}
                 onClick={() => pedirRemover(i)}
               >
-                ×
+                <Lixeira className="h-3.5 w-3.5" />
               </button>
             </div>
           </li>
@@ -341,6 +384,27 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
 /* O resumo é o que fica visível com a cena fechada. Se nada foi planejado, ele
    diz isso em vez de mostrar um triângulo mudo: cena vazia num roteiro pronto
    pra gravar é informação, não ausência de informação. */
+/* Seta de reordenar. Fica aqui e não em `icones.tsx` porque é a única seta
+   simples do app: a `Seta` de lá é a de navegação, com haste e cabeça, e num
+   botão de 26px ela vira borrão. */
+function SetaMini({ para }: { para: "cima" | "baixo" }) {
+  return (
+    <svg
+      aria-hidden
+      className="h-3 w-3"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={para === "baixo" ? { transform: "rotate(180deg)" } : undefined}
+    >
+      <path d="M6 10V2M2.5 5.5L6 2l3.5 3.5" />
+    </svg>
+  );
+}
+
 function resumoDaCena(f: Fala): string {
   const partes = [f.enquadramento, f.cenario, f.acao, f.broll, f.texto_tela].filter(
     (p) => p && p.trim() !== "",

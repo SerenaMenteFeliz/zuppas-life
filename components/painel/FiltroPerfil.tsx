@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Dropdown from "@/components/painel/Dropdown";
 
 /* Filtro de perfil como dropdown, não como fileira de chips (Yan, 21/08/2026).
 
@@ -18,7 +19,7 @@ import { useRouter } from "next/navigation";
    passar uma derruba a página inteira com 500 (foi o que aconteceu no primeiro
    deploy desta tela). Assim a regra de montar URL continua vivendo só na
    página, e o que cruza a fronteira é texto. */
-export type OpcaoPerfil = { id: string; rotulo: string; href: string };
+export type OpcaoPerfil = { id: string; rotulo: string; href: string; cor?: string };
 
 export default function FiltroPerfil({
   valor,
@@ -33,24 +34,22 @@ export default function FiltroPerfil({
      "Todos os perfis", e o nome de cada perfil também se explica sozinho. O
      rótulo visível só repetia a palavra e engordava a faixa. Continua existindo
      como `aria-label`, porque leitor de tela não enxerga a opção selecionada
-     como se fosse o nome do campo. */
+     como se fosse o nome do campo.
+
+     Dropdown próprio desde 22/08/2026 (ver Dropdown.tsx). Aqui ele ganha algo
+     que o `<select>` não fazia: a bolinha de cor de cada perfil, a MESMA do
+     calendário. Filtrar e ler o calendário passam a usar o mesmo código de
+     cor, em vez de a cor existir só num dos dois lugares. */
   return (
-    <label className="conteudo-filtro">
-      <select
-        className="conteudo-select"
-        aria-label="Filtrar por perfil"
-        value={valor ?? ""}
-        onChange={(e) => {
-          const escolhida = opcoes.find((o) => o.id === e.target.value);
-          if (escolhida) router.push(escolhida.href);
-        }}
-      >
-        {opcoes.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.rotulo}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Dropdown
+      className="conteudo-filtro"
+      rotuloAcessivel="Filtrar por perfil"
+      valor={valor ?? ""}
+      opcoes={opcoes.map((o) => ({ valor: o.id, rotulo: o.rotulo, cor: o.cor }))}
+      aoEscolher={(v) => {
+        const escolhida = opcoes.find((o) => o.id === v);
+        if (escolhida) router.push(escolhida.href);
+      }}
+    />
   );
 }

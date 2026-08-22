@@ -108,7 +108,12 @@ export default async function ConteudoPage({
               valor={perfilFiltro}
               opcoes={[
                 { id: "", rotulo: "Todos os perfis", href: link({ perfil: undefined }) },
-                ...PERFIS.map((p) => ({ id: p.id, rotulo: p.rotulo, href: link({ perfil: p.id }) })),
+                ...PERFIS.map((p) => ({
+                  id: p.id,
+                  rotulo: p.rotulo,
+                  href: link({ perfil: p.id }),
+                  cor: p.cor,
+                })),
               ]}
             />
           </>
