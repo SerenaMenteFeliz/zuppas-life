@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { salvarRoteiroAcao } from "@/app/painel/conteudo/acoes";
 import { avisar } from "@/components/painel/Avisos";
-import { IndicadorSalvo } from "@/components/painel/CabecalhoEDados";
+import { usePostShell } from "@/components/painel/PostShell";
 import { FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
 
 /* Editor do roteiro, o miolo do painel de conteúdo.
@@ -36,14 +36,11 @@ import { FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
 
 type Props = { postId: string; iniciais: Fala[] };
 
-type Estado = "parado" | "sujo" | "salvando" | "salvo" | "erro";
-
 export default function RoteiroEditor({ postId, iniciais }: Props) {
+  const { reportar } = usePostShell();
   const [falas, setFalas] = useState<Fala[]>(iniciais);
   const [abrirTodas, setAbrirTodas] = useState(false);
   const [confirmando, setConfirmando] = useState<number | null>(null);
-  const [estado, setEstado] = useState<Estado>("parado");
-  const [horaSalvo, setHoraSalvo] = useState<string | null>(null);
 
   /* Espelho do estado pros gatilhos que rodam de dentro de listeners
      registrados uma vez só (aba escondida, desmontagem): sem ele, eles
@@ -51,24 +48,26 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
      de `mexer`, nunca durante o render. */
   const atuais = useRef(falas);
   const sujo = useRef(false);
+  const hora = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const gravar = useCallback(async () => {
     if (!sujo.current) return;
     sujo.current = false;
-    setEstado("salvando");
+    reportar("roteiro", { estado: "salvando", hora: hora.current });
     try {
       await salvarRoteiroAcao(postId, JSON.stringify(atuais.current));
-      setEstado("salvo");
-      setHoraSalvo(
-        new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      );
+      hora.current = new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      reportar("roteiro", { estado: "salvo", hora: hora.current });
     } catch (e) {
       sujo.current = true;
-      setEstado("erro");
+      reportar("roteiro", { estado: "erro", hora: hora.current });
       avisar(e instanceof Error ? e.message : "Não consegui salvar o roteiro.", "erro");
     }
-  }, [postId]);
+  }, [postId, reportar]);
 
   function mexer(proximo: Fala[]) {
     const numeradas = proximo.map((f, i) => ({ ...f, ordem: i + 1 }));
@@ -79,7 +78,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
     setConfirmando(null);
 
     sujo.current = true;
-    setEstado("sujo");
+    reportar("roteiro", { estado: "sujo", hora: hora.current });
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void gravar(), 900);
   }
@@ -181,7 +180,6 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
           <button type="button" className="chip" onClick={adicionar}>
             + fala
           </button>
-          <IndicadorSalvo estado={estado} hora={horaSalvo} />
         </div>
       </div>
 

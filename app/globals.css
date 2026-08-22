@@ -1159,6 +1159,46 @@ textarea {
   background: var(--accent);
 }
 
+/* Header fixo da tela de post (21/08/2026).
+
+   O post é a única tela do painel que rola de verdade, e rolando até a fala 12
+   sumiam de uma vez o título, o status, o caminho de volta e o aviso de que o
+   trabalho está salvo. O indicador de autosave só serve se estiver visível
+   ENQUANTO se digita, que é exatamente quando a página está rolada.
+
+   As margens negativas cancelam o padding do `.painel-main` pra faixa encostar
+   nas bordas do scrollport: sem isso o conteúdo apareceria pelos lados ao
+   passar por baixo. `top: 0` gruda no topo do próprio `.painel-main`, que é o
+   container que rola (o body não rola nesta casca). */
+.conteudo-topo-fixo {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: -2.25rem -2.5rem 1.5rem;
+  padding: 1rem 2.5rem;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.conteudo-topo-h1 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  line-height: 1.15;
+  /* Título longo não pode empurrar o status e o voltar pra fora da faixa. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(56ch, 100%);
+}
+
+.conteudo-topo-acoes {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.9rem;
+}
+
 /* Cabeçalho do post: título e etiqueta à esquerda, voltar à direita, na mesma
    linha. O voltar fica no canto oposto ao texto que se lê primeiro, e alinhado
    com o excluir lá embaixo: as duas saídas da página no mesmo eixo. */
