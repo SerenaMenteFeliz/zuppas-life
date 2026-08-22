@@ -2712,3 +2712,491 @@ textarea {
   align-self: flex-end;
   flex: none;
 }
+
+/* ═══ Escrita de roteiro por IA (22/08/2026) ══════════════════════════════════
+
+   Três telas novas: a prévia da IA (modal), a aba Inteligência e a aba
+   Registros. Nenhuma cor nova entrou: a gramática de 22/08 continua valendo
+   (contorno roxo navega ou mostra, roxo cheio cria, vermelho destrói), e o que
+   estas telas acrescentam é hierarquia de leitura, não vocabulário visual. */
+
+.painel-topo-nota {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* ── Prévia da IA ──
+   Bem mais larga que a confirmação de exclusão (430px): ali se lê uma pergunta,
+   aqui se confere um roteiro inteiro antes de aceitar. Confirmar sem conseguir
+   ler é o mesmo que não confirmar. */
+.pn-ia {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 720px;
+  max-height: min(86vh, 900px);
+  padding: 1.4rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.28);
+}
+
+.pn-ia .pn-confirma-botoes {
+  padding-top: 1rem;
+  margin-top: auto;
+}
+
+.pn-ia-ajuda {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+/* O local é restrição, não decoração: destacado porque descobrir depois da
+   geração que a cena é impossível é o desperdício de cota mais fácil de evitar. */
+.pn-ia-local {
+  margin: 0 0 0.9rem;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+}
+
+.pn-ia-texto {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  resize: vertical;
+}
+
+.pn-ia-texto:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.pn-ia-campos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.pn-ia-erro {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--perigo);
+  background: color-mix(in srgb, var(--perigo) 8%, transparent);
+  border-radius: 8px;
+}
+
+.pn-ia-previa {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Correção silenciosa é como se aprende a confiar numa saída que já vinha
+   errada. Se a validação mexeu em alguma coisa, aparece aqui, em dourado: é
+   aviso, não erro. */
+.pn-ia-avisos {
+  margin: 0 0 0.9rem;
+  padding: 0.55rem 0.75rem 0.55rem 1.6rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  border-radius: 8px;
+  list-style: disc;
+}
+
+.pn-ia-falas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pn-ia-falas > li {
+  padding: 0.7rem 0.8rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.pn-ia-fala-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.pn-ia-fala-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.pn-ia-fala-texto {
+  margin: 0 0 0.3rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.pn-ia-fala-cena {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+/* ── Aba Inteligência ── */
+
+.int-secao {
+  margin: 0 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.int-intro {
+  margin: 0 0 0.7rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.int-ajuda {
+  margin: 0 0 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.int-estado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.int-selo {
+  flex: 1 1 260px;
+  padding: 0.7rem 0.85rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.int-selo-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+/* Ponto cinza por padrão, verde quando está no ar. A cor segue a mesma escala
+   do status do post: verde é "está funcionando", não "é bom". */
+.int-selo-ponto {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ink-soft);
+}
+
+.int-selo-ok .int-selo-ponto {
+  background: var(--sage);
+}
+
+.int-selo-texto {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.int-ficha-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.int-ficha-nome {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.int-badge-falta {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-radius: 999px;
+}
+
+.int-ficha {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.int-ficha dt {
+  color: var(--ink-soft);
+}
+
+.int-ficha dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.int-lista {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
+/* Vazio dito como vazio, e em dourado de aviso, nunca preenchido por palpite.
+   Campo vazio pede que alguém preencha; campo com palpite ensina a desconfiar
+   da ferramenta inteira. */
+.int-falta {
+  font-style: italic;
+  color: var(--gold);
+}
+
+.int-vazio {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.int-vazio-bloco {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.int-vazio-bloco p {
+  margin: 0 0 0.6rem;
+}
+
+.int-vazio-bloco ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  list-style: disc;
+}
+
+.int-vazio-bloco li {
+  margin-bottom: 0.3rem;
+}
+
+.int-regras {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.int-regras > li {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.int-fonte {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+/* ── Aba Registros ── */
+
+.reg-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.reg-grupo {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.reg-grupo-rotulo {
+  margin-right: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.reg-chip {
+  padding: 0.22rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.reg-chip:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.reg-chip-ativo {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.reg-cabeca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.reg-titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.reg-ajuda,
+.reg-vazio,
+.reg-rodape {
+  margin: 0.5rem 0 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.reg-rodape {
+  margin: 0.9rem 0 0;
+  font-size: 0.72rem;
+}
+
+.reg-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Faixa lateral pela gravidade: só erro e aviso ganham cor. Info fica neutra,
+   senão a tela inteira grita e nada se destaca. */
+.reg-item {
+  padding: 0.6rem 0.8rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 10px;
+}
+
+.reg-item-erro {
+  border-left-color: var(--perigo);
+}
+
+.reg-item-aviso {
+  border-left-color: var(--gold);
+}
+
+.reg-item-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.reg-hora {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.reg-acao {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.reg-acao:hover {
+  color: var(--accent);
+}
+
+.reg-duracao {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.reg-mensagem {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.reg-ref {
+  display: inline-block;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+
+.reg-detalhe {
+  margin-top: 0.4rem;
+}
+
+.reg-detalhe summary {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.reg-detalhe pre {
+  margin: 0.4rem 0 0;
+  padding: 0.6rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border-radius: 8px;
+  overflow-x: auto;
+}

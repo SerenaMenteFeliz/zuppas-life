@@ -38,6 +38,11 @@ try {
       "lib/dados.ts",
       "lib/texto.ts",
       "lib/conteudo-calendario.ts",
+      /* A decisão da cascata de IA (que modelo, que chave, em que ordem) mora
+         em lib/ia/cascata.ts justamente pra caber aqui: ela é pura e não
+         importa nada. Sai em `saida/ia/cascata.js` porque o `tsc` preserva a
+         estrutura de pastas a partir da raiz comum. */
+      "lib/ia/cascata.ts",
       "--outDir",
       saida,
       "--module",
@@ -98,6 +103,8 @@ try {
   const { faixaDe, PESSOAS } = await import(
     pathToFileURL(join(saida, "types.js")).href
   );
+  const { ordemDeTentativas, classificarFalha, proximoResetPacifico, lerChaves, extrairTexto } =
+    await import(pathToFileURL(join(saida, "ia", "cascata.js")).href);
 
   const falhas = [];
   const ok = (nome, condicao, extra = "") => {
@@ -360,6 +367,95 @@ try {
     rotuloDaSemana("2026-12-28") === "28 de dezembro de 2026 a 3 de janeiro de 2027",
     rotuloDaSemana("2026-12-28")
   );
+
+  /* ── Cascata de IA (22/08/2026) ──────────────────────────────────────────────
+
+     O que se prova aqui é a ORDEM e a CLASSIFICAÇÃO, que é onde uma quebra sai
+     cara e calada: ordem invertida faz a tarefa mecânica gastar a cota do
+     melhor modelo, e confundir 429 com credencial faz o sistema tentar pra
+     sempre uma chave revogada sem nunca avisar. */
+
+  const M = ["m1", "m2"];
+  const K = ["k1", "k2", "k3"];
+  const nada = new Set();
+
+  ok(
+    "ordem percorre CONTA dentro do MODELO, não o contrário",
+    ordemDeTentativas(M, K, nada)
+      .map((b) => b.modelo + "/" + b.chave)
+      .join(" ") === "m1/k1 m1/k2 m1/k3 m2/k1 m2/k2 m2/k3",
+    ordemDeTentativas(M, K, nada).map((b) => b.modelo + "/" + b.chave).join(" ")
+  );
+
+  ok(
+    "balde esgotado é pulado na 1ª volta e tentado na 2ª",
+    ordemDeTentativas(M, K, new Set(["k1|m1"]))
+      .map((b) => b.modelo + "/" + b.chave)
+      .join(" ") === "m1/k2 m1/k3 m2/k1 m2/k2 m2/k3 m1/k1",
+    ordemDeTentativas(M, K, new Set(["k1|m1"])).map((b) => b.modelo + "/" + b.chave).join(" ")
+  );
+
+  ok(
+    "tudo esgotado ainda tenta tudo, em vez de desistir",
+    ordemDeTentativas(["m1"], ["k1", "k2"], new Set(["k1|m1", "k2|m1"])).length === 2,
+    ordemDeTentativas(["m1"], ["k1", "k2"], new Set(["k1|m1", "k2|m1"])).length
+  );
+
+  ok(
+    "nenhum balde aparece duas vezes",
+    (() => {
+      const o = ordemDeTentativas(M, K, new Set(["k1|m1", "k3|m2"]));
+      return new Set(o.map((b) => b.chave + "|" + b.modelo)).size === o.length && o.length === 6;
+    })(),
+    "duplicata ou balde faltando"
+  );
+
+  ok("429 é cota, não credencial", classificarFalha(429, "") === "cota");
+  ok("403 é chave morta", classificarFalha(403, "") === "chave-morta");
+  ok(
+    "400 com API_KEY_INVALID é chave morta, não falha genérica",
+    classificarFalha(400, '{"error":{"status":"INVALID_ARGUMENT","message":"API_KEY_INVALID"}}') ===
+      "chave-morta"
+  );
+  ok("404 de modelo inexistente só passa adiante", classificarFalha(404, "not found") === "falhou");
+  ok("500 do Google só passa adiante", classificarFalha(500, "oops") === "falhou");
+
+  ok(
+    "reset do Pacífico cai numa meia-noite de lá, e no futuro",
+    (() => {
+      const agora = new Date("2026-08-22T23:06:00Z");
+      const r = proximoResetPacifico(agora);
+      const hora = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles",
+        hour: "2-digit",
+        hour12: false,
+      }).format(r);
+      return r > agora && r.getTime() - agora.getTime() <= 26 * 3600e3 && hora === "00";
+    })(),
+    proximoResetPacifico(new Date("2026-08-22T23:06:00Z")).toISOString()
+  );
+
+  ok(
+    "chaves viram rótulos estáveis e espaço não conta como chave",
+    JSON.stringify(lerChaves(" a , b ,, ")) ===
+      JSON.stringify([
+        { rotulo: "chave-1", valor: "a" },
+        { rotulo: "chave-2", valor: "b" },
+      ]),
+    JSON.stringify(lerChaves(" a , b ,, "))
+  );
+
+  ok("sem chave nenhuma, lista vazia", lerChaves(undefined).length === 0);
+
+  ok(
+    "acha o texto em output_text",
+    extrairTexto('{"output_text":"{\\"falas\\":[]}"}') === '{"falas":[]}'
+  );
+  ok(
+    "acha o texto aninhado quando output_text não vem",
+    extrairTexto('{"steps":[{"content":[{"text":"oi"}]}]}') === "oi"
+  );
+  ok("resposta ilegível devolve null em vez de estourar", extrairTexto("nao e json") === null);
 
   console.log(
     falhas.length

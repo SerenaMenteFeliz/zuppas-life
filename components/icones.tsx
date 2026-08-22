@@ -255,6 +255,29 @@ export function Raio({ className }: Props) {
   );
 }
 
+/* Bússola — a Inteligência. Não é cérebro nem faísca de propósito: o que mora
+   ali não é "a IA", é a direção que a gente dá pra ela (quem fala, onde grava,
+   que regras valem). Bússola é orientação, e é isso que a ficha é. */
+export function Bussola({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15.2 8.8l-2 4.4-4.4 2 2-4.4z" />
+    </svg>
+  );
+}
+
+/* Pauta — os Registros. Linhas empilhadas com uma marca na margem: é lista de
+   coisa que aconteceu, em ordem, que é exatamente o que um log é. */
+export function Pauta({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <path d="M4 5.5h16M4 12h16M4 18.5h10" />
+      <circle cx="19" cy="18.5" r="1.6" />
+    </svg>
+  );
+}
+
 /* Claquete — o painel de conteúdo. Vídeo curto é o formato central da rede de
    perfis, então o ícone fala da gravação, não de "documento". */
 export function Claquete({ className }: Props) {

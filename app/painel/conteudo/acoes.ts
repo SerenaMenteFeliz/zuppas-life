@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  aprenderCenas,
   atualizarPost,
   criarPost,
   excluirMetrica,
@@ -96,6 +97,10 @@ const CAMPOS_EDITAVEIS = [
   "legenda",
   "hashtags",
   "observacao",
+  /* Entrou em 22/08/2026 com a migration 0002. Local é o que faz a IA propor
+     cena gravável em vez de cena bonita, e é o que deixa o quadro responder
+     "por que quatro roteiros estão parados?" com "todos pedem praia". */
+  "local",
 ] as const;
 
 export type CampoEditavel = (typeof CAMPOS_EDITAVEIS)[number];
@@ -147,6 +152,19 @@ export async function salvarDadosAcao(
   }
 
   const atual = await atualizarPost(id, campos);
+
+  /* Chegar a "gravado" é o momento em que a cena deixa de ser plano e vira
+     fato: alguém apontou a câmera e ela funcionou. É a única prova que importa
+     de que aquela cena é gravável naquele lugar, e é por isso que o catálogo
+     aprende aqui e não no cadastro.
+
+     Sem `await` de propósito: aprender é efeito colateral do trabalho dela, não
+     o trabalho. Segurar a resposta do autosave por causa disso trocaria uma
+     conveniência futura por lentidão agora. `aprenderCenas` já engole os
+     próprios erros. */
+  if (campos.status === "gravado" && atual?.local) {
+    void aprenderCenas(id, atual.local);
+  }
 
   revalidatePath("/painel/conteudo");
   revalidatePath("/painel/conteudo/" + id);

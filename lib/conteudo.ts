@@ -82,8 +82,68 @@ async function escrever<T>(
   return texto ? JSON.parse(texto) : [];
 }
 
-const COLUNAS_POST =
+const COLUNAS_BASE =
   "id,titulo,perfil,formato,pilar,produto,status,data_planejada,data_publicada,link,legenda,hashtags,responsavel,referencia,observacao,criado_em,atualizado_em";
+
+/* ── Por que `local` não entra direto na lista acima ───────────────────────────
+
+   `local` chegou com a migration 0002, e a migration é rodada À MÃO pelo Yan no
+   SQL Editor. Ou seja, existe uma janela em que o código novo está no ar e a
+   coluna ainda não existe, e essa janela é do tamanho de "o Yan ainda não
+   sentou pra fazer isso".
+
+   O problema é que o PostgREST responde **400 pra query inteira** quando o
+   `select` cita uma coluna que não existe. Como `ler()` devolve vazio em caso
+   de erro, `carregarPost` devolveria null e a tela de post cairia em
+   `notFound()`. Efeito real: deployar antes da migration derrubaria o painel de
+   Conteúdo que a Ge JÁ USA, por causa de uma funcionalidade que ela nem pediu.
+
+   Trocar por `select=*` resolveria em uma linha e abriria outro buraco: a linha
+   inteira do post vai pra um componente de cliente, e `*` significa "manda
+   também qualquer coluna que alguém adicionar no futuro". A lista explícita é
+   o que garante que só vai daqui o que a gente decidiu que vai.
+
+   Então: uma sondagem barata, uma vez por instância. Enquanto a coluna não
+   existir, o app funciona inteiro sem ela (o campo aparece vazio e a IA propõe
+   cena de dentro de casa); no momento em que existir, ele passa a usá-la
+   sozinho, sem redeploy.
+
+   A janela de 60s é a demora máxima entre rodar a migration e o app perceber. */
+let temLocal: boolean | null = null;
+let sondadoEm = 0;
+
+async function colunasPost(): Promise<string> {
+  const agora = Date.now();
+  if (temLocal === null || (temLocal === false && agora - sondadoEm > 60_000)) {
+    const cfg = rest();
+    if (!cfg) return COLUNAS_BASE;
+    sondadoEm = agora;
+    try {
+      const resp = await fetch(cfg.url + "/conteudo_posts?select=local&limit=1", {
+        headers: headers(cfg.key),
+        cache: "no-store",
+      });
+      temLocal = resp.ok;
+    } catch {
+      temLocal = false;
+    }
+  }
+  return temLocal ? COLUNAS_BASE + ",local" : COLUNAS_BASE;
+}
+
+/** A coluna `local` já existe neste banco?
+
+    Existe pra tela poder ESCONDER o campo enquanto a migration não rodou.
+    Achado testando em 22/08/2026: sem isso, escolher um local gravava tudo
+    menos o local, o indicador dizia "Salvo às 20:06" e a escolha sumia no
+    recarregamento. Campo que aceita valor e não guarda é exatamente a classe
+    de falha que este painel passou o mês inteiro fechando.
+
+    Sem campo, sem promessa: a IA continua funcionando (propõe cena de dentro
+    de casa) e o campo aparece sozinho quando a coluna existir. */
+export async function suportaLocal(): Promise<boolean> {
+  return (await colunasPost()).includes(",local");
+}
 
 const COLUNAS_FALA =
   "id,post_id,ordem,texto,funcao,enquadramento,cenario,acao,broll,texto_tela,observacao,gravada";
@@ -93,15 +153,21 @@ export async function listarPosts(): Promise<Post[]> {
      sem data no fim em vez de encabeçar a lista — ideia solta costuma ser a
      coisa mais numerosa e a menos urgente. */
   return ler<Post>(
-    "conteudo_posts?select=" + COLUNAS_POST + "&order=data_planejada.desc.nullslast,criado_em.desc",
+    "conteudo_posts?select=" +
+      (await colunasPost()) +
+      "&order=data_planejada.desc.nullslast,criado_em.desc",
   );
 }
 
 export async function carregarPost(id: string): Promise<Post | null> {
   const linhas = await ler<Post>(
-    "conteudo_posts?select=" + COLUNAS_POST + "&id=eq." + id + "&limit=1",
+    "conteudo_posts?select=" + (await colunasPost()) + "&id=eq." + id + "&limit=1",
   );
-  return linhas[0] ?? null;
+  /* `local` some da linha quando a coluna ainda não existe. Normalizar aqui
+     evita `undefined` viajando pra dentro do prompt e do formulário, onde
+     "não escolheu" e "não existe" precisam ser a mesma coisa. */
+  const p = linhas[0];
+  return p ? { ...p, local: p.local ?? null } : null;
 }
 
 export async function carregarFalas(postId: string): Promise<Fala[]> {
@@ -132,6 +198,87 @@ export async function contarFalas(): Promise<Map<string, { total: number; gravad
   return mapa;
 }
 
+/* ── Catálogo de cenas ────────────────────────────────────────────────────────
+
+   Cresce do USO, não do cadastro. Cena que apareceu num post que chegou a
+   `gravado` foi testada contra a realidade da casa, e essa é a única prova que
+   importa de que ela é gravável.
+
+   O desenho é híbrido de propósito: catálogo fixo cadastrado à mão dá
+   viabilidade total e repetição; modelo inventando cena toda vez dá variedade
+   com viabilidade baixa. Aqui o catálogo entra no prompt como vocabulário e
+   exemplo, e o modelo escolhe de lá por padrão.
+
+   Vazio não trava nada: sem catálogo, o modelo trabalha só com a ficha do
+   local. É o estado normal no primeiro dia. */
+
+export type Cena = {
+  id: string;
+  local: string;
+  descricao: string;
+  enquadramento: string | null;
+  usos: number;
+};
+
+/** As cenas que já funcionaram neste local, mais usadas primeiro. Alimenta o
+    prompt. Sem local escolhido devolve vazio: cena de praia não ajuda quem vai
+    gravar na cozinha, e sugerir cena de qualquer lugar é pior que não sugerir. */
+export async function cenasDoLocal(local: string | null): Promise<string[]> {
+  if (!local) return [];
+  const linhas = await ler<Cena>(
+    "conteudo_cenas?select=descricao,enquadramento&local=eq." +
+      encodeURIComponent(local) +
+      "&order=usos.desc&limit=12",
+  );
+  return linhas.map((c) =>
+    c.enquadramento ? c.descricao + " (" + c.enquadramento + ")" : c.descricao,
+  );
+}
+
+/** Guarda as cenas de um post no catálogo. Chamada quando o post chega a
+    `gravado`, que é o momento em que a cena deixa de ser plano e vira fato.
+
+    Falha em silêncio: catálogo é conveniência, e um erro aqui não pode impedir
+    alguém de marcar o próprio post como gravado. */
+export async function aprenderCenas(postId: string, local: string | null): Promise<void> {
+  if (!local) return;
+  try {
+    const falas = await carregarFalas(postId);
+    const cenas = falas
+      .filter((f) => f.cenario && f.cenario.trim() !== "")
+      .map((f) => ({
+        local,
+        descricao: (f.cenario as string).trim().slice(0, 200),
+        enquadramento: f.enquadramento?.trim() || null,
+        origem_post_id: postId,
+      }));
+    if (cenas.length === 0) return;
+
+    /* Dedup local antes de mandar: duas falas no mesmo cenário virariam duas
+       linhas com a mesma chave única no mesmo lote, e o PostgREST recusa o lote
+       inteiro por conflito consigo mesmo. */
+    const vistas = new Set<string>();
+    const unicas = cenas.filter((c) => {
+      if (vistas.has(c.descricao)) return false;
+      vistas.add(c.descricao);
+      return true;
+    });
+
+    await escrever(
+      "conteudo_cenas?on_conflict=local,descricao",
+      "POST",
+      unicas,
+      "resolution=merge-duplicates,return=minimal",
+    );
+  } catch {
+    /* Ver acima: catálogo é conveniência. */
+  }
+}
+
+export async function listarCenas(): Promise<Cena[]> {
+  return ler<Cena>("conteudo_cenas?select=id,local,descricao,enquadramento,usos&order=local.asc,usos.desc");
+}
+
 export async function criarPost(dados: {
   titulo: string;
   perfil: string;
@@ -155,12 +302,25 @@ export async function criarPost(dados: {
     tempo. É assim que uma segunda aba aberta deixa de ser risco e vira
     informação. */
 export async function atualizarPost(id: string, campos: Partial<Post>): Promise<Post | null> {
+  /* Sem a coluna, gravar `local` derrubaria o autosave inteiro do formulário
+     com um erro do PostgREST, e o autosave é justamente o que não pode falhar.
+     Descartar o campo mantém tudo o mais funcionando; o dropdown volta ao valor
+     do servidor na gravação seguinte, que é o comportamento certo pra "esse
+     campo ainda não existe aqui". */
+  const colunas = await colunasPost();
+  let limpos = campos;
+  if (!colunas.includes(",local") && "local" in campos) {
+    limpos = { ...campos };
+    delete limpos.local;
+  }
+
   const linhas = await escrever<Post>(
-    "conteudo_posts?id=eq." + id + "&select=" + COLUNAS_POST,
+    "conteudo_posts?id=eq." + id + "&select=" + colunas,
     "PATCH",
-    { ...campos, atualizado_em: new Date().toISOString() },
+    { ...limpos, atualizado_em: new Date().toISOString() },
   );
-  return linhas[0] ?? null;
+  const p = linhas[0];
+  return p ? { ...p, local: p.local ?? null } : null;
 }
 
 export async function excluirPost(id: string): Promise<void> {

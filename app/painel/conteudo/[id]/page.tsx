@@ -5,8 +5,9 @@ import DadosPost from "@/components/painel/DadosPost";
 import ExcluirPost from "@/components/painel/ExcluirPost";
 import PostShell from "@/components/painel/PostShell";
 import RoteiroEditor from "@/components/painel/RoteiroEditor";
-import { carregarFalas, carregarMetricas, carregarPost } from "@/lib/conteudo";
+import { carregarFalas, carregarMetricas, carregarPost, suportaLocal } from "@/lib/conteudo";
 import { statusVivo, tituloDe, type Metrica } from "@/lib/conteudo-tipos";
+import { temChaves } from "@/lib/ia/modelo";
 import { hojeISO } from "@/lib/datas";
 import { salvarMetricaAcao } from "../acoes";
 
@@ -85,9 +86,13 @@ export default async function PostPage({
      correspondente, mostrando a primeira da lista sem avisar. */
   const post = { ...bruto, status: statusVivo(bruto.status) };
 
-  const [falas, metricas] = await Promise.all([
+  const [falas, metricas, temLocal] = await Promise.all([
     carregarFalas(id),
     carregarMetricas(id),
+    /* Enquanto a migration 0002 não rodou, o campo de local nem aparece. Ver
+       `suportaLocal`: sem coluna, escolher um local gravaria tudo menos ele, e
+       a tela diria "Salvo". */
+    suportaLocal(),
   ]);
   const hoje = hojeISO();
 
@@ -105,10 +110,16 @@ export default async function PostPage({
 
   return (
     <PostShell post={post}>
-        <DadosPost post={post} />
+        <DadosPost post={post} mostrarLocal={temLocal} />
 
         <div className="glass-card mb-6 p-5">
-          <RoteiroEditor postId={post.id} iniciais={falas} />
+          <RoteiroEditor
+            postId={post.id}
+            iniciais={falas}
+            perfilId={post.perfil}
+            localId={post.local}
+            iaLigada={temChaves()}
+          />
         </div>
 
         <div className="glass-card mb-6 p-5">

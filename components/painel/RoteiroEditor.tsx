@@ -7,6 +7,7 @@ import { avisar } from "@/components/painel/Avisos";
 import CampoTexto from "@/components/painel/CampoTexto";
 import Dropdown from "@/components/painel/Dropdown";
 import { usePostShell } from "@/components/painel/PostShell";
+import RoteiroIA, { EVENTO_IA, type PropostaIA } from "@/components/painel/RoteiroIA";
 import { FUNCAO_INFO, FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
 
 /* Editor do roteiro, o miolo do painel de conteúdo.
@@ -46,9 +47,26 @@ import { FUNCAO_INFO, FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
    última gravação vence naquela fala. É a colisão que não tem como evitar sem
    travar a linha, e é a única que a pessoa entende quando acontece. */
 
-type Props = { postId: string; iniciais: Fala[] };
+type Props = {
+  postId: string;
+  iniciais: Fala[];
+  /* Perfil e local vêm de fora porque a IA precisa dos dois pra propor cena
+     gravável, e eles são dados do POST, não do roteiro. Vindo como prop, uma
+     troca de local nos dados do post chega aqui na próxima renderização do
+     servidor, sem este componente precisar saber que o formulário existe. */
+  perfilId: string;
+  localId: string | null;
+  /* Sem chave configurada, os botões de IA não nascem. Ver RoteiroIA. */
+  iaLigada: boolean;
+};
 
-export default function RoteiroEditor({ postId, iniciais }: Props) {
+export default function RoteiroEditor({
+  postId,
+  iniciais,
+  perfilId,
+  localId,
+  iaLigada,
+}: Props) {
   const { reportar } = usePostShell();
   const [falas, setFalas] = useState<Fala[]>(iniciais);
   const [abrirTodas, setAbrirTodas] = useState(false);
@@ -159,6 +177,36 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gravar]);
 
+  /* Falas vindas da IA entram por evento, depois de aprovadas na prévia (ver
+     RoteiroIA.tsx). Elas caem no FIM da lista e ficam sujas, ou seja, gravam
+     pelo autosave de sempre.
+
+     Isso é deliberado: a IA não abre um segundo caminho de escrita no roteiro.
+     Ela produz texto, a pessoa aprova, e a partir daí é trabalho igual a
+     qualquer outro — dá pra editar, reordenar e apagar antes mesmo dos 900ms
+     do autosave.
+
+     Lê `atuais.current` e não `falas` porque o listener é registrado uma vez:
+     com o estado, ele enxergaria a lista da primeira renderização pra sempre. */
+  useEffect(() => {
+    const ouvir = (e: Event) => {
+      const p = (e as CustomEvent).detail as PropostaIA;
+      if (!p?.falas?.length) return;
+
+      const novas: Fala[] = p.falas.map((f) => ({ ...f, gravada: false }));
+      const juntas = [...atuais.current, ...novas].map((f, i) => ({ ...f, ordem: i + 1 }));
+
+      atuais.current = juntas;
+      setFalas(juntas);
+      sujo.current = true;
+      reportar("roteiro", { estado: "sujo", hora: hora.current });
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => void gravar(), 900);
+    };
+    window.addEventListener(EVENTO_IA, ouvir);
+    return () => window.removeEventListener(EVENTO_IA, ouvir);
+  }, [gravar, reportar]);
+
   function alterar(indice: number, campo: keyof Fala, valor: string | boolean) {
     mexer(falas.map((f, i) => (i === indice ? { ...f, [campo]: valor } : f)));
   }
@@ -232,7 +280,13 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <RoteiroIA
+            postId={postId}
+            perfilId={perfilId}
+            localId={localId}
+            ligada={iaLigada}
+          />
           <button
             type="button"
             className="conteudo-chip-acao"
@@ -251,6 +305,12 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
         <p className="conteudo-vazio-inline">
           Comece pela primeira frase que vai ser falada. A primeira costuma ser o gancho, e
           o app já marca ela assim.
+          {iaLigada && (
+            <>
+              {" "}Se o roteiro já existe escrito em outro lugar,{" "}
+              <strong>Colar roteiro</strong> separa ele em falas e planeja a cena de cada uma.
+            </>
+          )}
         </p>
       )}
 

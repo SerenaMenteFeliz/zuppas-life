@@ -203,6 +203,17 @@ export type Post = {
   responsavel: string | null;
   referencia: string | null;
   observacao: string | null;
+  /* Onde este post vai ser gravado (22/08/2026, migration 0002).
+
+     Propriedade do POST e não da fala: escolhe uma vez e todas as falas
+     herdam. Fala 3 na praia e fala 4 em casa existe, mas é exceção, e modelar
+     a exceção custaria um campo a mais em cada linha do roteiro pra um valor
+     que quase nunca muda entre elas.
+
+     O vocabulário vive em lib/ia/inteligencia.ts, alimentado pelo vault, e não
+     aqui: local é INTELIGÊNCIA (o que existe em cada lugar, quanto custa ir
+     até lá), enquanto este arquivo é o vocabulário estável da tela. */
+  local: string | null;
   criado_em: string;
   atualizado_em: string;
 };

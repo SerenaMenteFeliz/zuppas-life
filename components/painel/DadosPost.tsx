@@ -16,6 +16,7 @@ import {
   type Post,
   type Status,
 } from "@/lib/conteudo-tipos";
+import { LOCAIS } from "@/lib/ia/inteligencia";
 
 /* Formulário de dados do post.
 
@@ -51,9 +52,19 @@ const CAMPOS: CampoEditavel[] = [
   "legenda",
   "hashtags",
   "observacao",
+  "local",
 ];
 
-export default function DadosPost({ post }: { post: Post }) {
+export default function DadosPost({
+  post,
+  mostrarLocal,
+}: {
+  post: Post;
+  /* Falso enquanto a migration 0002 não rodou. Ver `suportaLocal` em
+     lib/conteudo.ts: campo que aceita valor e não guarda é pior que campo
+     ausente, porque ele promete. */
+  mostrarLocal: boolean;
+}) {
   const { reportar, trocarCabecalho } = usePostShell();
   const [valores, setValores] = useState<Post>(post);
 
@@ -262,6 +273,33 @@ export default function DadosPost({ post }: { post: Post }) {
             }}
           />
         </div>
+
+        {/* Local entrou em 22/08/2026, junto com a escrita de roteiro por IA.
+
+            Ele fica aqui e não dentro do roteiro porque é decisão do POST:
+            escolhe uma vez e todas as falas herdam. E a explicação de cada
+            opção é o ESFORÇO que ela custa, não uma descrição do lugar.
+            Escolher local é escolher quanto trabalho o roteiro vai exigir pra
+            sair do papel, e é isso que decide se ele vira vídeo esta semana. */}
+        {mostrarLocal && (
+          <div className="conteudo-campo">
+            <span>Onde vai gravar</span>
+            <Dropdown
+              rotuloAcessivel="Onde vai gravar"
+              vazio="Ainda não sei"
+              largura={320}
+              valor={valores.local ?? ""}
+              opcoes={[
+                { valor: "", rotulo: "Ainda não sei", ajuda: "A IA vai propor cena que cabe dentro de casa" },
+                ...LOCAIS.map((l) => ({ valor: l.id, rotulo: l.rotulo, ajuda: l.esforco })),
+              ]}
+              aoEscolher={(v) => {
+                mexer({ local: v });
+                agora();
+              }}
+            />
+          </div>
+        )}
 
         {/* "Quando quero postar" e "Quando saiu" em vez de "Data planejada" e
             "Data publicada" (Yan, 21/08): "planejada" colidia com o status
