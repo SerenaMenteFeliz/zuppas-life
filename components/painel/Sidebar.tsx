@@ -44,14 +44,15 @@ export default function Sidebar() {
           );
         })}
       </nav>
-
-      {/* O layout do painel troca a casca inteira, então sem este link o
-          /painel é beco sem saída: não dá pra voltar pra rotina da família a
-          não ser editando a URL. Fica no rodapé e discreto porque é saída, não
-          destino. */}
-      <Link href="/" className="painel-sidebar-saida">
-        ‹ Rotina da família
-      </Link>
     </aside>
   );
 }
+
+/* Houve aqui um link de saída pro app da família ("‹ Rotina da família"), no
+   rodapé da sidebar. Tirado a pedido do Yan em 22/08/2026, no mesmo dia em que
+   entrou: o painel está sendo preparado pra Ge e pra Liz, e um atalho pra
+   rotina da casa não pertence a essa tela por enquanto.
+
+   O beco sem saída que ele resolvia continua existindo (o layout do painel
+   troca a casca inteira, então só a URL leva de volta) — é limite conhecido,
+   não esquecimento. Se voltar, volta como saída discreta, não como destino. */

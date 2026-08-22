@@ -746,6 +746,10 @@ body {
   --terracotta: #b56a44;
   --accent-wash: rgba(109, 79, 224, 0.08);
   --accent-wash-strong: rgba(109, 79, 224, 0.14);
+  /* Altura da faixa de topo E do bloco de marca da sidebar. Os dois leem a
+     mesma variável pra que as linhas de baixo deles caiam no mesmo pixel e
+     formem uma linha só atravessando a tela. Editar aqui move as duas. */
+  --painel-topo-altura: 3.75rem;
 }
 
 .painel-bg {
@@ -768,18 +772,37 @@ body {
   width: 244px;
   height: 100%;
   flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.5rem 1rem;
+  /* Sem `gap` e sem padding no topo: o espaçamento entre marca e navegação é
+     declarado no `.painel-nav`, porque ele precisa casar com o respiro que
+     sobra acima da linha (ver o bloco de marca abaixo). */
+  padding: 0 1rem 1.5rem;
   overflow-y: auto;
   background: var(--surface);
   border-right: 1px solid var(--line);
 }
 
+/* Bloco de marca com a MESMA altura da faixa de topo, e a linha de baixo
+   fechando as duas na mesma altura: lidas juntas, viram uma linha só cruzando
+   a tela, separando "onde estou" de "o que tem aqui".
+
+   Sangra os 1rem de padding lateral da sidebar (`margin: 0 -1rem` mais
+   `padding` compensando) pra linha atravessar a coluna inteira, encostando na
+   borda direita, e não parar antes como se fosse um traço solto.
+
+   O texto fica centralizado verticalmente na caixa, então o respiro acima e
+   abaixo dele é igual por construção — não por número escolhido à mão. */
 .painel-marca {
-  padding: 0 0.5rem;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  height: var(--painel-topo-altura);
+  margin: 0 -1rem;
+  padding: 0 1.5rem;
   font-family: var(--font-display), Georgia, serif;
   font-size: 1.05rem;
   color: var(--ink);
+  border-bottom: 1px solid var(--line);
 }
 
 .painel-marca-sub {
@@ -791,10 +814,16 @@ body {
   color: var(--ink-soft);
 }
 
+/* `margin-top` calibrado pra igualar o respiro que sobra ACIMA da linha: o
+   texto da marca centralizado numa caixa de 60px deixa 8,69px de cada lado
+   (medido no navegador em 22/08/2026, não estimado), e 0.55rem = 8,8px cai
+   dentro de um décimo de pixel disso. Assim a linha tem o mesmo ar dos dois
+   lados, que é o que dá a sensação de linha assentada em vez de encostada. */
 .painel-nav {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  margin-top: 0.55rem;
 }
 
 .painel-nav-item {
@@ -818,27 +847,16 @@ body {
   background: var(--accent-wash-strong);
 }
 
-/* Saída pro app da família. `margin-top: auto` empurra pro rodapé da coluna:
-   é o último recurso da tela, não um item de menu. */
-.painel-sidebar-saida {
-  margin-top: auto;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.74rem;
-  color: var(--ink-soft);
-  border-radius: 10px;
-}
-
-.painel-sidebar-saida:hover {
-  color: var(--ink);
-  background: var(--accent-wash);
-}
 
 .painel-main {
   flex: 1;
   min-width: 0;
   height: 100%;
   overflow-y: auto;
-  padding: 2.25rem 2.5rem 4rem;
+  /* Sem respiro no topo: toda tela do painel abre com `.painel-topo`, que traz
+     a própria altura. O padding daqui empurrava a faixa 36px pra baixo e
+     deixava um vão morto acima dela. */
+  padding: 0 2.5rem 4rem;
   /* Reserva a calha da barra de rolagem sempre, role a tela ou não.
      Sem isso, a largura do conteúdo dependia de a visão caber na altura da
      janela: medido em 22/08/2026 num notebook, quadro (430px de altura) e
@@ -871,16 +889,10 @@ body {
   }
   .painel-nav {
     flex-direction: row;
+    margin-top: 0;
   }
   .painel-nav-item {
     flex: none;
-    white-space: nowrap;
-  }
-  /* Na horizontal, `margin-top: auto` centralizaria em vez de empurrar: quem
-     manda no eixo principal aqui é a margem da esquerda. */
-  .painel-sidebar-saida {
-    margin-top: 0;
-    margin-left: auto;
     white-space: nowrap;
   }
   .painel-main {
@@ -1197,16 +1209,30 @@ textarea {
    pessoa está é a sidebar, e o topo vale mais como lugar de ação do que como
    letreiro.
 
-   As margens negativas cancelam o padding do `.painel-main` pra faixa encostar
-   nas bordas do scrollport: sem isso o conteúdo apareceria pelos lados ao
-   passar por baixo. `top: 0` gruda no topo do próprio `.painel-main`, que é o
-   container que rola (o body não rola nesta casca). */
+   As margens negativas cancelam o padding lateral do `.painel-main` pra faixa
+   encostar nas bordas do scrollport: sem isso o conteúdo apareceria pelos lados
+   ao passar por baixo. `top: 0` gruda no topo do próprio `.painel-main`, que é
+   o container que rola (o body não rola nesta casca).
+
+   ── Altura fixa, e por quê ──
+
+   `--painel-topo-altura` é o contrato entre esta faixa e o bloco de marca da
+   sidebar: os dois têm exatamente a mesma altura, então a linha de baixo dos
+   dois cai no mesmo pixel e lê como uma linha só atravessando a tela. Mudar o
+   valor move as duas juntas; é o único lugar a editar.
+
+   `min-height` e não `height` porque numa janela estreita a linha de controles
+   quebra em duas: melhor a faixa crescer (e a linha da sidebar desalinhar, num
+   tamanho em que a sidebar já virou barra horizontal) do que cortar controle. */
 .painel-topo {
   position: sticky;
   top: 0;
   z-index: 40;
+  display: flex;
+  align-items: center;
+  min-height: var(--painel-topo-altura);
   margin: 0 -2.5rem 1.5rem;
-  padding: 0.85rem 2.5rem;
+  padding: 0 2.5rem;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
@@ -1285,34 +1311,25 @@ textarea {
   color: var(--accent);
 }
 
-/* `sticky` gruda no topo do PADDING box do container que rola, não no topo do
-   scrollport, e o `.painel-main` tem `padding-top: 2.25rem`. Resultado medido
-   em 21/08/2026: a barra parava 36px abaixo do topo e o conteúdo aparecia
-   passando por essa faixa. Este bloco cobre exatamente ela.
+/* Houve aqui um `::before` de 2.5rem tapando a fresta entre o topo do
+   scrollport e o topo do padding box, porque `sticky` gruda no PADDING box e o
+   `.painel-main` tinha `padding-top: 2.25rem` (medido em 21/08/2026: a barra
+   parava 36px abaixo do topo e o conteúdo passava pela fresta).
 
-   A alternativa seria tirar o padding do `.painel-main`, mas ele é a casca de
-   todas as telas do painel e só esta tem barra fixa. Fundo opaco em vez de
-   translúcido com blur pelo mesmo motivo: dois elementos com `backdrop-filter`
-   encostados não casam o borrão e a emenda aparece. */
-.painel-topo::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: 2.5rem;
-  background: var(--bg);
-}
+   Saiu em 22/08/2026, junto com o padding-top do `.painel-main`. O motivo pra
+   manter o padding era que só a tela de post tinha barra fixa e ele servia as
+   outras; agora **todas** as telas do painel abrem com a barra, então o padding
+   virava só um vão morto no topo (o Yan viu como "espaçamento grande demais em
+   cima"). Sem ele, `top: 0` gruda no topo de verdade e o remendo some. Se algum
+   dia nascer uma tela de painel sem `.painel-topo`, ela precisa do próprio
+   respiro superior. */
 
-/* No celular o `.painel-main` tem padding de 1.25rem, não de 2.5rem: sem este
-   bloco a margem negativa da faixa estouraria a tela pros dois lados. */
+/* No celular o `.painel-main` tem padding lateral de 1.25rem, não de 2.5rem:
+   sem este bloco a margem negativa da faixa estouraria a tela pros dois lados. */
 @media (max-width: 760px) {
   .painel-topo {
     margin: 0 -1.25rem 1.25rem;
-    padding: 0.75rem 1.25rem;
-  }
-  .painel-topo::before {
-    height: 1.5rem;
+    padding: 0 1.25rem;
   }
 }
 
