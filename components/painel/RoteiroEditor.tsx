@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { salvarRoteiroAcao } from "@/app/painel/conteudo/acoes";
 import { avisar } from "@/components/painel/Avisos";
+import CampoTexto from "@/components/painel/CampoTexto";
 import { usePostShell } from "@/components/painel/PostShell";
 import { FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
 
@@ -174,10 +175,15 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button type="button" className="chip" onClick={() => setAbrirTodas((v) => !v)}>
+          <button
+            type="button"
+            className="conteudo-chip-acao"
+            aria-pressed={abrirTodas}
+            onClick={() => setAbrirTodas((v) => !v)}
+          >
             {abrirTodas ? "fechar cenas" : "abrir todas as cenas"}
           </button>
-          <button type="button" className="chip" onClick={adicionar}>
+          <button type="button" className="conteudo-chip-criar" onClick={adicionar}>
             + fala
           </button>
         </div>
@@ -205,13 +211,17 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
             </div>
 
             <div className="min-w-0 flex-1">
-              <textarea
+              {/* Cresce com o texto, como a legenda e a observação: a fala é o
+                  que vai ser dito em voz alta, e ler metade dela dentro de uma
+                  janelinha de duas linhas atrapalha justamente na hora de
+                  conferir se soa bem. */}
+              <CampoTexto
                 className="conteudo-fala-texto"
-                rows={2}
+                minimo={2}
                 placeholder="a frase, do jeito exato que vai ser falada"
-                value={fala.texto}
-                onChange={(e) => alterar(i, "texto", e.target.value)}
-                onBlur={agora}
+                valor={fala.texto}
+                aoMudar={(v) => alterar(i, "texto", v)}
+                aoSair={agora}
               />
 
               <div className="conteudo-fala-linha">

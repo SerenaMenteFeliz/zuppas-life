@@ -60,13 +60,17 @@ export const STATUS_QUADRO: Status[] = ["ideia", "roteiro", "gravado", "agendado
    ninguém usa só ocupa espaço no filtro. A conta continua existindo no vault
    (ver "Estratégia de Conteúdo - Fase 1"); o que saiu foi a linha desta lista.
 
-   Camilla segue sem @ porque o handle do TikTok dela não está registrado em
-   lugar nenhum do vault. Preencher com palpite viraria dado errado com cara de
-   dado certo. Corrigir aqui quando o Yan confirmar. */
+   Camilla saiu em 22/08/2026 ("por enquanto", palavra do Yan): o TikTok dela é
+   satélite independente, com pauta e ritmo próprios, e não está sendo planejado
+   aqui. Também nunca teve @ registrado no vault, o que já era sinal de que a
+   linha existia antes do uso. Devolver a linha é o suficiente pra voltar.
+
+   Post já gravado com `perfil: "camilla"` não some do banco — só deixa de ter
+   rótulo, e cai no `?? p.perfil` das telas, mostrando o id cru. Hoje não existe
+   nenhum; se existir quando ela voltar, volta a exibir sozinho. */
 export const PERFIS = [
   { id: "liz", rotulo: "@liz.zuppa", dono: "Liz", cor: "var(--accent)" },
   { id: "geovana", rotulo: "@geovana_zuppa", dono: "Ge", cor: "var(--terracotta)" },
-  { id: "camilla", rotulo: "Camilla (TikTok)", dono: "Camilla", cor: "var(--gold)" },
 ] as const;
 
 export type PerfilId = (typeof PERFIS)[number]["id"];
@@ -75,16 +79,21 @@ export function perfilPorId(id: string) {
   return PERFIS.find((p) => p.id === id);
 }
 
-/* Formatos e pilares vêm da "Estratégia de Conteúdo - Fase 1" verbatim, não
-   inventados aqui — o vault é fonte de verdade do significado, esta lista é
-   só o espelho operável dele. */
-export const FORMATOS = [
-  "Reel com rosto",
-  "Vídeo fundo simples",
-  "Carrossel",
-  "Imagem → legenda",
-  "Story",
-] as const;
+/* Pilares vêm da "Estratégia de Conteúdo - Fase 1" verbatim, não inventados
+   aqui: o vault é fonte de verdade do significado, esta lista é só o espelho
+   operável dele.
+
+   Formato divergiu de propósito em 22/08/2026 (Yan). A lista da estratégia
+   ("Reel com rosto", "Vídeo fundo simples", "Imagem → legenda") misturava DUAS
+   perguntas: que mídia é isso, e como foi produzido. Escolher entre cinco
+   opções toda vez, sendo que três delas são vídeo, é atrito na hora de criar,
+   e ninguém estava preenchendo. Aqui ficou só a mídia; o "como" vive no
+   roteiro, que é onde ele é de fato decidido.
+
+   Valor antigo gravado num post continua no banco e continua sendo exibido nas
+   listas — o `<select>` é que não oferece mais. Se aparecer um post velho, o
+   campo mostra em branco na edição até alguém reescolher. */
+export const FORMATOS = ["Vídeo", "Imagem", "Carrossel", "Story"] as const;
 
 export const PILARES = [
   "Reflexão / Filosófico",

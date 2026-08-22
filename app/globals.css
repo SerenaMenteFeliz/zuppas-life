@@ -744,6 +744,11 @@ body {
   --gold: #b8863e;
   --sage: #5c8a68;
   --terracotta: #b56a44;
+  /* Vermelho só pra ação destrutiva. Separado do terracotta de propósito
+     (Yan, 22/08/2026: "mais avermelhado"): terracotta é acento quente e já é a
+     cor do perfil da Ge no calendário, então apagar post pintado com ele lia
+     como "coisa da Ge", não como "cuidado". */
+  --perigo: #c2372f;
   --accent-wash: rgba(109, 79, 224, 0.08);
   --accent-wash-strong: rgba(109, 79, 224, 0.14);
   /* Altura da faixa de topo E do bloco de marca da sidebar. Os dois leem a
@@ -1389,15 +1394,16 @@ textarea {
   padding: 0.45rem 0.9rem;
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--terracotta);
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--terracotta) 40%, transparent);
+  color: var(--perigo);
+  background: color-mix(in srgb, var(--perigo) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--perigo) 45%, transparent);
   border-radius: 9px;
 }
 
 .conteudo-botao-perigo:hover {
   color: var(--surface);
-  background: var(--terracotta);
+  background: var(--perigo);
+  border-color: var(--perigo);
 }
 
 /* Indicador do autosave. Ocupa o lugar do botão que saiu, e por isso precisa
@@ -1490,15 +1496,16 @@ textarea {
   white-space: nowrap;
 }
 
+/* Mesma cor do botão que abriu o popup: se "Excluir este post" é vermelho e a
+   confirmação fosse terracotta, a segunda tela pareceria falar de outra coisa. */
 .conteudo-confirma-sim {
-  color: var(--terracotta);
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--terracotta) 45%, transparent);
+  color: var(--surface);
+  background: var(--perigo);
+  border: 1px solid var(--perigo);
 }
 
 .conteudo-confirma-sim:hover {
-  color: var(--surface);
-  background: var(--terracotta);
+  background: color-mix(in srgb, var(--perigo) 85%, black);
 }
 
 .conteudo-confirma-sim:disabled {
@@ -1861,8 +1868,41 @@ textarea {
 }
 
 .conteudo-campo textarea {
-  resize: vertical;
   line-height: 1.45;
+}
+
+/* Cresce sozinho conforme o texto (ver CampoTexto.tsx), então a alça de
+   arrastar sai: ela oferecia um gesto pra resolver algo que o app já resolve.
+   `overflow: hidden` evita a barra de rolagem interna aparecer por um quadro
+   entre digitar e o ajuste de altura. */
+.conteudo-campo-cresce {
+  resize: none;
+  overflow: hidden;
+}
+
+/* Seta própria em TODO select do painel (22/08/2026).
+
+   A seta nativa do Chrome é desenhada colada na borda direita e ignora o
+   `padding-right`: dava pra afastar o texto, nunca a seta, e ela ficava
+   espremida contra o canto da caixa. Com `appearance: none` a seta vira
+   background-image e a distância da borda passa a ser decisão de CSS.
+
+   Este bloco precisa vir DEPOIS de `.conteudo-campo select`, que declara
+   `background` no atalho: o atalho zera `background-image`, então na ordem
+   inversa a seta simplesmente não apareceria.
+
+   A cor está fixa no SVG porque data URI não lê custom property. É o valor de
+   `--ink-soft`, e o `.theme-painel` é só claro — se um dia o painel ganhar tema
+   escuro, esta é uma das linhas a revisitar. */
+.conteudo-select,
+.conteudo-select-status,
+.conteudo-campo select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238981a0' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 10px 6px;
+  padding-right: 2rem;
 }
 
 .conteudo-campo input:focus,
@@ -1877,6 +1917,45 @@ textarea {
   .conteudo-grade {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Botões da barra do roteiro (22/08/2026). Eram `.chip` cinza, do mesmo tom do
+   texto de apoio, e liam como etiqueta em vez de botão — "+ fala", que é a ação
+   mais usada da tela inteira, desaparecia ao lado da contagem de falas.
+
+   Dois pesos, porque não são a mesma coisa: `+ fala` CRIA (roxo cheio, mesma
+   linguagem do "+ Criar" do topo) e `abrir/fechar cenas` só muda o que está
+   à vista (roxo de contorno). */
+.conteudo-chip-acao {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease;
+}
+
+.conteudo-chip-acao:hover {
+  background: var(--accent-wash-strong);
+}
+
+.conteudo-chip-criar {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--accent-foreground);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 9999px;
+  transition: opacity 0.15s ease;
+}
+
+.conteudo-chip-criar:hover {
+  opacity: 0.88;
 }
 
 .conteudo-roteiro-barra {
@@ -1930,7 +2009,10 @@ textarea {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 8px;
-  resize: vertical;
+  /* Sem `resize` aqui: a fala também cresce sozinha (ver CampoTexto.tsx). Este
+     bloco vem DEPOIS de `.conteudo-campo-cresce` no arquivo e tem a mesma
+     especificidade, então um `resize: vertical` esquecido aqui venceria e a
+     alça voltaria só nesta caixa. */
 }
 
 .conteudo-fala-texto:hover {
