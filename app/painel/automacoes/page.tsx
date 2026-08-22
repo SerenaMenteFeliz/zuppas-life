@@ -96,9 +96,9 @@ export default async function AutomacoesPage() {
 
   return (
     <>
-      <PainelTopo titulo="Automações" largura={1200} />
+      <PainelTopo titulo="Automações" />
 
-      <div className="mx-auto w-full max-w-[1200px]">
+      <div className="painel-conteudo">
       {semConfig ? (
         <Vazio>
           Sem dado ainda — confere se SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY estão

@@ -31,21 +31,17 @@ export default function PainelTopo({
   voltar,
   controles,
   acoes,
-  largura = 1400,
 }: {
   titulo: React.ReactNode;
   voltar?: { href: string; rotulo: string };
   controles?: React.ReactNode;
   acoes?: React.ReactNode;
-  /* Mesmo limite do conteúdo da página, pra que os controles do topo caiam no
-     mesmo eixo das colunas de baixo num monitor largo. */
-  largura?: number;
 }) {
+  /* Sem prop de largura (22/08/2026): a linha de controles e a coluna de
+     conteúdo leem `--painel-largura` do tema, então é impossível uma tela
+     nascer com um limite diferente do resto do painel por esquecimento. */
   return (
-    <header
-      className="painel-topo"
-      style={{ ["--painel-topo-largura" as string]: largura + "px" }}
-    >
+    <header className="painel-topo">
       <div className="painel-topo-linha">
         <div className="painel-topo-titulo">
           <div className="min-w-0">

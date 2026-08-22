@@ -750,6 +750,12 @@ body {
      mesma variável pra que as linhas de baixo deles caiam no mesmo pixel e
      formem uma linha só atravessando a tela. Editar aqui move as duas. */
   --painel-topo-altura: 3.75rem;
+  /* Largura útil de TODA tela do painel: a coluna de conteúdo e a linha de
+     controles do topo. Havia quatro valores soltos (1400 em Conteúdo, 1200 em
+     Funis e Automações, 1100 na edição de post), então navegar entre as telas
+     mexia no enquadramento a cada clique. Um número só, aqui (Yan, 22/08/2026:
+     padronizar pela largura da aba de Conteúdo, que é a que ele já gostava). */
+  --painel-largura: 1400px;
 }
 
 .painel-bg {
@@ -1243,7 +1249,7 @@ textarea {
    separada no extremo oposto.
 
    A barra sangra de ponta a ponta, mas a LINHA respeita o mesmo limite de
-   largura do conteúdo da tela (`--painel-topo-largura`, definida por página).
+   largura do conteúdo (`--painel-largura`, a mesma do `.painel-conteudo`).
    Sem isso, num monitor largo o "+ Criar" ia parar no canto da janela enquanto
    a última coluna do quadro terminava 700px antes: dois eixos diferentes na
    mesma tela. Num notebook, onde o conteúdo já ocupa a largura toda, os dois
@@ -1254,7 +1260,16 @@ textarea {
   align-items: center;
   gap: 0.65rem 0.9rem;
   width: 100%;
-  max-width: var(--painel-topo-largura, 1400px);
+  max-width: var(--painel-largura);
+  margin-inline: auto;
+}
+
+/* A coluna de conteúdo de qualquer tela do painel. Existe pra que a largura
+   seja uma decisão só, tomada em `--painel-largura`, e não uma classe do
+   Tailwind copiada de tela em tela com um número diferente em cada uma. */
+.painel-conteudo {
+  width: 100%;
+  max-width: var(--painel-largura);
   margin-inline: auto;
 }
 

@@ -16,9 +16,9 @@ export default async function FunisPage() {
 
   return (
     <>
-      <PainelTopo titulo="Funis" largura={1200} />
+      <PainelTopo titulo="Funis" />
 
-      <div className="mx-auto w-full max-w-[1200px]">
+      <div className="painel-conteudo">
       {semDados ? (
         <Vazio>
           Sem dado ainda — confere se SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY estão

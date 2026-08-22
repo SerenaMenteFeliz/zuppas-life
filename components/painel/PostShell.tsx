@@ -89,10 +89,7 @@ export default function PostShell({
           rolar de uma seção pro detalhe não mude a altura nem a posição do
           topo. O que muda é o conteúdo dela: aqui o título é o nome do post,
           e o lugar da ação é ocupado pelo indicador de autosave. */}
-      <header
-        className="painel-topo"
-        style={{ ["--painel-topo-largura" as string]: "1100px" }}
-      >
+      <header className="painel-topo">
         <div className="painel-topo-linha">
           <div className="conteudo-topo-titulo">
             <h1
@@ -116,8 +113,10 @@ export default function PostShell({
 
       {/* O limite de largura mora aqui e não na página, porque a faixa acima
           precisa ficar FORA dele: barra de topo cobre a área principal inteira,
-          conteúdo fica na coluna de leitura. */}
-      <div className="mx-auto w-full max-w-[1100px]">{children}</div>
+          conteúdo fica na coluna de leitura. É a mesma `.painel-conteudo` das
+          telas de lista: em 22/08/2026 esta tela era 1100px contra 1400px da
+          aba de Conteúdo, e abrir um post encolhia a página. */}
+      <div className="painel-conteudo">{children}</div>
     </CaixaPost.Provider>
   );
 }

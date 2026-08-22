@@ -29,7 +29,6 @@ export default async function FunilDetalhePage({ params }: { params: Promise<{ i
   return (
     <>
       <PainelTopo
-        largura={1200}
         titulo={meta.produto}
         voltar={{ href: "/painel/funis", rotulo: "Todos os funis" }}
         controles={<span className="painel-badge">{meta.tipo}</span>}
@@ -45,7 +44,7 @@ export default async function FunilDetalhePage({ params }: { params: Promise<{ i
         }
       />
 
-      <div className="mx-auto w-full max-w-[1200px]">
+      <div className="painel-conteudo">
       {visaoGeral && (
         <section className="mb-8">
           <Rotulo>Visão geral — quiz → lead → compra</Rotulo>

@@ -125,7 +125,7 @@ export default async function ConteudoPage({
         }
       />
 
-      <div className="mx-auto w-full max-w-[1400px]">
+      <div className="painel-conteudo">
         {todos.length === 0 ? (
           <Vazio>Nenhum post ainda. Aperte &ldquo;Criar&rdquo; para começar o primeiro.</Vazio>
         ) : visao === "quadro" ? (
