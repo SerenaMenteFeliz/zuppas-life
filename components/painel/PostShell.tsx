@@ -85,8 +85,15 @@ export default function PostShell({
 
   return (
     <CaixaPost.Provider value={caixa}>
-      <header className="conteudo-topo-fixo">
-        <div className="conteudo-topo">
+      {/* Mesma faixa das telas de lista (`.painel-topo`, 22/08/2026), pra que
+          rolar de uma seção pro detalhe não mude a altura nem a posição do
+          topo. O que muda é o conteúdo dela: aqui o título é o nome do post,
+          e o lugar da ação é ocupado pelo indicador de autosave. */}
+      <header
+        className="painel-topo"
+        style={{ ["--painel-topo-largura" as string]: "1100px" }}
+      >
+        <div className="painel-topo-linha">
           <div className="conteudo-topo-titulo">
             <h1
               className="conteudo-topo-h1"
@@ -98,7 +105,7 @@ export default function PostShell({
             <span className="painel-badge">{st.rotulo}</span>
           </div>
 
-          <div className="conteudo-topo-acoes">
+          <div className="painel-topo-acoes">
             <IndicadorSalvo estado={estado} hora={hora} />
             <Link href="/painel/conteudo" className="conteudo-botao-claro">
               ‹ Conteúdo
@@ -107,7 +114,10 @@ export default function PostShell({
         </div>
       </header>
 
-      {children}
+      {/* O limite de largura mora aqui e não na página, porque a faixa acima
+          precisa ficar FORA dele: barra de topo cobre a área principal inteira,
+          conteúdo fica na coluna de leitura. */}
+      <div className="mx-auto w-full max-w-[1100px]">{children}</div>
     </CaixaPost.Provider>
   );
 }

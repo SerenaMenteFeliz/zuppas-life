@@ -3,6 +3,7 @@ import { Vazio } from "@/components/ui";
 import ConteudoQuadro from "@/components/painel/ConteudoQuadro";
 import ConteudoCalendario from "@/components/painel/ConteudoCalendario";
 import FiltroPerfil from "@/components/painel/FiltroPerfil";
+import PainelTopo from "@/components/painel/PainelTopo";
 import { contarFalas, listarPosts } from "@/lib/conteudo";
 import { mesValido, semanaValida } from "@/lib/conteudo-calendario";
 import {
@@ -76,71 +77,73 @@ export default async function ConteudoPage({
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1400px]">
-      <header className="mb-6">
-        <h1 className="text-3xl" style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}>
-          Conteúdo
-        </h1>
-      </header>
+    <>
+      {/* Rótulo, controles e ação numa faixa fixa só (22/08/2026). Antes eram
+          duas linhas roláveis: um letreiro de 3rem repetindo o que a sidebar já
+          diz, e embaixo os controles, que sumiam justamente quando a lista
+          ficava longa o bastante pra alguém querer trocar de visão.
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        {/* Os dois controles juntos à esquerda, a ação sozinha à direita: filtrar
-            e escolher visão são a mesma família de gesto, criar não é.
+          A visão continua em botões colados e não em dropdown (decidido com o
+          Yan em 21/08): são três opções e são a navegação principal da tela,
+          então valem os três à vista e a troca em um clique. O dropdown ficou
+          pro perfil, que tem mais opções e é filtro secundário. */}
+      <PainelTopo
+        titulo="Conteúdo"
+        controles={
+          <>
+            <nav className="conteudo-visoes">
+              {VISOES.map((v) => (
+                <Link
+                  key={v.id}
+                  href={link({ v: v.id })}
+                  aria-current={v.id === visao ? "page" : undefined}
+                  className={"conteudo-visao" + (v.id === visao ? " conteudo-visao-ativa" : "")}
+                >
+                  {v.rotulo}
+                </Link>
+              ))}
+            </nav>
 
-            A visão continua em botões colados e não em dropdown (decidido com o
-            Yan em 21/08): são três opções e são a navegação principal da tela,
-            então valem os três à vista e a troca em um clique. O dropdown ficou
-            pro perfil, que tem mais opções e é filtro secundário. */}
-        <div className="flex flex-wrap items-center gap-3">
-          <nav className="conteudo-visoes">
-            {VISOES.map((v) => (
-              <Link
-                key={v.id}
-                href={link({ v: v.id })}
-                aria-current={v.id === visao ? "page" : undefined}
-                className={"conteudo-visao" + (v.id === visao ? " conteudo-visao-ativa" : "")}
-              >
-                {v.rotulo}
-              </Link>
-            ))}
-          </nav>
+            <FiltroPerfil
+              valor={perfilFiltro}
+              opcoes={[
+                { id: "", rotulo: "Todos os perfis", href: link({ perfil: undefined }) },
+                ...PERFIS.map((p) => ({ id: p.id, rotulo: p.rotulo, href: link({ perfil: p.id }) })),
+              ]}
+            />
+          </>
+        }
+        acoes={
+          /* Um clique e nada mais. O post nasce sem título e a tela seguinte
+             abre com o campo focado. */
+          <form action={criarPostAcao}>
+            <input type="hidden" name="perfil" value={perfilFiltro ?? "geovana"} />
+            <button type="submit" className="conteudo-botao">
+              + Criar
+            </button>
+          </form>
+        }
+      />
 
-          <FiltroPerfil
-            valor={perfilFiltro}
-            opcoes={[
-              { id: "", rotulo: "Todos os perfis", href: link({ perfil: undefined }) },
-              ...PERFIS.map((p) => ({ id: p.id, rotulo: p.rotulo, href: link({ perfil: p.id }) })),
-            ]}
+      <div className="mx-auto w-full max-w-[1400px]">
+        {todos.length === 0 ? (
+          <Vazio>Nenhum post ainda. Aperte &ldquo;Criar&rdquo; para começar o primeiro.</Vazio>
+        ) : visao === "quadro" ? (
+          <ConteudoQuadro posts={posts} contagens={Object.fromEntries(contagens)} />
+        ) : visao === "calendario" ? (
+          <ConteudoCalendario
+            mes={mes}
+            semana={semana}
+            janela={janela}
+            posts={posts}
+            hoje={hoje}
+            perfilFiltro={perfilFiltro}
           />
-        </div>
-
-        {/* Um clique e nada mais. O post nasce sem título e a tela seguinte
-            abre com o campo focado. */}
-        <form action={criarPostAcao}>
-          <input type="hidden" name="perfil" value={perfilFiltro ?? "geovana"} />
-          <button type="submit" className="conteudo-botao">
-            + Criar
-          </button>
-        </form>
+        ) : (
+          <Lista posts={posts} contagens={contagens} />
+        )}
       </div>
-
-      {todos.length === 0 ? (
-        <Vazio>Nenhum post ainda. Aperte &ldquo;Criar&rdquo; para começar o primeiro.</Vazio>
-      ) : visao === "quadro" ? (
-        <ConteudoQuadro posts={posts} contagens={Object.fromEntries(contagens)} />
-      ) : visao === "calendario" ? (
-        <ConteudoCalendario
-          mes={mes}
-          semana={semana}
-          janela={janela}
-          posts={posts}
-          hoje={hoje}
-          perfilFiltro={perfilFiltro}
-        />
-      ) : (
-        <Lista posts={posts} contagens={contagens} />
-      )}
-    </div>
+    </>
   );
 }
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PainelTopo from "@/components/painel/PainelTopo";
 import { Rotulo, Vazio } from "@/components/ui";
 import { FUNIS, carregarResumoProdutos } from "@/lib/painel-funis";
 
@@ -14,16 +15,10 @@ export default async function FunisPage() {
   const semDados = resumos.every((r) => r.totalLeads === 0);
 
   return (
-    <div className="mx-auto w-full max-w-[1200px]">
-      <header className="mb-8">
-        <p className="text-[0.68rem] uppercase tracking-widest" style={{ color: "var(--ink-soft)" }}>
-          Painel interno
-        </p>
-        <h1 className="text-3xl" style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}>
-          Funis
-        </h1>
-      </header>
+    <>
+      <PainelTopo titulo="Funis" largura={1200} />
 
+      <div className="mx-auto w-full max-w-[1200px]">
       {semDados ? (
         <Vazio>
           Sem dado ainda — confere se SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY estão
@@ -67,7 +62,8 @@ export default async function FunisPage() {
           </div>
         </section>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

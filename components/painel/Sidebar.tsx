@@ -20,8 +20,12 @@ export default function Sidebar() {
 
   return (
     <aside className="painel-sidebar">
+      {/* "Painel" era o nome da rota, não o nome da coisa (Yan, 22/08/2026):
+          quem abre isso está no Zuppas Life, e Serena Mente Feliz é o negócio
+          que o painel enxerga. Com a Ge e a Liz recebendo o link, o topo da
+          sidebar é o único lugar que diz em que ferramenta elas estão. */}
       <div className="painel-marca">
-        Painel
+        Zuppas Life
         <span className="painel-marca-sub">Serena Mente Feliz</span>
       </div>
       <nav className="painel-nav">
@@ -40,6 +44,14 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* O layout do painel troca a casca inteira, então sem este link o
+          /painel é beco sem saída: não dá pra voltar pra rotina da família a
+          não ser editando a URL. Fica no rodapé e discreto porque é saída, não
+          destino. */}
+      <Link href="/" className="painel-sidebar-saida">
+        ‹ Rotina da família
+      </Link>
     </aside>
   );
 }

@@ -63,8 +63,7 @@ export default async function PostPage({
   const metricaDeHoje = metricas.find((m) => m.coletado_em === hoje);
 
   return (
-    <div className="mx-auto w-full max-w-[1100px]">
-      <PostShell post={post}>
+    <PostShell post={post}>
         <DadosPost post={post} />
 
         <div className="glass-card mb-6 p-5">
@@ -159,7 +158,6 @@ export default async function PostPage({
             coletas={metricas.length}
           />
         </div>
-      </PostShell>
-    </div>
+    </PostShell>
   );
 }

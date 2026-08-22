@@ -818,12 +818,34 @@ body {
   background: var(--accent-wash-strong);
 }
 
+/* Saída pro app da família. `margin-top: auto` empurra pro rodapé da coluna:
+   é o último recurso da tela, não um item de menu. */
+.painel-sidebar-saida {
+  margin-top: auto;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+  border-radius: 10px;
+}
+
+.painel-sidebar-saida:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+
 .painel-main {
   flex: 1;
   min-width: 0;
   height: 100%;
   overflow-y: auto;
   padding: 2.25rem 2.5rem 4rem;
+  /* Reserva a calha da barra de rolagem sempre, role a tela ou não.
+     Sem isso, a largura do conteúdo dependia de a visão caber na altura da
+     janela: medido em 22/08/2026 num notebook, quadro (430px de altura) e
+     lista (299px) cabiam e não tinham barra, calendário (949px) tinha —
+     e só ele perdia 19px de largura, deslocando o bloco inteiro 9,5px pra
+     esquerda. Trocar de visão mexia no enquadramento da página. */
+  scrollbar-gutter: stable;
 }
 
 /* Sidebar não é o foco de investimento (ferramenta de uso próprio, telão
@@ -852,6 +874,13 @@ body {
   }
   .painel-nav-item {
     flex: none;
+    white-space: nowrap;
+  }
+  /* Na horizontal, `margin-top: auto` centralizaria em vez de empurrar: quem
+     manda no eixo principal aqui é a margem da esquerda. */
+  .painel-sidebar-saida {
+    margin-top: 0;
+    margin-left: auto;
     white-space: nowrap;
   }
   .painel-main {
@@ -1116,15 +1145,11 @@ textarea {
 
 /* Filtro de perfil: rótulo e dropdown na mesma caixa, pra ler como um controle
    só em vez de duas coisas soltas ao lado do botão de criar. */
+/* Sem `> span` aqui desde 22/08/2026: o rótulo "Perfil" saiu do lado do
+   dropdown (a opção selecionada já se explica) e virou `aria-label`. */
 .conteudo-filtro {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-}
-
-.conteudo-filtro > span {
-  font-size: 0.75rem;
-  color: var(--ink-soft);
 }
 
 /* Seletor de visão: botões colados num bloco só, não chips soltos. Colados,
@@ -1159,25 +1184,105 @@ textarea {
   background: var(--accent);
 }
 
-/* Header fixo da tela de post (21/08/2026).
+/* Header fixo de qualquer tela do painel (nasceu na tela de post em
+   21/08/2026, virou a casca de todas as seções em 22/08/2026).
 
-   O post é a única tela do painel que rola de verdade, e rolando até a fala 12
-   sumiam de uma vez o título, o status, o caminho de volta e o aviso de que o
-   trabalho está salvo. O indicador de autosave só serve se estiver visível
-   ENQUANTO se digita, que é exatamente quando a página está rolada.
+   Rolando até a fala 12 do roteiro sumiam de uma vez o título, o status, o
+   caminho de volta e o aviso de que o trabalho está salvo. O indicador de
+   autosave só serve se estiver visível ENQUANTO se digita, que é exatamente
+   quando a página está rolada. O mesmo vale pros controles de uma seção
+   (visão, filtro, criar): eles são a navegação da tela, não conteúdo dela.
+
+   O título aqui é pequeno de propósito (Yan, 22/08/2026): quem diz onde a
+   pessoa está é a sidebar, e o topo vale mais como lugar de ação do que como
+   letreiro.
 
    As margens negativas cancelam o padding do `.painel-main` pra faixa encostar
    nas bordas do scrollport: sem isso o conteúdo apareceria pelos lados ao
    passar por baixo. `top: 0` gruda no topo do próprio `.painel-main`, que é o
    container que rola (o body não rola nesta casca). */
-.conteudo-topo-fixo {
+.painel-topo {
   position: sticky;
   top: 0;
   z-index: 40;
   margin: 0 -2.5rem 1.5rem;
-  padding: 1rem 2.5rem;
+  padding: 0.85rem 2.5rem;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
+}
+
+/* Uma linha só: identidade da tela à esquerda, controles no meio, ação
+   principal empurrada pro canto direito pelo `margin-left: auto`. Filtrar e
+   escolher visão são a mesma família de gesto; criar não é, e por isso fica
+   separada no extremo oposto.
+
+   A barra sangra de ponta a ponta, mas a LINHA respeita o mesmo limite de
+   largura do conteúdo da tela (`--painel-topo-largura`, definida por página).
+   Sem isso, num monitor largo o "+ Criar" ia parar no canto da janela enquanto
+   a última coluna do quadro terminava 700px antes: dois eixos diferentes na
+   mesma tela. Num notebook, onde o conteúdo já ocupa a largura toda, os dois
+   coincidem e não há diferença. */
+.painel-topo-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.9rem;
+  width: 100%;
+  max-width: var(--painel-topo-largura, 1400px);
+  margin-inline: auto;
+}
+
+.painel-topo-titulo {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-width: 0;
+}
+
+.painel-topo-titulo-texto {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.painel-topo-controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.painel-topo-acoes {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.9rem;
+  margin-left: auto;
+}
+
+/* Separa "onde estou" de "o que posso fazer aqui" sem gastar uma linha. */
+.painel-topo-divisor {
+  flex: none;
+  width: 1px;
+  height: 1.1rem;
+  background: var(--line);
+}
+
+/* Migalha do detalhe: some do fluxo do texto e vira a linha de cima do
+   título, pra faixa continuar com a mesma altura das telas de lista. */
+.painel-topo-volta {
+  display: block;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: var(--ink-soft);
+}
+
+.painel-topo-volta:hover {
+  color: var(--accent);
 }
 
 /* `sticky` gruda no topo do PADDING box do container que rola, não no topo do
@@ -1189,7 +1294,7 @@ textarea {
    todas as telas do painel e só esta tem barra fixa. Fundo opaco em vez de
    translúcido com blur pelo mesmo motivo: dois elementos com `backdrop-filter`
    encostados não casam o borrão e a emenda aparece. */
-.conteudo-topo-fixo::before {
+.painel-topo::before {
   content: "";
   position: absolute;
   left: 0;
@@ -1199,33 +1304,30 @@ textarea {
   background: var(--bg);
 }
 
+/* No celular o `.painel-main` tem padding de 1.25rem, não de 2.5rem: sem este
+   bloco a margem negativa da faixa estouraria a tela pros dois lados. */
+@media (max-width: 760px) {
+  .painel-topo {
+    margin: 0 -1.25rem 1.25rem;
+    padding: 0.75rem 1.25rem;
+  }
+  .painel-topo::before {
+    height: 1.5rem;
+  }
+}
+
+/* O título do post é o nome que a pessoa acabou de digitar, então tem um
+   degrau a mais que o rótulo fixo de uma seção — mas continua na mesma faixa
+   compacta, não num letreiro. */
 .conteudo-topo-h1 {
   font-family: var(--font-display);
-  font-size: 1.6rem;
-  line-height: 1.15;
+  font-size: 1.2rem;
+  line-height: 1.2;
   /* Título longo não pode empurrar o status e o voltar pra fora da faixa. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: min(56ch, 100%);
-}
-
-.conteudo-topo-acoes {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 0.9rem;
-}
-
-/* Cabeçalho do post: título e etiqueta à esquerda, voltar à direita, na mesma
-   linha. O voltar fica no canto oposto ao texto que se lê primeiro, e alinhado
-   com o excluir lá embaixo: as duas saídas da página no mesmo eixo. */
-.conteudo-topo {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.9rem;
 }
 
 .conteudo-topo-titulo {

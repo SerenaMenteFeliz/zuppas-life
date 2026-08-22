@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Rotulo } from "@/components/ui";
 import { FunilEtapas } from "@/components/painel/Funil";
 import { FunilPreview } from "@/components/painel/FunilPreview";
+import PainelTopo from "@/components/painel/PainelTopo";
 import { FUNIS, carregarDetalheFunil, consultarFunilPostHog } from "@/lib/painel-funis";
 
 /* Detalhe de um funil (05/08): header com voltar/labels/link pro funil de
@@ -27,30 +27,25 @@ export default async function FunilDetalhePage({ params }: { params: Promise<{ i
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-[1200px]">
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link href="/painel/funis" className="text-xs" style={{ color: "var(--ink-soft)" }}>
-            ‹ Todos os funis
-          </Link>
-          <div className="mt-1.5 flex items-center gap-2.5">
-            <h1 className="text-3xl" style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}>
-              {meta.produto}
-            </h1>
-            <span className="painel-badge">{meta.tipo}</span>
-          </div>
-        </div>
-        <a
-          href={meta.urlPublica}
-          target="_blank"
-          rel="noreferrer"
-          className="glass-card px-4 py-2.5 text-sm font-semibold"
-          style={{ color: "var(--accent)" }}
-        >
-          Abrir funil ↗
-        </a>
-      </header>
+    <>
+      <PainelTopo
+        largura={1200}
+        titulo={meta.produto}
+        voltar={{ href: "/painel/funis", rotulo: "Todos os funis" }}
+        controles={<span className="painel-badge">{meta.tipo}</span>}
+        acoes={
+          <a
+            href={meta.urlPublica}
+            target="_blank"
+            rel="noreferrer"
+            className="conteudo-botao-claro"
+          >
+            Abrir funil ↗
+          </a>
+        }
+      />
 
+      <div className="mx-auto w-full max-w-[1200px]">
       {visaoGeral && (
         <section className="mb-8">
           <Rotulo>Visão geral — quiz → lead → compra</Rotulo>
@@ -67,6 +62,7 @@ export default async function FunilDetalhePage({ params }: { params: Promise<{ i
           vazio={detalhe.vazio}
         />
       </section>
-    </div>
+      </div>
+    </>
   );
 }

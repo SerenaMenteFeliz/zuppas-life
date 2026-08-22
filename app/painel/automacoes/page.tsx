@@ -1,5 +1,6 @@
 import { Rotulo, Vazio } from "@/components/ui";
 import { FunilEtapas, type EtapaContagem } from "@/components/painel/Funil";
+import PainelTopo from "@/components/painel/PainelTopo";
 
 /* Painel de automações de e-mail — criado em 01/08 junto com as 3 sequências
    do Método Cálice (repo metodocalice-site): aquecimento pré-lançamento,
@@ -94,16 +95,10 @@ export default async function AutomacoesPage() {
   for (const e of envios) contagemPorSlug.set(e.email_slug, (contagemPorSlug.get(e.email_slug) ?? 0) + 1);
 
   return (
-    <div className="mx-auto w-full max-w-[1200px]">
-      <header className="mb-8">
-        <p className="text-[0.68rem] uppercase tracking-widest" style={{ color: "var(--ink-soft)" }}>
-          Painel interno
-        </p>
-        <h1 className="text-3xl" style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}>
-          Automações
-        </h1>
-      </header>
+    <>
+      <PainelTopo titulo="Automações" largura={1200} />
 
+      <div className="mx-auto w-full max-w-[1200px]">
       {semConfig ? (
         <Vazio>
           Sem dado ainda — confere se SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY estão
@@ -165,7 +160,8 @@ export default async function AutomacoesPage() {
           })}
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

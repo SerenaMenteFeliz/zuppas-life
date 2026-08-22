@@ -29,11 +29,16 @@ export default function FiltroPerfil({
 }) {
   const router = useRouter();
 
+  /* Sem o rótulo "Perfil" ao lado (Yan, 22/08/2026): a própria opção já diz
+     "Todos os perfis", e o nome de cada perfil também se explica sozinho. O
+     rótulo visível só repetia a palavra e engordava a faixa. Continua existindo
+     como `aria-label`, porque leitor de tela não enxerga a opção selecionada
+     como se fosse o nome do campo. */
   return (
     <label className="conteudo-filtro">
-      <span>Perfil</span>
       <select
         className="conteudo-select"
+        aria-label="Filtrar por perfil"
         value={valor ?? ""}
         onChange={(e) => {
           const escolhida = opcoes.find((o) => o.id === e.target.value);
