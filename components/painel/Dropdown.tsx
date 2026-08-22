@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { estiloDoPopover, usePopover } from "@/components/painel/usePopover";
 
 /* Dropdown do painel: botão + lista (padrão ARIA listbox).
 
@@ -28,7 +30,11 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 
    `aria-activedescendant` em vez de mover o foco de verdade: o foco fica no
    botão enquanto a lista está aberta, que é o que o padrão listbox pede e o
-   que faz o Escape ter pra onde voltar. */
+   que faz o Escape ter pra onde voltar.
+
+   A LISTA é renderizada em `document.body` por portal, não ao lado do botão:
+   dentro do quadro de conteúdo ela era cortada pelo container que rola. O
+   porquê está em usePopover.ts. */
 
 export type OpcaoDropdown = {
   valor: string;
@@ -45,7 +51,7 @@ export default function Dropdown({
   opcoes,
   aoEscolher,
   rotuloAcessivel,
-  vazio = "escolher",
+  vazio = "Escolher",
   className = "",
   largura,
 }: {
@@ -66,6 +72,7 @@ export default function Dropdown({
   const botao = useRef<HTMLButtonElement>(null);
   const lista = useRef<HTMLUListElement>(null);
   const caixa = useRef<HTMLDivElement>(null);
+  const pos = usePopover(botao, aberto, largura);
   /* Buffer da busca por digitação, com o instante da última tecla: duas letras
      seguidas buscam "ca", mas depois de uma pausa a segunda recomeça. */
   const busca = useRef({ texto: "", quando: 0 });
@@ -92,7 +99,17 @@ export default function Dropdown({
   useEffect(() => {
     if (!aberto) return;
     const foraDaCaixa = (e: PointerEvent) => {
-      if (!caixa.current?.contains(e.target as Node)) setAberto(false);
+      const alvo = e.target as Node;
+      /* A lista mora em `document.body` por portal, então ela NÃO está dentro
+         de `caixa`: sem checar as duas, clicar numa opção contava como "clicou
+         fora" e fechava antes de escolher.
+
+         A primeira tentativa foi `stopPropagation` na captura do `<ul>`, e era
+         pior: no sistema de eventos do React, parar na captura impede o evento
+         de chegar nos filhos, então nenhuma opção era clicável. */
+      if (!caixa.current?.contains(alvo) && !lista.current?.contains(alvo)) {
+        setAberto(false);
+      }
     };
     document.addEventListener("pointerdown", foraDaCaixa);
     return () => document.removeEventListener("pointerdown", foraDaCaixa);
@@ -201,7 +218,9 @@ export default function Dropdown({
         </svg>
       </button>
 
-      {aberto && (
+      {aberto &&
+        pos &&
+        createPortal(
         <ul
           ref={lista}
           id={idBase + "-lista"}
@@ -209,7 +228,7 @@ export default function Dropdown({
           tabIndex={-1}
           aria-label={rotuloAcessivel}
           className="pn-drop-lista"
-          style={largura ? { minWidth: largura } : undefined}
+          style={estiloDoPopover(pos)}
         >
           {opcoes.map((o, i) => {
             const selecionada = o.valor === valor;
@@ -255,7 +274,8 @@ export default function Dropdown({
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

@@ -37,8 +37,19 @@ export default function ConteudoQuadro({
         const doStatus = posts.filter((p) => p.status === status);
         return (
           <section key={status} className="conteudo-coluna">
+            {/* Título da coluna como pill colorida (Yan, 22/08/2026): é a
+                mesma peça que já marcava o status no topo do post, então quem
+                abre um post e volta pro quadro reconhece a etapa pela forma e
+                pela cor, não relendo a palavra. A cor vem do próprio status
+                (ver STATUS_INFO) e sobe pela variável, pra pill e contagem
+                lerem a mesma. */}
             <header className="conteudo-coluna-topo">
-              <span className="conteudo-coluna-titulo">{STATUS_INFO[status].rotulo}</span>
+              <span
+                className="painel-badge conteudo-coluna-pill"
+                style={{ ["--cor" as string]: STATUS_INFO[status].cor }}
+              >
+                {STATUS_INFO[status].rotulo}
+              </span>
               <span className="conteudo-coluna-contagem">{doStatus.length}</span>
             </header>
             <p className="conteudo-coluna-ajuda">{STATUS_INFO[status].ajuda}</p>
@@ -47,7 +58,7 @@ export default function ConteudoQuadro({
               {doStatus.map((post) => (
                 <Card key={post.id} post={post} contagem={contagens[post.id]} />
               ))}
-              {doStatus.length === 0 && <p className="conteudo-coluna-vazia">nada aqui</p>}
+              {doStatus.length === 0 && <p className="conteudo-coluna-vazia">Nada aqui</p>}
             </div>
           </section>
         );
@@ -75,7 +86,7 @@ function Card({ post, contagem }: { post: Post; contagem?: Contagem }) {
       </div>
 
       <div className="conteudo-card-rodape">
-        {data ? <span>{data.slice(8, 10) + "/" + data.slice(5, 7)}</span> : <span>sem data</span>}
+        {data ? <span>{data.slice(8, 10) + "/" + data.slice(5, 7)}</span> : <span>Sem data</span>}
         {contagem && contagem.total > 0 && (
           <span title="falas gravadas do roteiro">
             {contagem.gravadas}/{contagem.total} falas

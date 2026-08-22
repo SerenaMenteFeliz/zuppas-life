@@ -76,7 +76,7 @@ export default function ConteudoCalendario({
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link href={anterior} className="chip">
-          ‹ anterior
+          ‹ Anterior
         </Link>
 
         <div className="flex items-center gap-3">
@@ -100,7 +100,7 @@ export default function ConteudoCalendario({
         </div>
 
         <Link href={proximo} className="chip">
-          próximo ›
+          Próximo ›
         </Link>
       </div>
 

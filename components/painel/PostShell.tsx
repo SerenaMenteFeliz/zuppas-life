@@ -99,7 +99,15 @@ export default function PostShell({
             >
               {tituloDe({ titulo })}
             </h1>
-            <span className="painel-badge">{st.rotulo}</span>
+            {/* Mesma pill colorida das colunas do quadro: a etapa se reconhece
+                pela cor nos dois lugares, e ela muda ao vivo junto com o
+                dropdown de status logo abaixo. */}
+            <span
+              className="painel-badge conteudo-coluna-pill"
+              style={{ ["--cor" as string]: st.cor }}
+            >
+              {st.rotulo}
+            </span>
           </div>
 
           <div className="painel-topo-acoes">
@@ -127,14 +135,14 @@ export default function PostShell({
 function IndicadorSalvo({ estado, hora }: { estado: EstadoSalvamento; hora: string | null }) {
   const texto =
     estado === "salvando"
-      ? "salvando..."
+      ? "Salvando..."
       : estado === "erro"
-        ? "não salvou"
+        ? "Não salvou"
         : estado === "sujo"
-          ? "alterações não salvas"
+          ? "Alterações não salvas"
           : estado === "salvo"
-            ? "salvo" + (hora ? " às " + hora : "")
-            : "tudo salvo";
+            ? "Salvo" + (hora ? " às " + hora : "")
+            : "Tudo salvo";
 
   return (
     <span

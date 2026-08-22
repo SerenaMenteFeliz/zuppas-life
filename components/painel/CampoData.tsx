@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { estiloDoPopover, usePopover } from "@/components/painel/usePopover";
 import {
   DIAS_DA_SEMANA,
   deslocarMes,
@@ -67,7 +69,7 @@ export default function CampoData({
   aoMudar,
   name,
   rotuloAcessivel,
-  vazio = "escolher data",
+  vazio = "Escolher data",
 }: {
   valor: string;
   aoMudar: (iso: string) => void;
@@ -81,6 +83,12 @@ export default function CampoData({
   const [mes, setMes] = useState(() => (valor || hoje).slice(0, 7));
   const caixa = useRef<HTMLDivElement>(null);
   const botao = useRef<HTMLButtonElement>(null);
+  /* O painel vai por portal pra `document.body`, então precisa de ref próprio:
+     o listener de "clicou fora" tem que reconhecer os dois. */
+  const painel = useRef<HTMLDivElement>(null);
+  /* Mesmo motivo do Dropdown: dentro de um container que rola, o calendário
+     era cortado. Ver usePopover.ts. */
+  const pos = usePopover(botao, aberto, 258);
 
   const abrir = useCallback(() => {
     setMes((valor || hoje).slice(0, 7));
@@ -95,7 +103,10 @@ export default function CampoData({
   useEffect(() => {
     if (!aberto) return;
     const fora = (e: PointerEvent) => {
-      if (!caixa.current?.contains(e.target as Node)) setAberto(false);
+      const alvo = e.target as Node;
+      if (!caixa.current?.contains(alvo) && !painel.current?.contains(alvo)) {
+        setAberto(false);
+      }
     };
     document.addEventListener("pointerdown", fora);
     return () => document.removeEventListener("pointerdown", fora);
@@ -147,11 +158,15 @@ export default function CampoData({
         </svg>
       </button>
 
-      {aberto && (
+      {aberto &&
+        pos &&
+        createPortal(
         <div
+          ref={painel}
           className="pn-data-painel"
           role="dialog"
           aria-label={rotuloAcessivel}
+          style={estiloDoPopover(pos)}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.preventDefault();
@@ -214,21 +229,21 @@ export default function CampoData({
               calendário — o gesto terminou dos dois jeitos. */}
           <div className="pn-data-atalhos">
             <button type="button" className="pn-data-atalho" onClick={() => escolher(hoje)}>
-              hoje
+              Hoje
             </button>
             <button
               type="button"
               className="pn-data-atalho"
               onClick={() => escolher(somarDias(hoje, 1))}
             >
-              amanhã
+              Amanhã
             </button>
             <button
               type="button"
               className="pn-data-atalho"
               onClick={() => escolher(somarDias(hoje, 7))}
             >
-              em 7 dias
+              Em 7 dias
             </button>
             {valor && (
               <button
@@ -236,11 +251,12 @@ export default function CampoData({
                 className="pn-data-atalho pn-data-atalho-limpar"
                 onClick={() => escolher("")}
               >
-                limpar
+                Limpar
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

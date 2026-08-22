@@ -31,11 +31,20 @@ import { FUNCAO_INFO, FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
    linha atual da fala. O que existia de verdade era risco de perder roteiro
    escrito quando a aba morresse antes do clique.
 
-   Fica um risco novo, e ele é real: **duas abas abertas no mesmo post viram
-   perda silenciosa**, porque salvar apaga do banco toda fala que não está na
-   tela, e agora isso acontece sozinho. Antes exigia um clique deliberado. A
-   saída certa é marcar versão na linha e recusar escrita velha; até lá, isto
-   está escrito aqui e na nota do projeto pra não ser descoberto pela Ge. */
+   ── Duas abas (22/08/2026) ──
+
+   O autosave abriu um risco real e ele foi fechado. A versão anterior deste
+   comentário avisava que "duas abas no mesmo post viram perda silenciosa",
+   porque salvar apagava do banco toda fala que não estivesse na tela.
+
+   Hoje o servidor só apaga o que ESTA tela mandou apagar (`removidas`), a fala
+   nova volta com o id do banco e é adotada aqui, e fala que apareceu por outra
+   aba entra no fim da lista com aviso. Testado com duas abas de verdade: as
+   duas falas sobrevivem e cada uma enxerga a da outra.
+
+   O que sobra, e é o limite aceito: se as duas abas editarem a MESMA fala, a
+   última gravação vence naquela fala. É a colisão que não tem como evitar sem
+   travar a linha, e é a única que a pessoa entende quando acontece. */
 
 type Props = { postId: string; iniciais: Fala[] };
 
@@ -215,7 +224,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
           </h2>
           <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
             {falas.length === 0
-              ? "nenhuma fala ainda"
+              ? "Nenhuma fala ainda"
               : falas.length +
                 (falas.length === 1 ? " fala · " : " falas · ") +
                 gravadas +
@@ -230,10 +239,10 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
             aria-pressed={abrirTodas}
             onClick={() => setAbrirTodas((v) => !v)}
           >
-            {abrirTodas ? "fechar cenas" : "abrir todas as cenas"}
+            {abrirTodas ? "Fechar cenas" : "Abrir todas as cenas"}
           </button>
           <button type="button" className="conteudo-chip-criar" onClick={adicionar}>
-            + fala
+            + Fala
           </button>
         </div>
       </div>
@@ -264,7 +273,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
                 role="switch"
                 aria-checked={fala.gravada}
                 aria-label={"Fala " + (i + 1) + (fala.gravada ? ", gravada" : ", marcar como gravada")}
-                title={fala.gravada ? "gravada — clique pra desmarcar" : "marcar como gravada"}
+                title={fala.gravada ? "Gravada, clique pra desmarcar" : "Marcar como gravada"}
                 onClick={() => alterar(i, "gravada", !fala.gravada)}
               >
                 {fala.gravada ? <Check className="h-3.5 w-3.5" /> : <span>{i + 1}</span>}
@@ -279,7 +288,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
               <CampoTexto
                 className="conteudo-fala-texto"
                 minimo={2}
-                placeholder="a frase, do jeito exato que vai ser falada"
+                placeholder="A frase, do jeito exato que vai ser falada"
                 valor={fala.texto}
                 aoMudar={(v) => alterar(i, "texto", v)}
                 aoSair={agora}
@@ -289,11 +298,11 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
                 <Dropdown
                   className="conteudo-fala-funcao"
                   rotuloAcessivel={"Função da fala " + (i + 1)}
-                  vazio="função da fala"
+                  vazio="Função da fala"
                   largura={280}
                   valor={fala.funcao ?? ""}
                   opcoes={[
-                    { valor: "", rotulo: "sem função", ajuda: "ainda não decidi o papel desta frase" },
+                    { valor: "", rotulo: "Sem função", ajuda: "Ainda não decidi o papel desta frase" },
                     ...FUNCOES_FALA.map((f) => ({
                       valor: f,
                       rotulo: FUNCAO_INFO[f].rotulo,
@@ -393,7 +402,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
                 <button
                   type="button"
                   className="conteudo-mini"
-                  title="subir esta fala"
+                  title="Subir esta fala"
                   aria-label={"Subir a fala " + (i + 1)}
                   onClick={() => mover(i, -1)}
                 >
@@ -404,7 +413,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
                 <button
                   type="button"
                   className="conteudo-mini"
-                  title="descer esta fala"
+                  title="Descer esta fala"
                   aria-label={"Descer a fala " + (i + 1)}
                   onClick={() => mover(i, 1)}
                 >
@@ -414,7 +423,7 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
               <button
                 type="button"
                 className="conteudo-mini conteudo-mini-perigo"
-                title="apagar esta fala"
+                title="Apagar esta fala"
                 aria-label={"Apagar a fala " + (i + 1)}
                 onClick={() => pedirRemover(i)}
               >
@@ -456,7 +465,7 @@ function resumoDaCena(f: Fala): string {
   const partes = [f.enquadramento, f.cenario, f.acao, f.broll, f.texto_tela].filter(
     (p) => p && p.trim() !== "",
   );
-  return partes.length === 0 ? "cena não planejada" : partes.join(" · ");
+  return partes.length === 0 ? "Cena não planejada" : partes.join(" · ");
 }
 
 function Campo({

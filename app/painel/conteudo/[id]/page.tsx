@@ -210,7 +210,7 @@ export default async function PostPage({
 
             <BotaoEnviar
               className="conteudo-botao conteudo-metrica-enviar"
-              enviando="gravando..."
+              enviando="Gravando..."
             >
               {metricaDeHoje ? "Atualizar hoje" : "Registrar"}
             </BotaoEnviar>

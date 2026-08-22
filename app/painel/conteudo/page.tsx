@@ -64,10 +64,18 @@ export default async function ConteudoPage({
      ignorado e a URL mentiria sobre o que está vendo. */
   const posts = visao === "lista" ? ordenar(filtrados, contagens, ordem) : filtrados;
 
-  /* Quem vai ser o dono do post novo. Sem filtro de perfil o padrão é a Ge,
-     e o botão passa a DIZER isso em vez de decidir em silêncio. */
+  /* Quem vai ser o dono do post novo.
+
+     Com filtro ativo, é ele, e o botão diz. Sem filtro, o botão não promete
+     nada e o perfil se escolhe na tela do post.
+
+     A coluna é `not null` no banco, então a linha precisa nascer com ALGUM
+     valor mesmo sem escolha. Continua sendo a Ge, que é quem produz o conteúdo
+     hoje: trocar pro primeiro da lista faria a Ge corrigir o campo em todo post
+     que criasse. A diferença pra antes é que o botão parou de afirmar um dono
+     que ninguém escolheu. */
   const perfilDoNovo = perfilFiltro ?? "geovana";
-  const donoDoNovo = perfilPorId(perfilDoNovo)?.dono ?? perfilDoNovo;
+  const donoDoNovo = perfilFiltro ? (perfilPorId(perfilFiltro)?.dono ?? perfilFiltro) : null;
 
   const hoje = hojeISO();
   const mes = mesValido(busca.mes, hoje);

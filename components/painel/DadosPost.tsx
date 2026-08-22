@@ -232,10 +232,10 @@ export default function DadosPost({ post }: { post: Post }) {
           <span>Formato</span>
           <Dropdown
             rotuloAcessivel="Formato"
-            vazio="sem formato"
+            vazio="Sem formato"
             valor={valores.formato ?? ""}
             opcoes={[
-              { valor: "", rotulo: "sem formato" },
+              { valor: "", rotulo: "Sem formato" },
               ...FORMATOS.map((f) => ({ valor: f, rotulo: f })),
             ]}
             aoEscolher={(v) => {
@@ -249,11 +249,11 @@ export default function DadosPost({ post }: { post: Post }) {
           <span>Pilar</span>
           <Dropdown
             rotuloAcessivel="Pilar"
-            vazio="sem pilar"
+            vazio="Sem pilar"
             largura={240}
             valor={valores.pilar ?? ""}
             opcoes={[
-              { valor: "", rotulo: "sem pilar" },
+              { valor: "", rotulo: "Sem pilar" },
               ...PILARES.map((p) => ({ valor: p, rotulo: p })),
             ]}
             aoEscolher={(v) => {
@@ -284,7 +284,7 @@ export default function DadosPost({ post }: { post: Post }) {
           <span>Quando saiu</span>
           <CampoData
             rotuloAcessivel="Quando saiu"
-            vazio="ainda não saiu"
+            vazio="Ainda não saiu"
             valor={valores.data_publicada ?? ""}
             aoMudar={(v) => {
               mexer({ data_publicada: v });

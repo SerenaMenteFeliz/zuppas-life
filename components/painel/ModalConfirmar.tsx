@@ -90,7 +90,7 @@ export default function ModalConfirmar({
                 disabled={pendente}
                 onClick={() => iniciar(async () => void (await aoConfirmar()))}
               >
-                {pendente ? "apagando..." : confirmacao}
+                {pendente ? "Apagando..." : confirmacao}
               </button>
             </div>
           </div>

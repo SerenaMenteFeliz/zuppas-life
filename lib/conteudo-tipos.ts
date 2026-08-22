@@ -26,15 +26,55 @@ export const STATUS = [
 
 export type Status = (typeof STATUS)[number];
 
-/* Rótulo e explicação de cada status. A explicação existe porque o quadro é
-   pra Ge e Liz também: rótulo sozinho não diz o que a etapa espera. */
-export const STATUS_INFO: Record<Status, { rotulo: string; ajuda: string }> = {
-  ideia: { rotulo: "Ideia", ajuda: "só o tema ou o gancho, sem roteiro ainda" },
-  roteiro: { rotulo: "Roteiro", ajuda: "escrevendo as falas e planejando as cenas" },
-  gravado: { rotulo: "Gravado", ajuda: "bruto na mão, falta editar" },
-  agendado: { rotulo: "Agendado", ajuda: "editado, com data marcada" },
-  postado: { rotulo: "Postado", ajuda: "no ar, com link" },
-  descartado: { rotulo: "Descartado", ajuda: "não vai virar post" },
+/* Rótulo, explicação e cor de cada status.
+
+   A explicação existe porque o quadro é pra Ge e Liz também: rótulo sozinho não
+   diz o que a etapa espera. Ela começa com maiúscula desde 22/08/2026 — antes
+   era tudo minúsculo, herança de tratar o texto como legenda em vez de frase.
+
+   A COR (22/08/2026) segue o caminho do trabalho e não é decoração: começa
+   neutra na ideia, esquenta enquanto está na mão de alguém (roxo escrevendo,
+   dourado gravado), esfria pro azul quando já está pronta e esperando data, e
+   fecha em verde quando está no ar. Descartado é cinza, fora da escala, porque
+   não é etapa: é saída.
+
+   Sai de `var()` e não de hex fixo pelo mesmo motivo registrado na revisão de
+   04/08: cor travada sobrevive a uma troca de tema por coincidência de
+   contraste, não porque segue o tema. */
+export const STATUS_INFO: Record<
+  Status,
+  { rotulo: string; ajuda: string; cor: string }
+> = {
+  ideia: {
+    rotulo: "Ideia",
+    ajuda: "Só o tema ou o gancho, sem roteiro ainda",
+    cor: "var(--ink-soft)",
+  },
+  roteiro: {
+    rotulo: "Roteiro",
+    ajuda: "Escrevendo as falas e planejando as cenas",
+    cor: "var(--accent)",
+  },
+  gravado: {
+    rotulo: "Gravado",
+    ajuda: "Bruto na mão, falta editar",
+    cor: "var(--gold)",
+  },
+  agendado: {
+    rotulo: "Agendado",
+    ajuda: "Editado, com data marcada",
+    cor: "var(--sky)",
+  },
+  postado: {
+    rotulo: "Postado",
+    ajuda: "No ar, com link",
+    cor: "var(--sage)",
+  },
+  descartado: {
+    rotulo: "Descartado",
+    ajuda: "Não vai virar post",
+    cor: "var(--ink-soft)",
+  },
 };
 
 /* Linha morta que ainda pode existir no banco de instalações antigas. Cai em
@@ -126,11 +166,11 @@ export const FUNCOES_FALA = ["gancho", "contexto", "virada", "prova", "cta"] as 
 export type FuncaoFala = (typeof FUNCOES_FALA)[number];
 
 export const FUNCAO_INFO: Record<FuncaoFala, { rotulo: string; ajuda: string }> = {
-  gancho: { rotulo: "Gancho", ajuda: "a primeira frase, que segura quem ia passar direto" },
-  contexto: { rotulo: "Contexto", ajuda: "situa a dor ou a cena antes de propor algo" },
-  virada: { rotulo: "Virada", ajuda: "o ponto em que muda de ideia sobre o assunto" },
-  prova: { rotulo: "Prova", ajuda: "história, número ou exemplo que sustenta a virada" },
-  cta: { rotulo: "CTA", ajuda: "o único pedido do vídeo: comenta, salva, clica" },
+  gancho: { rotulo: "Gancho", ajuda: "A primeira frase, que segura quem ia passar direto" },
+  contexto: { rotulo: "Contexto", ajuda: "Situa a dor ou a cena antes de propor algo" },
+  virada: { rotulo: "Virada", ajuda: "O ponto em que muda de ideia sobre o assunto" },
+  prova: { rotulo: "Prova", ajuda: "História, número ou exemplo que sustenta a virada" },
+  cta: { rotulo: "CTA", ajuda: "O único pedido do vídeo: comenta, salva, clica" },
 };
 
 export type Fala = {
