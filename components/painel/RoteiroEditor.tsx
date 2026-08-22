@@ -53,13 +53,55 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
   const sujo = useRef(false);
   const hora = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* Ids que ESTA tela apagou. É a única coisa que o servidor pode apagar, e é
+     o que impede o autosave de levar junto uma fala que outra aba criou. */
+  const removidas = useRef<string[]>([]);
 
   const gravar = useCallback(async () => {
     if (!sujo.current) return;
     sujo.current = false;
+    /* Fotografa o que está indo. Se o usuário digitar durante a gravação, o
+       `sujo` volta a true por conta do `mexer` e a próxima rodada leva o resto;
+       o que não pode é adotar id em cima de uma lista que já mudou. */
+    const enviadas = atuais.current;
+    const apagando = removidas.current;
+    removidas.current = [];
     reportar("roteiro", { estado: "salvando", hora: hora.current });
     try {
-      await salvarRoteiroAcao(postId, JSON.stringify(atuais.current));
+      const r = await salvarRoteiroAcao(
+        postId,
+        JSON.stringify(enviadas),
+        JSON.stringify(apagando),
+      );
+
+      /* Adota os ids recém-criados, na ordem em que foram enviados. Sem este
+         passo a fala nova continua sem id pra sempre e volta a ser recriada a
+         cada gravação (medido em 22/08/2026: o id mudava a cada autosave). */
+      if (r?.criadas?.length) {
+        let k = 0;
+        const comIds = atuais.current.map((f) => {
+          if (f.id) return f;
+          const criada = r.criadas[k++];
+          return criada?.id ? { ...f, id: criada.id } : f;
+        });
+        atuais.current = comIds;
+        setFalas(comIds);
+      }
+
+      /* Fala que apareceu no banco sem ter passado por aqui só pode ter vindo
+         de outra aba. Entra no fim da lista e a pessoa fica sabendo, em vez de
+         o trabalho existir e ser invisível até alguém recarregar. */
+      if (r?.deOutraAba?.length) {
+        const juntas = [...atuais.current, ...r.deOutraAba];
+        atuais.current = juntas;
+        setFalas(juntas);
+        avisar(
+          r.deOutraAba.length === 1
+            ? "Outra aba adicionou 1 fala. Ela apareceu no fim do roteiro."
+            : "Outra aba adicionou " + r.deOutraAba.length + " falas. Elas apareceram no fim do roteiro.",
+        );
+      }
+
       hora.current = new Date().toLocaleTimeString("pt-BR", {
         hour: "2-digit",
         minute: "2-digit",
@@ -67,6 +109,10 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
       reportar("roteiro", { estado: "salvo", hora: hora.current });
     } catch (e) {
       sujo.current = true;
+      /* Devolve pra fila o que ia ser apagado: perder a intenção de apagar é
+         chato, apagar sem querer é pior, mas engolir o erro e nunca mais tentar
+         é o que faz o roteiro divergir do banco em silêncio. */
+      removidas.current = [...apagando, ...removidas.current];
       reportar("roteiro", { estado: "erro", hora: hora.current });
       avisar(e instanceof Error ? e.message : "Não consegui salvar o roteiro.", "erro");
     }
@@ -135,6 +181,11 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
   }
 
   function remover(indice: number) {
+    const alvo = falas[indice];
+    /* Só fala que já existe no banco entra na lista de apagar. Fala criada e
+       apagada antes da primeira gravação nunca chegou lá, e mandar `undefined`
+       viraria um filtro vazio. */
+    if (alvo?.id) removidas.current = [...removidas.current, alvo.id];
     mexer(falas.filter((_, i) => i !== indice));
   }
 

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import BotaoEnviar from "@/components/painel/BotaoEnviar";
 import { CampoDataFormulario } from "@/components/painel/CampoData";
 import DadosPost from "@/components/painel/DadosPost";
 import ExcluirPost from "@/components/painel/ExcluirPost";
@@ -207,9 +208,12 @@ export default async function PostPage({
               </div>
             ))}
 
-            <button type="submit" className="conteudo-botao conteudo-metrica-enviar">
+            <BotaoEnviar
+              className="conteudo-botao conteudo-metrica-enviar"
+              enviando="gravando..."
+            >
               {metricaDeHoje ? "Atualizar hoje" : "Registrar"}
-            </button>
+            </BotaoEnviar>
           </form>
         </div>
 

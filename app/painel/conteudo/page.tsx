@@ -1,8 +1,9 @@
-import Link from "next/link";
-import { Vazio } from "@/components/ui";
+import BotaoCriar from "@/components/painel/BotaoCriar";
 import ConteudoQuadro from "@/components/painel/ConteudoQuadro";
 import ConteudoCalendario from "@/components/painel/ConteudoCalendario";
+import ConteudoLista, { type Ordem } from "@/components/painel/ConteudoLista";
 import FiltroPerfil from "@/components/painel/FiltroPerfil";
+import LinkVisao from "@/components/painel/LinkVisao";
 import PainelTopo from "@/components/painel/PainelTopo";
 import { contarFalas, listarPosts } from "@/lib/conteudo";
 import { mesValido, semanaValida } from "@/lib/conteudo-calendario";
@@ -11,7 +12,6 @@ import {
   STATUS_INFO,
   dataDoPost,
   perfilPorId,
-  tituloDe,
   type Post,
   type Status,
 } from "@/lib/conteudo-tipos";
@@ -31,7 +31,14 @@ import { criarPostAcao } from "./acoes";
 
 export const dynamic = "force-dynamic";
 
-type Busca = { v?: string; perfil?: string; mes?: string; semana?: string; janela?: string };
+type Busca = {
+  v?: string;
+  perfil?: string;
+  mes?: string;
+  semana?: string;
+  janela?: string;
+  ord?: string;
+};
 
 const VISOES = [
   { id: "quadro", rotulo: "Quadro" },
@@ -48,8 +55,19 @@ export default async function ConteudoPage({
   const visao = VISOES.some((v) => v.id === busca.v) ? busca.v! : "quadro";
   const perfilFiltro = PERFIS.some((p) => p.id === busca.perfil) ? busca.perfil : undefined;
 
+  const ordem = ordemValida(busca.ord);
+
   const [todos, contagens] = await Promise.all([listarPosts(), contarFalas()]);
-  const posts = perfilFiltro ? todos.filter((p) => p.perfil === perfilFiltro) : todos;
+  const filtrados = perfilFiltro ? todos.filter((p) => p.perfil === perfilFiltro) : todos;
+  /* Ordenar só faz sentido na Lista, que é a visão de comparar. O quadro ordena
+     por status e o calendário por data, por definição — reordenar ali seria
+     ignorado e a URL mentiria sobre o que está vendo. */
+  const posts = visao === "lista" ? ordenar(filtrados, contagens, ordem) : filtrados;
+
+  /* Quem vai ser o dono do post novo. Sem filtro de perfil o padrão é a Ge,
+     e o botão passa a DIZER isso em vez de decidir em silêncio. */
+  const perfilDoNovo = perfilFiltro ?? "geovana";
+  const donoDoNovo = perfilPorId(perfilDoNovo)?.dono ?? perfilDoNovo;
 
   const hoje = hojeISO();
   const mes = mesValido(busca.mes, hoje);
@@ -65,6 +83,7 @@ export default async function ConteudoPage({
       mes: busca.mes,
       semana: busca.semana,
       janela: busca.janela,
+      ord: busca.ord,
       ...mudanca,
     };
     const qs = new URLSearchParams();
@@ -73,8 +92,20 @@ export default async function ConteudoPage({
     if (atual.mes) qs.set("mes", atual.mes);
     if (atual.semana) qs.set("semana", atual.semana);
     if (atual.janela) qs.set("janela", atual.janela);
+    if (atual.ord) qs.set("ord", atual.ord);
     return "/painel/conteudo?" + qs.toString();
   };
+
+  /* Um href por coluna, montado aqui. Ver o comentário no ConteudoLista sobre
+     por que não vai a função.
+
+     E montado DEPOIS de `link`, não antes: `const` não sobe como `function`,
+     então chamar `link()` acima da declaração dele derruba a rota inteira com
+     "Cannot access 'link' before initialization". Foi o que aconteceu na
+     primeira versão disto, em 22/08/2026. */
+  const linksDeOrdem = Object.fromEntries(
+    ORDENS.map((o) => [o, link({ ord: o })]),
+  ) as Record<Ordem, string>;
 
   return (
     <>
@@ -93,14 +124,14 @@ export default async function ConteudoPage({
           <>
             <nav className="conteudo-visoes">
               {VISOES.map((v) => (
-                <Link
+                <LinkVisao
                   key={v.id}
                   href={link({ v: v.id })}
-                  aria-current={v.id === visao ? "page" : undefined}
+                  ativo={v.id === visao}
                   className={"conteudo-visao" + (v.id === visao ? " conteudo-visao-ativa" : "")}
                 >
                   {v.rotulo}
-                </Link>
+                </LinkVisao>
               ))}
             </nav>
 
@@ -122,18 +153,27 @@ export default async function ConteudoPage({
           /* Um clique e nada mais. O post nasce sem título e a tela seguinte
              abre com o campo focado. */
           <form action={criarPostAcao}>
-            <input type="hidden" name="perfil" value={perfilFiltro ?? "geovana"} />
-            <button type="submit" className="conteudo-botao">
-              + Criar
-            </button>
+            <input type="hidden" name="perfil" value={perfilDoNovo} />
+            <BotaoCriar dono={donoDoNovo} />
           </form>
         }
       />
 
       <div className="painel-conteudo">
-        {todos.length === 0 ? (
-          <Vazio>Nenhum post ainda. Aperte &ldquo;Criar&rdquo; para começar o primeiro.</Vazio>
-        ) : visao === "quadro" ? (
+        {/* O quadro continua aparecendo com zero post (22/08/2026). Antes, uma
+            base vazia trocava tudo por uma frase, e quem abria pela primeira
+            vez não descobria que existe uma esteira — Ideia, Roteiro, Gravado,
+            Agendado, Postado. As colunas vazias ensinam o fluxo de graça; a
+            frase sozinha não ensinava nada. */}
+        {todos.length === 0 && (
+          <p className="conteudo-primeiro-passo">
+            Nada aqui ainda. Cada post começa como <strong>Ideia</strong> e anda pelas colunas
+            até virar <strong>Postado</strong>. Aperte <strong>Criar</strong> ali em cima: o post
+            nasce vazio e você escreve o nome na tela seguinte.
+          </p>
+        )}
+
+        {visao === "quadro" ? (
           <ConteudoQuadro posts={posts} contagens={Object.fromEntries(contagens)} />
         ) : visao === "calendario" ? (
           <ConteudoCalendario
@@ -145,60 +185,67 @@ export default async function ConteudoPage({
             perfilFiltro={perfilFiltro}
           />
         ) : (
-          <Lista posts={posts} contagens={contagens} />
+          <ConteudoLista
+            posts={posts}
+            contagens={Object.fromEntries(contagens)}
+            ordem={ordem}
+            links={linksDeOrdem}
+          />
         )}
       </div>
     </>
   );
 }
 
-function Lista({
-  posts,
-  contagens,
-}: {
-  posts: Post[];
-  contagens: Map<string, { total: number; gravadas: number }>;
-}) {
-  return (
-    <div className="glass-card overflow-x-auto p-1">
-      <table className="painel-tabela">
-        <thead>
-          <tr>
-            <th>Título</th>
-            <th>Perfil</th>
-            <th>Formato</th>
-            <th>Pilar</th>
-            <th>Status</th>
-            <th>Data</th>
-            <th>Roteiro</th>
-          </tr>
-        </thead>
-        <tbody>
-          {posts.map((p) => {
-            const perfil = perfilPorId(p.perfil);
-            const c = contagens.get(p.id);
-            const data = dataDoPost(p);
-            return (
-              <tr key={p.id}>
-                <td>
-                  <Link href={"/painel/conteudo/" + p.id} style={{ color: "var(--accent)" }}>
-                    {tituloDe(p)}
-                  </Link>
-                </td>
-                <td>
-                  <span className="conteudo-ponto" style={{ background: perfil?.cor ?? "var(--ink-soft)" }} />
-                  {perfil?.dono ?? p.perfil}
-                </td>
-                <td>{p.formato ?? "—"}</td>
-                <td>{p.pilar ?? "—"}</td>
-                <td>{STATUS_INFO[p.status as Status]?.rotulo ?? p.status}</td>
-                <td>{data ? data.split("-").reverse().join("/") : "—"}</td>
-                <td>{c ? c.gravadas + "/" + c.total : "—"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
+const ORDENS: Ordem[] = ["titulo", "perfil", "formato", "pilar", "status", "data", "roteiro"];
+
+function ordemValida(bruto: string | undefined): Ordem {
+  return ORDENS.includes(bruto as Ordem) ? (bruto as Ordem) : "data";
+}
+
+/* Ordenação da Lista.
+
+   Campo vazio vai SEMPRE pro fim, em qualquer coluna. Sem isso, ordenar por
+   "pilar" encabeçaria a lista com tudo que ninguém classificou, que é o oposto
+   de comparar: o que interessa numa comparação é o que está preenchido.
+
+   `localeCompare` com locale pt-BR porque "Ação" e "Agendado" precisam sair na
+   ordem que uma pessoa espera, e a comparação binária de string põe qualquer
+   acento depois do Z. */
+function ordenar(
+  posts: Post[],
+  contagens: Map<string, { total: number; gravadas: number }>,
+  ordem: Ordem,
+): Post[] {
+  const texto = (p: Post): string => {
+    if (ordem === "titulo") return p.titulo?.trim() ?? "";
+    if (ordem === "perfil") return perfilPorId(p.perfil)?.dono ?? p.perfil;
+    if (ordem === "formato") return p.formato ?? "";
+    if (ordem === "pilar") return p.pilar ?? "";
+    if (ordem === "status") return STATUS_INFO[p.status as Status]?.rotulo ?? p.status;
+    if (ordem === "data") return dataDoPost(p) ?? "";
+    return "";
+  };
+
+  return [...posts].sort((a, b) => {
+    if (ordem === "roteiro") {
+      /* Roteiro ordena por QUANTO FALTA gravar, não pelo total: a pergunta que
+         a coluna responde é "o que está mais perto de sair". Post sem roteiro
+         nenhum não tem resposta e vai pro fim. */
+      const ca = contagens.get(a.id);
+      const cb = contagens.get(b.id);
+      if (!ca && !cb) return 0;
+      if (!ca) return 1;
+      if (!cb) return -1;
+      return cb.gravadas / cb.total - ca.gravadas / ca.total;
+    }
+
+    const ta = texto(a);
+    const tb = texto(b);
+    if (ta === "" && tb === "") return 0;
+    if (ta === "") return 1;
+    if (tb === "") return -1;
+    /* Data desce (mais recente primeiro); o resto sobe (A→Z). */
+    return ordem === "data" ? tb.localeCompare(ta) : ta.localeCompare(tb, "pt-BR");
+  });
 }

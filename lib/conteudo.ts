@@ -148,11 +148,19 @@ export async function criarPost(dados: {
   return criado;
 }
 
-export async function atualizarPost(id: string, campos: Partial<Post>): Promise<void> {
-  await escrever("conteudo_posts?id=eq." + id, "PATCH", {
-    ...campos,
-    atualizado_em: new Date().toISOString(),
-  });
+/** PATCH com o que receber, e devolve a linha como ficou.
+
+    Devolver importa pra concorrência: quem salvou manda só os campos que
+    mexeu, e a linha de volta conta o que as OUTRAS abas mudaram nesse meio
+    tempo. É assim que uma segunda aba aberta deixa de ser risco e vira
+    informação. */
+export async function atualizarPost(id: string, campos: Partial<Post>): Promise<Post | null> {
+  const linhas = await escrever<Post>(
+    "conteudo_posts?id=eq." + id + "&select=" + COLUNAS_POST,
+    "PATCH",
+    { ...campos, atualizado_em: new Date().toISOString() },
+  );
+  return linhas[0] ?? null;
 }
 
 export async function excluirPost(id: string): Promise<void> {
@@ -166,35 +174,56 @@ export async function excluirPost(id: string): Promise<void> {
     recriar as linhas apagaria a marca de gravada no meio de um dia de
     gravação. Então as que têm id viram PATCH, as novas viram POST, e as que
     sumiram da tela viram DELETE. */
-export async function salvarRoteiro(postId: string, falas: Fala[]): Promise<void> {
+export type ResultadoRoteiro = {
+  /** Falas criadas agora, NA MESMA ORDEM em que foram enviadas. O cliente usa
+      isso pra adotar o id de cada fala nova que ele acabou de mandar. */
+  criadas: Fala[];
+  /** Falas que existem no banco e não estavam na tela de quem salvou. Só pode
+      ser trabalho de outra aba ou de outra pessoa. */
+  deOutraAba: Fala[];
+};
+
+export async function salvarRoteiro(
+  postId: string,
+  falas: Fala[],
+  removidas: string[],
+): Promise<ResultadoRoteiro> {
   const comId = falas.filter((f) => f.id);
   const novas = falas.filter((f) => !f.id);
   const idsNaTela = comId.map((f) => f.id as string);
 
-  /* No máximo 3 requisições, e esse número não muda se o roteiro tiver 5 ou 50
-     falas (achado em 21/08/2026).
+  /* ── Apaga só o que foi apagado, nunca "tudo que não está na minha tela" ──
 
-     Antes era uma leitura + um `await` por fala dentro de um `for`: roteiro de
-     12 falas virava 13 idas ao banco em fila, e o custo crescia junto com o
-     roteiro, que é justamente a parte que cresce. Era o clique mais lento do
-     painel inteiro.
+     Até 22/08/2026 este DELETE era `id=not.in.(idsNaTela)`, ou seja, "some com
+     tudo que eu não estou vendo". Duas falhas, e a segunda foi medida:
 
-     A leitura prévia sumiu porque `id=not.in.(...)` já diz "apague o que não
-     está mais na tela" sem precisar descobrir antes o que existia. */
-  await escrever(
-    idsNaTela.length > 0
-      ? "conteudo_falas?post_id=eq." + postId + "&id=not.in.(" + idsNaTela.join(",") + ")"
-      : "conteudo_falas?post_id=eq." + postId,
-    "DELETE",
-    undefined,
-    "return=minimal",
-  );
+     1. Uma segunda aba (ou o mesmo notebook e o celular) que adicionasse uma
+        fala perdia esse trabalho na primeira vez que a outra aba gravasse.
+        Não precisa de duas pessoas: uma aba esquecida aberta bastava.
 
-  /* O DELETE acima roda ANTES destas duas, nunca em paralelo: fala nova nasce
-     com id gerado pelo banco, que por definição não está em `idsNaTela`, então
-     um DELETE concorrente apagaria exatamente a fala recém-inserida. Estas
-     duas, entre si, tocam conjuntos disjuntos e podem ir juntas. */
-  await Promise.all([
+     2. Fala criada na sessão atual nunca recebia o id de volta (o insert usava
+        `return=minimal`), então ela seguia sendo tratada como "nova" e caía
+        nesse `not.in` a cada gravação. Medido em 22/08/2026: o id de uma fala
+        mudou de `e190c8ca` pra `f334d4c8` entre duas gravações da MESMA fala,
+        ou seja, ela era apagada e recriada a cada autosave.
+
+     Agora o cliente manda a lista do que ELE apagou, e é só isso que some. O
+     `post_id=eq.` continua no filtro porque um id de outro post que chegasse
+     aqui por engano não pode apagar nada. */
+  if (removidas.length > 0) {
+    await escrever(
+      "conteudo_falas?post_id=eq." + postId + "&id=in.(" + removidas.join(",") + ")",
+      "DELETE",
+      undefined,
+      "return=minimal",
+    );
+  }
+
+  /* Upsert das existentes e insert das novas tocam conjuntos disjuntos, então
+     vão juntas. As novas voltam com `return=representation` porque é a
+     representação que carrega o id gerado pelo banco — sem ela, o cliente
+     nunca aprende quem é a fala que ele acabou de criar. */
+  const [, criadas] = await Promise.all([
     comId.length > 0
       ? escrever(
           "conteudo_falas?on_conflict=id",
@@ -202,16 +231,26 @@ export async function salvarRoteiro(postId: string, falas: Fala[]): Promise<void
           comId.map((f) => ({ id: f.id, post_id: postId, ...corpoFala(f) })),
           "resolution=merge-duplicates,return=minimal",
         )
-      : null,
+      : Promise.resolve([]),
     novas.length > 0
-      ? escrever(
-          "conteudo_falas",
+      ? escrever<Fala>(
+          "conteudo_falas?select=" + COLUNAS_FALA,
           "POST",
           novas.map((f) => ({ post_id: postId, ...corpoFala(f) })),
-          "return=minimal",
+          "return=representation",
         )
-      : null,
+      : Promise.resolve([] as Fala[]),
   ]);
+
+  /* Uma leitura a mais, e ela paga o preço: é o que transforma "a fala da
+     outra aba não sumiu" em "a fala da outra aba aparece na tela". Sem isso o
+     trabalho estaria salvo e invisível até alguém recarregar, que é seguro
+     porém confuso. */
+  const conhecidos = new Set([...idsNaTela, ...criadas.map((f) => f.id as string)]);
+  const noBanco = await carregarFalas(postId);
+  const deOutraAba = noBanco.filter((f) => f.id && !conhecidos.has(f.id));
+
+  return { criadas, deOutraAba };
 }
 
 function corpoFala(f: Fala) {

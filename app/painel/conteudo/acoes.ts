@@ -76,58 +76,81 @@ export async function criarPostAcao(fd: FormData) {
    não tem `<form>` sendo submetido, e montar um FormData falso só pra
    desmontar do outro lado seria cerimônia sem ganho.
 
-   `produto`, `responsavel` e `referencia` saíram da tela na mesma data, e por
-   isso não aparecem aqui. As COLUNAS continuam no banco de propósito: como
-   `atualizarPost` faz PATCH só com o que recebe, o que estiver gravado nelas
-   fica intacto, e trazer os campos de volta é mudança de tela, não migration. */
-export type DadosDoPost = {
-  id: string;
-  titulo: string;
-  perfil: string;
-  formato: string | null;
-  pilar: string | null;
-  status: string;
-  data_planejada: string | null;
-  data_publicada: string | null;
-  link: string | null;
-  legenda: string | null;
-  hashtags: string | null;
-  observacao: string | null;
-};
+   `produto`, `responsavel` e `referencia` saíram da tela em 21/08 e por isso
+   não estão na lista abaixo. As COLUNAS continuam no banco de propósito: como
+   o PATCH só toca o que recebe, o que estiver gravado nelas fica intacto, e
+   trazer os campos de volta é mudança de tela, não migration.
 
-export async function salvarDadosAcao(d: DadosDoPost) {
-  if (!d?.id) return;
+   Lista explícita também porque a action é porta de entrada não confiável: sem
+   ela, um payload forjado poderia escrever em qualquer coluna da tabela,
+   inclusive `id` e `criado_em`. */
+const CAMPOS_EDITAVEIS = [
+  "titulo",
+  "perfil",
+  "formato",
+  "pilar",
+  "status",
+  "data_planejada",
+  "data_publicada",
+  "link",
+  "legenda",
+  "hashtags",
+  "observacao",
+] as const;
 
-  const status = statusVivo(d.status);
+export type CampoEditavel = (typeof CAMPOS_EDITAVEIS)[number];
 
-  /* Carimba a data de publicação sozinho quando o status vira "postado" e
-     ninguém preencheu a data. Sem isso o calendário perde o post exatamente
-     no momento em que ele passa a ser o dado mais importante, que é o que de fato
-     saiu. Se a pessoa preencheu à mão, a mão manda. */
-  let dataPublicada = vazioNulo(d.data_publicada);
-  if (status === "postado" && !dataPublicada) {
-    dataPublicada = hojeISO();
+/** Salva SÓ os campos que a pessoa mexeu, e devolve a linha como ficou.
+
+    Antes de 22/08/2026 mandava o formulário inteiro a cada autosave. Bastava
+    uma segunda aba aberta com o post carregado meia hora antes: digitar um
+    caractere lá reenviava os onze campos com os valores velhos e desfazia o
+    que a outra aba tinha feito. Não precisa de duas pessoas nem de má sorte,
+    só de uma aba esquecida.
+
+    Mandando só o que mudou, duas abas só colidem se as duas mexerem no MESMO
+    campo, que é a colisão que não tem como evitar e é a única que a pessoa
+    entende quando acontece. */
+export async function salvarDadosAcao(
+  id: string,
+  mudancas: Partial<Record<CampoEditavel, string>>,
+) {
+  if (!id) return null;
+
+  const campos: Record<string, unknown> = {};
+  for (const campo of CAMPOS_EDITAVEIS) {
+    if (!(campo in mudancas)) continue;
+    const bruto = mudancas[campo];
+
+    if (campo === "titulo") {
+      /* Vazio continua vazio, e quem exibe resolve com tituloDe(). Carimbar
+         "Sem título" aqui gravaria no banco um texto que ninguém escreveu. */
+      campos.titulo = (bruto ?? "").trim();
+    } else if (campo === "perfil") {
+      campos.perfil = vazioNulo(bruto) ?? "liz";
+    } else if (campo === "status") {
+      campos.status = statusVivo(bruto);
+    } else {
+      campos[campo] = vazioNulo(bruto);
+    }
   }
 
-  await atualizarPost(d.id, {
-    /* Vazio continua vazio, e quem exibe resolve com tituloDe(). Carimbar
-       "Sem título" aqui gravaria no banco um texto que ninguém escreveu, e
-       depois ela teria que apagar isso pra dar o nome de verdade. */
-    titulo: (d.titulo ?? "").trim(),
-    perfil: vazioNulo(d.perfil) ?? "liz",
-    formato: vazioNulo(d.formato),
-    pilar: vazioNulo(d.pilar),
-    status,
-    data_planejada: vazioNulo(d.data_planejada),
-    data_publicada: dataPublicada,
-    link: vazioNulo(d.link),
-    legenda: vazioNulo(d.legenda),
-    hashtags: vazioNulo(d.hashtags),
-    observacao: vazioNulo(d.observacao),
-  });
+  if (Object.keys(campos).length === 0) return null;
+
+  /* Carimba a data de publicação sozinho quando o status vira "postado" e
+     ninguém preencheu a data. Sem isso o calendário perde o post exatamente no
+     momento em que ele passa a ser o dado mais importante, que é o que de fato
+     saiu. Se a pessoa preencheu à mão, a mão manda — por isso só entra quando
+     a própria gravação não traz `data_publicada`. */
+  if (campos.status === "postado" && !("data_publicada" in campos)) {
+    campos.data_publicada = hojeISO();
+  }
+
+  const atual = await atualizarPost(id, campos);
 
   revalidatePath("/painel/conteudo");
-  revalidatePath("/painel/conteudo/" + d.id);
+  revalidatePath("/painel/conteudo/" + id);
+  return atual;
 }
 
 /** Troca só o status. Existe separada da action de salvar dados porque o
@@ -145,8 +168,30 @@ export async function mudarStatusAcao(id: string, novo: string) {
   revalidatePath("/painel/conteudo/" + id);
 }
 
-export async function salvarRoteiroAcao(postId: string, falasJson: string) {
-  if (!postId) return;
+export async function salvarRoteiroAcao(
+  postId: string,
+  falasJson: string,
+  removidasJson: string,
+) {
+  if (!postId) return { criadas: [], deOutraAba: [] };
+
+  /* Só id em formato de uuid entra na lista de apagar: ela vira um `id=in.(...)`
+     concatenado na URL do PostgREST, e string arbitrária ali é injeção de
+     filtro. A action é porta pública, então a validação mora aqui e não na
+     tela que chama. */
+  let removidas: string[] = [];
+  try {
+    const bruto = JSON.parse(removidasJson);
+    if (Array.isArray(bruto)) {
+      removidas = bruto.filter(
+        (v): v is string =>
+          typeof v === "string" &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
+      );
+    }
+  } catch {
+    removidas = [];
+  }
 
   let bruto: unknown;
   try {
@@ -174,9 +219,10 @@ export async function salvarRoteiroAcao(postId: string, falasJson: string) {
     };
   });
 
-  await salvarRoteiro(postId, falas);
+  const resultado = await salvarRoteiro(postId, falas, removidas);
   revalidatePath("/painel/conteudo/" + postId);
   revalidatePath("/painel/conteudo");
+  return resultado;
 }
 
 export async function salvarMetricaAcao(fd: FormData) {

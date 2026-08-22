@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { salvarDadosAcao, type DadosDoPost } from "@/app/painel/conteudo/acoes";
+import { salvarDadosAcao, type CampoEditavel } from "@/app/painel/conteudo/acoes";
 import { avisar } from "@/components/painel/Avisos";
 import CampoData from "@/components/painel/CampoData";
 import CampoTexto from "@/components/painel/CampoTexto";
@@ -36,22 +36,22 @@ import {
    Erro de gravação vira aviso na tela, nunca só console: trabalho que some sem
    avisar é a mesma classe de falha que custou 23 leads em 04/08. */
 
-function paraAcao(post: Post, v: Post): DadosDoPost {
-  return {
-    id: post.id,
-    titulo: v.titulo,
-    perfil: v.perfil,
-    formato: v.formato,
-    pilar: v.pilar,
-    status: v.status,
-    data_planejada: v.data_planejada,
-    data_publicada: v.data_publicada,
-    link: v.link,
-    legenda: v.legenda,
-    hashtags: v.hashtags,
-    observacao: v.observacao,
-  };
-}
+/* Campos que a tela pode mudar. Vale como fonte da verdade pra três coisas:
+   o que se manda, o que se compara ao voltar do servidor, e o que se aceita
+   de outra aba. */
+const CAMPOS: CampoEditavel[] = [
+  "titulo",
+  "perfil",
+  "formato",
+  "pilar",
+  "status",
+  "data_planejada",
+  "data_publicada",
+  "link",
+  "legenda",
+  "hashtags",
+  "observacao",
+];
 
 export default function DadosPost({ post }: { post: Post }) {
   const { reportar, trocarCabecalho } = usePostShell();
@@ -65,31 +65,79 @@ export default function DadosPost({ post }: { post: Post }) {
   const sujo = useRef(false);
   const hora = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* Campos alterados desde a última gravação: é exatamente isso que sobe. */
+  const pendentes = useRef(new Set<CampoEditavel>());
+  /* Campos que esta aba tocou em algum momento. Serve pra decidir o que aceitar
+     de volta do servidor: campo que ninguém mexeu aqui pode receber o valor de
+     outra aba sem risco; campo que está sendo editado, não. */
+  const meus = useRef(new Set<CampoEditavel>());
 
   const gravar = useCallback(async () => {
     if (!sujo.current) return;
     sujo.current = false;
+
+    const indo = [...pendentes.current];
+    pendentes.current = new Set();
+    if (indo.length === 0) return;
+
+    const mudancas: Partial<Record<CampoEditavel, string>> = {};
+    for (const campo of indo) {
+      mudancas[campo] = (atuais.current[campo] as string | null) ?? "";
+    }
+
     reportar("dados", { estado: "salvando", hora: hora.current });
     try {
-      await salvarDadosAcao(paraAcao(post, atuais.current));
+      const doServidor = await salvarDadosAcao(post.id, mudancas);
+
+      /* Absorve o que outra aba mudou, mas SÓ em campo que esta aqui nunca
+         tocou. Sem a segunda condição, um campo sendo digitado seria
+         sobrescrito pela resposta da gravação anterior no meio da frase. */
+      if (doServidor) {
+        const vindos: Partial<Post> = {};
+        let quantos = 0;
+        for (const campo of CAMPOS) {
+          if (meus.current.has(campo)) continue;
+          const remoto = (doServidor[campo] as string | null) ?? "";
+          const local = (atuais.current[campo] as string | null) ?? "";
+          if (remoto !== local) {
+            (vindos as Record<string, unknown>)[campo] = doServidor[campo];
+            quantos += 1;
+          }
+        }
+        if (quantos > 0) {
+          const proximo = { ...atuais.current, ...vindos };
+          atuais.current = proximo;
+          setValores(proximo);
+          trocarCabecalho({ titulo: proximo.titulo, status: proximo.status as Status });
+          avisar("Outra aba mexeu neste post. Atualizei o que você não estava editando.");
+        }
+      }
+
       hora.current = new Date().toLocaleTimeString("pt-BR", {
         hour: "2-digit",
         minute: "2-digit",
       });
       reportar("dados", { estado: "salvo", hora: hora.current });
     } catch (e) {
-      /* Volta a sujo: a próxima mudança tenta de novo em vez de deixar o
-         trabalho preso num estado de erro do qual não se sai sozinho. */
+      /* Volta a sujo E devolve os campos pra fila: sem a segunda parte, o que
+         falhou nunca mais seria enviado, porque a próxima gravação só manda o
+         que mudou depois dela. */
       sujo.current = true;
+      for (const campo of indo) pendentes.current.add(campo);
       reportar("dados", { estado: "erro", hora: hora.current });
       avisar(e instanceof Error ? e.message : "Não consegui salvar.", "erro");
     }
-  }, [post, reportar]);
+  }, [post.id, reportar, trocarCabecalho]);
 
   function mexer(campos: Partial<Post>) {
     const proximo = { ...atuais.current, ...campos };
     atuais.current = proximo;
     setValores(proximo);
+
+    for (const campo of Object.keys(campos) as CampoEditavel[]) {
+      pendentes.current.add(campo);
+      meus.current.add(campo);
+    }
 
     if (campos.titulo !== undefined || campos.status !== undefined) {
       trocarCabecalho({ titulo: campos.titulo, status: campos.status as Status | undefined });
@@ -258,7 +306,7 @@ export default function DadosPost({ post }: { post: Post }) {
           />
         </label>
 
-        <label className="conteudo-campo conteudo-campo-total">
+        <label className="conteudo-campo conteudo-campo-total conteudo-campo-texto">
           <span>Legenda</span>
           <CampoTexto
             minimo={4}
@@ -278,7 +326,7 @@ export default function DadosPost({ post }: { post: Post }) {
           />
         </label>
 
-        <label className="conteudo-campo conteudo-campo-total">
+        <label className="conteudo-campo conteudo-campo-total conteudo-campo-texto">
           <span>Observação</span>
           <CampoTexto
             minimo={2}

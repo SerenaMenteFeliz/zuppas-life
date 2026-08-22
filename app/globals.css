@@ -1915,6 +1915,20 @@ textarea {
   grid-column: 1 / -1;
 }
 
+/* Campo de texto corrido para de esticar a 90 caracteres (22/08/2026).
+
+   A padronização de largura em 1400px deixou a Legenda com 1358px de linha, e
+   legenda é o texto que vai pro Instagram: revisar parágrafo numa linha desse
+   tamanho é ruim porque o olho perde a linha ao voltar pra esquerda. 90ch é o
+   limite alto da medida confortável, escolhido por ser generoso sem ser
+   ilegível.
+
+   O rótulo continua na largura toda: só a caixa encolhe, então a grade não
+   ganha buraco e a leitura de "quais campos existem" não muda. */
+.conteudo-campo-texto textarea {
+  max-width: 90ch;
+}
+
 .conteudo-campo input,
 .conteudo-campo select,
 .conteudo-campo textarea {
@@ -2076,6 +2090,165 @@ textarea {
 
 .pn-drop-botao > .conteudo-ponto {
   margin-top: 0;
+}
+
+/* ── Sinais de carregamento ────────────────────────────────────────────────
+   O painel consulta o banco em toda tela. Rápido não é o mesmo que instantâneo,
+   e sem sinal nenhum a tela fica no conteúdo antigo e parece travada — a pessoa
+   clica de novo, e é o segundo clique que estraga a impressão, não a espera. */
+
+.pn-esqueleto {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--accent-wash) 25%,
+    var(--accent-wash-strong) 50%,
+    var(--accent-wash) 75%
+  );
+  background-size: 300% 100%;
+  animation: pn-brilho 1.3s ease-in-out infinite;
+}
+
+@keyframes pn-brilho {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+.pn-esqueleto-grade {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(230px, 1fr);
+  gap: 0.9rem;
+}
+
+.pn-esqueleto-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+}
+
+/* Ponto que acende no botão de visão clicado (ver LinkVisao.tsx). Fica DENTRO
+   do botão porque o esqueleto da página não diz qual dos três foi apertado. */
+.pn-carregando-ponto {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  background: currentColor;
+  border-radius: 9999px;
+  animation: pn-pulsa 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes pn-pulsa {
+  from { opacity: 0.25; }
+  to { opacity: 1; }
+}
+
+/* Quem pediu menos movimento não deve ganhar duas animações em loop só por
+   abrir uma tela. O sinal continua existindo, parado. */
+@media (prefers-reduced-motion: reduce) {
+  .pn-esqueleto,
+  .pn-carregando-ponto {
+    animation: none;
+  }
+}
+
+/* ── Tela de erro do painel ──────────────────────────────────────────────── */
+.pn-erro {
+  max-width: 560px;
+  padding: 2.5rem 0;
+}
+
+.pn-erro-titulo {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.pn-erro-texto {
+  margin: 0.5rem 0 1.25rem;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.pn-erro-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.pn-erro-detalhe {
+  margin-top: 1.75rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.pn-erro-detalhe summary {
+  cursor: pointer;
+}
+
+.pn-erro-detalhe p {
+  margin-top: 0.5rem;
+  word-break: break-word;
+}
+
+/* ── Primeiro uso e lista ────────────────────────────────────────────────── */
+
+/* Instrução da base vazia. Fica ACIMA do quadro, não no lugar dele: as colunas
+   vazias são metade da explicação, e trocá-las por um texto tirava justamente
+   a parte que ensina sozinha. */
+.conteudo-primeiro-passo {
+  max-width: 62ch;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.conteudo-primeiro-passo strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.conteudo-lista-vazia {
+  padding: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.conteudo-ordenar {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+}
+
+.conteudo-ordenar:hover {
+  color: var(--accent);
+}
+
+.conteudo-ordenar-ativa {
+  color: var(--accent);
+}
+
+/* Linha inteira clicável. O cursor é o que anuncia isso: sem ele, a linha se
+   comporta como link e não se parece com um. */
+.conteudo-linha {
+  cursor: pointer;
+}
+
+.conteudo-linha:hover {
+  background: var(--accent-wash);
+}
+
+.conteudo-linha-titulo {
+  color: var(--accent);
 }
 
 /* ── Campo de data com calendário próprio (ver CampoData.tsx) ────────────── */
