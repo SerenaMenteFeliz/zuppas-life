@@ -63,7 +63,7 @@ export default function ModalConfirmar({
 
       {aberto && (
         <div
-          className="painel-modal-fundo"
+          className="pn-confirma-fundo"
           /* O clique fora fecha, mas só quando ele nasce E termina no fundo:
              arrastar uma seleção de texto de dentro do popup pra fora soltaria
              o mouse aqui e fecharia o popup no meio de uma leitura. */
@@ -71,10 +71,10 @@ export default function ModalConfirmar({
             if (e.target === e.currentTarget && !pendente) setAberto(false);
           }}
         >
-          <div className="painel-modal" role="dialog" aria-modal="true" aria-label={titulo}>
-            <h2 className="painel-modal-titulo">{titulo}</h2>
-            <p className="painel-modal-texto">{pergunta}</p>
-            <div className="painel-modal-botoes">
+          <div className="pn-confirma" role="dialog" aria-modal="true" aria-label={titulo}>
+            <h2 className="pn-confirma-titulo">{titulo}</h2>
+            <p className="pn-confirma-texto">{pergunta}</p>
+            <div className="pn-confirma-botoes">
               <button
                 ref={cancelar}
                 type="button"

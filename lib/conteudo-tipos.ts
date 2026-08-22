@@ -70,7 +70,10 @@ export const STATUS_QUADRO: Status[] = ["ideia", "roteiro", "gravado", "agendado
    nenhum; se existir quando ela voltar, volta a exibir sozinho. */
 export const PERFIS = [
   { id: "liz", rotulo: "@liz.zuppa", dono: "Liz", cor: "var(--accent)" },
-  { id: "geovana", rotulo: "@geovana_zuppa", dono: "Ge", cor: "var(--terracotta)" },
+  /* Rosa desde 22/08/2026 (Yan). Era terracotta, que além de ser escolha dele
+     agora colide de propósito com o `--perigo`: são as duas cores quentes da
+     paleta, e "apagar" não pode compartilhar família com "post da Ge". */
+  { id: "geovana", rotulo: "@geovana_zuppa", dono: "Ge", cor: "var(--rosa)" },
 ] as const;
 
 export type PerfilId = (typeof PERFIS)[number]["id"];

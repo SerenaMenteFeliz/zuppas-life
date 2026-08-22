@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { CampoDataFormulario } from "@/components/painel/CampoData";
 import DadosPost from "@/components/painel/DadosPost";
 import ExcluirPost from "@/components/painel/ExcluirPost";
 import PostShell from "@/components/painel/PostShell";
@@ -172,10 +173,14 @@ export default async function PostPage({
             <div className="conteudo-metrica-grupo" style={{ flex: "1 1 130px" }}>
               <span className="conteudo-metrica-titulo">Quando</span>
               <div className="conteudo-metrica-campos">
-                <label className="conteudo-campo">
+                <div className="conteudo-campo">
                   <span>Coletado em</span>
-                  <input type="date" name="coletado_em" defaultValue={hoje} />
-                </label>
+                  <CampoDataFormulario
+                    name="coletado_em"
+                    inicial={hoje}
+                    rotuloAcessivel="Coletado em"
+                  />
+                </div>
               </div>
             </div>
 

@@ -62,6 +62,10 @@ body {
   --sage: #8ba883;
   --terracotta: #c17d5c;
   --sky: #8fadb8;
+  /* Cor de perfil da Ge (22/08/2026). Mora no tema e não hardcoded no array de
+     perfis porque a bolinha aparece no calendário, no dropdown e na lista, e
+     cor de identidade repetida em três lugares diverge no primeiro ajuste. */
+  --rosa: #c76b93;
 }
 
 /* ── Tema Casa (noite) ─────────────────────────────────────────────────────
@@ -744,6 +748,9 @@ body {
   --gold: #b8863e;
   --sage: #5c8a68;
   --terracotta: #b56a44;
+  /* Mais fechado que o rosa do tema claro da família: aqui o fundo é branco e
+     o contraste precisa segurar numa bolinha de 7px. */
+  --rosa: #c2557f;
   /* Vermelho só pra ação destrutiva. Separado do terracotta de propósito
      (Yan, 22/08/2026: "mais avermelhado"): terracotta é acento quente e já é a
      cor do perfil da Ge no calendário, então apagar post pintado com ele lia
@@ -1571,8 +1578,16 @@ textarea {
 /* ── Popup de confirmação ──
    Apagar um post não é decisão de canto de tela: o popup para tudo e força um
    segundo olhar. As saídas (clicar fora, Escape, Cancelar) são todas mais
-   fáceis que a confirmação, de propósito. */
-.painel-modal-fundo {
+   fáceis que a confirmação, de propósito.
+
+   Prefixo `pn-confirma-` desde 22/08/2026. Antes eram `.painel-modal-*`, o
+   MESMO nome do modal de preview do funil lá em cima neste arquivo, e as duas
+   caixas se misturavam: o preview declara `height: min(800px, 86vh)` e nada
+   aqui desfazia isso, então a confirmação de apagar nascia com 86% da altura
+   da tela pra caber duas linhas de texto (Yan: "tá muito alto, sem limite de
+   height"). Dois componentes diferentes com o mesmo nome de classe é uma
+   herança silenciosa esperando pra acontecer. */
+.pn-confirma-fundo {
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -1584,7 +1599,7 @@ textarea {
   backdrop-filter: blur(2px);
 }
 
-.painel-modal {
+.pn-confirma {
   width: 100%;
   max-width: 430px;
   padding: 1.4rem;
@@ -1594,7 +1609,7 @@ textarea {
   box-shadow: 0 18px 50px rgb(0 0 0 / 0.28);
 }
 
-.painel-modal-titulo {
+.pn-confirma-titulo {
   margin: 0 0 0.5rem;
   font-family: var(--font-display);
   font-size: 1.15rem;
@@ -1602,14 +1617,14 @@ textarea {
   color: var(--ink);
 }
 
-.painel-modal-texto {
+.pn-confirma-texto {
   margin: 0 0 1.25rem;
   font-size: 0.85rem;
   line-height: 1.55;
   color: var(--ink-soft);
 }
 
-.painel-modal-botoes {
+.pn-confirma-botoes {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
@@ -2061,6 +2076,123 @@ textarea {
 
 .pn-drop-botao > .conteudo-ponto {
   margin-top: 0;
+}
+
+/* ── Campo de data com calendário próprio (ver CampoData.tsx) ────────────── */
+.pn-data {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.pn-data-icone {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-soft);
+}
+
+.pn-data-painel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 60;
+  width: 258px;
+  padding: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px -10px var(--shadow-tint);
+}
+
+.pn-data-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.pn-data-mes {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pn-data-grade {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.pn-data-cabecalho {
+  padding-bottom: 0.2rem;
+  font-size: 0.6rem;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* 32px de altura: acima do piso de 24 pra alvo de ponteiro, e num calendário
+   isso conta dobrado, porque os dias são vizinhos colados de todos os lados. */
+.pn-data-dia {
+  height: 32px;
+  font-size: 0.76rem;
+  color: var(--ink);
+  border-radius: 7px;
+  transition: background-color 0.12s ease;
+}
+
+.pn-data-dia:hover {
+  background: var(--accent-wash);
+}
+
+.pn-data-dia-fora {
+  color: var(--ink-soft);
+  opacity: 0.55;
+}
+
+/* Hoje é contorno, o dia escolhido é preenchido: os dois precisam coexistir na
+   mesma grade sem competir, e preenchimento vence contorno na leitura. */
+.pn-data-dia-hoje {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.pn-data-dia-escolhido,
+.pn-data-dia-escolhido:hover {
+  color: var(--accent-foreground);
+  background: var(--accent);
+}
+
+.pn-data-atalhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+}
+
+.pn-data-atalho {
+  padding: 0.22rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border-radius: 9999px;
+}
+
+.pn-data-atalho:hover {
+  background: var(--accent-wash-strong);
+}
+
+.pn-data-atalho-limpar {
+  margin-left: auto;
+  color: var(--ink-soft);
+  background: transparent;
+}
+
+.pn-data-atalho-limpar:hover {
+  color: var(--perigo);
+  background: color-mix(in srgb, var(--perigo) 9%, transparent);
 }
 
 /* Seta própria em TODO select do painel (22/08/2026).

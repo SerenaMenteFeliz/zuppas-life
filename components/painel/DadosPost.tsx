@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { salvarDadosAcao, type DadosDoPost } from "@/app/painel/conteudo/acoes";
 import { avisar } from "@/components/painel/Avisos";
+import CampoData from "@/components/painel/CampoData";
 import CampoTexto from "@/components/painel/CampoTexto";
 import Dropdown from "@/components/painel/Dropdown";
 import { usePostShell } from "@/components/painel/PostShell";
@@ -219,25 +220,30 @@ export default function DadosPost({ post }: { post: Post }) {
             "Agendado" e ninguém sabia qual era qual. A diferença que importa é
             plano contra fato, e é ela que faz o calendário mostrar o que
             aconteceu em vez do que se pretendia. */}
-        <label className="conteudo-campo">
+        <div className="conteudo-campo">
           <span>Quando quero postar</span>
-          <input
-            type="date"
-            value={valores.data_planejada ?? ""}
-            onChange={(e) => mexer({ data_planejada: e.target.value })}
-            onBlur={agora}
+          <CampoData
+            rotuloAcessivel="Quando quero postar"
+            valor={valores.data_planejada ?? ""}
+            aoMudar={(v) => {
+              mexer({ data_planejada: v });
+              agora();
+            }}
           />
-        </label>
+        </div>
 
-        <label className="conteudo-campo">
+        <div className="conteudo-campo">
           <span>Quando saiu</span>
-          <input
-            type="date"
-            value={valores.data_publicada ?? ""}
-            onChange={(e) => mexer({ data_publicada: e.target.value })}
-            onBlur={agora}
+          <CampoData
+            rotuloAcessivel="Quando saiu"
+            vazio="ainda não saiu"
+            valor={valores.data_publicada ?? ""}
+            aoMudar={(v) => {
+              mexer({ data_publicada: v });
+              agora();
+            }}
           />
-        </label>
+        </div>
 
         {/* Linha inteira como os campos de baixo (Yan, 22/08/2026): URL é texto
             longo, e meia linha só servia pra cortar o fim do link. */}

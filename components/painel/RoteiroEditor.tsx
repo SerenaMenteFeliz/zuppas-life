@@ -138,23 +138,19 @@ export default function RoteiroEditor({ postId, iniciais }: Props) {
     mexer(falas.filter((_, i) => i !== indice));
   }
 
-  /* Fala em branco some no clique: não há nada pra perder, e pedir confirmação
-     pra apagar o vazio ensina a clicar em "sim" sem ler, que é justamente o
-     que estraga a confirmação onde ela importa. Fala escrita pergunta. */
-  function pedirRemover(indice: number) {
-    const f = falas[indice];
-    const escrita = [
-      f.texto,
-      f.enquadramento,
-      f.cenario,
-      f.acao,
-      f.broll,
-      f.texto_tela,
-      f.observacao,
-    ].some((v) => (v ?? "").trim() !== "");
+  /* Toda fala pergunta antes de sumir (Yan, 22/08/2026).
 
-    if (!escrita) remover(indice);
-    else setConfirmando(indice);
+     Até aqui, fala em branco sumia no clique, com o argumento de que não havia
+     nada a perder e de que confirmar o vazio ensina a clicar em "sim" sem ler.
+     O argumento é bom em tese e errado na prática desta tela: quem apaga uma
+     fala recém-criada não sabe que ela estava vazia aos olhos do app (a cena
+     pode estar preenchida, o texto não), e o botão respondendo às vezes com
+     popup e às vezes com sumiço é imprevisível — que é pior que ser chato.
+
+     A confirmação é a faixa dentro da própria fala, não um popup: a linha do
+     roteiro é estreita e uma caixa flutuando ali empurraria as falas de baixo. */
+  function pedirRemover(indice: number) {
+    setConfirmando(indice);
   }
 
   const gravadas = falas.filter((f) => f.gravada).length;
