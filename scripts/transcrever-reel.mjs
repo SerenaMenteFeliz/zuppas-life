@@ -444,7 +444,28 @@ function ehSoALegenda(textoTela, texto) {
    A instrução insiste em "não melhore" porque o valor deste material é ser a
    voz real da Ge, e modelo de linguagem corrige gramática por reflexo.
    Transcrição embelezada ensinaria a ficha a escrever como o Gemini, não como
-   ela, e ninguém perceberia lendo o resultado: ele sai bonito. */
+   ela, e ninguém perceberia lendo o resultado: ele sai bonito.
+
+   ── Por que as regras 2 e 3 dizem as DUAS direções (23/08/2026) ──
+
+   Elas nasceram dizendo só uma: "mesma frase sobre quatro paisagens é uma
+   fala com quatro b-rolls". Escrita pro vídeo 02, que era exatamente isso.
+
+   No backfill dos 30 Reels, o vídeo 03 é o caso espelhado: uma PALAVRA por
+   cena ("você. / adicionar. / dias. / vida. / mais. / seus. / viva."). O
+   modelo aplicou o colapso mesmo assim e devolveu 1 fala com 1 palavra, com
+   os 8 b-rolls corretos do lado. Ou seja: ele viu o vídeo inteiro e jogou a
+   copy fora, que é justamente o que este script existe pra preservar.
+
+   Uma regra que só proíbe separar demais é lida como "junte". O par de
+   direções não é redundância, é o que fecha a interpretação. E "na dúvida,
+   SEPARE" está lá porque os dois erros não custam igual: fala separada demais
+   o Yan junta na tela em dois cliques, fala perdida ninguém sabe que faltou.
+
+   Como isso é pego: densidade de palavras por segundo. Abaixo de 0,6 não
+   existe post real (o 03 deu 0,12). De 0,7 a 1,5 é frase única sobre paisagem
+   ou manchete com microfone; 2 a 3 é fala normal; acima de 4 é card de texto
+   estático. */
 const INSTRUCAO = `Você está analisando uma publicação já no ar de uma criadora brasileira, em português do Brasil.
 
 Ela pode ser de dois tipos, e o tratamento muda:
@@ -457,8 +478,8 @@ Sua tarefa é registrar o que ESTÁ LÁ, não propor nada.
 Regras que não se negociam:
 0. Um Reel pode ter TRÊS camadas de texto, e elas não se misturam: (a) o que a pessoa fala; (b) a legenda queimada, que acompanha a fala e é duplicata dela; (c) uma MANCHETE parada na tela, geralmente no topo, que fica ali enquanto o vídeo corre e quase nunca é falada em voz alta. A manchete vai em texto_fixo_na_tela, NUNCA vira uma fala.
 1. Transcreva palavra por palavra. No tipo A, o que foi dito em voz alta. No tipo B, o que está escrito na tela. Não corrija gramática, não troque palavra por sinônimo melhor, não resuma, não junte frases. Se ela repetiu, repita. Se usou gíria, mantenha a gíria. Se tem erro de digitação na tela, mantenha o erro.
-2. Uma entrada por frase. Frase com três orações vira três entradas. No tipo B, cada bloco de texto que aparece na tela é uma entrada, na ordem em que aparecem. Se o MESMO texto continua na tela enquanto a imagem de fundo muda, isso é UMA entrada só, não uma por imagem.
-3. CENÁRIO e B-ROLL são coisas diferentes e o erro entre os dois é caro. Cenário é onde a pessoa está enquanto ATUA a fala: só preencha se ela aparece. B-roll é imagem que passa por cima sem ela: paisagem, clipe, foto. Num vídeo sem ninguém na tela, cenário e ação ficam VAZIOS e TUDO vai pra broll, separado por ponto e vírgula, na ordem em que as imagens aparecem. Se a mesma frase fica na tela enquanto passam quatro paisagens, é UMA fala com quatro b-rolls, nunca quatro falas.
+2. Uma entrada por frase. Frase com três orações vira três entradas. No tipo B, cada bloco de texto que aparece na tela é uma entrada, na ordem em que aparecem. Se o MESMO texto continua na tela enquanto a imagem de fundo muda, isso é UMA entrada só, não uma por imagem. O INVERSO vale igual e é o erro mais caro: se o texto MUDA junto com a imagem (uma palavra ou uma frase por cena, aparecendo e sumindo), cada texto é uma entrada separada, na ordem. Um vídeo de oito cenas com uma palavra em cada uma tem OITO entradas, nunca uma. Na dúvida entre juntar e separar, SEPARE: texto perdido não volta.
+3. CENÁRIO e B-ROLL são coisas diferentes e o erro entre os dois é caro. Cenário é onde a pessoa está enquanto ATUA a fala: só preencha se ela aparece. B-roll é imagem que passa por cima sem ela: paisagem, clipe, foto. Num vídeo sem ninguém na tela, cenário e ação ficam VAZIOS e TUDO vai pra broll, separado por ponto e vírgula, na ordem em que as imagens aparecem. Se a mesma frase fica na tela enquanto passam quatro paisagens, é UMA fala com quatro b-rolls, nunca quatro falas. Se o texto muda a cada paisagem, são QUATRO falas, cada uma com o seu b-roll (ver regra 2).
 4. Descreva o que aparece na imagem em enquadramento, cenário e ação, pelo que dá pra VER. Isso vale nos dois tipos: uma paisagem também é uma cena, e saber que a paisagem existe é informação útil. Se não der pra ver, deixe vazio. Nunca invente.
 5. Em origem_imagem, o valor certo quase sempre é "indefinido". Uma paisagem bonita NÃO é banco de imagem só porque não tem gente nela: praia, mata, serra e rua são lugares concretos que alguém pode ter filmado. Só marque "banco" se for inequivocamente genérico: gradiente, textura, fundo abstrato, ilustração, cena de estúdio impessoal.
 6. A função de cada fala é classificação sua e pode ser deduzida: identifique o trabalho que a frase faz na história.
