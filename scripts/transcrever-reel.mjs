@@ -355,8 +355,31 @@ const ESQUEMA = {
           cenario: t(
             "Descreva o que aparece ATRÁS dela, fisicamente: parede lisa clara, canto com planta, bancada da cozinha, cabeceira da cama, batente de porta. NÃO adivinhe o nome do cômodo se não houver móvel ou objeto que prove qual é. NUNCA repita o nome do local em si. Vazio se o fundo não tiver nada identificável.",
           ),
-          acao: t("O que ela está fazendo enquanto fala, pelo que aparece na imagem."),
-          broll: t("Imagem que entra por cima da fala, quando entra. Vazio se não tem."),
+          acao: t("O que ela está fazendo enquanto fala, pelo que aparece na imagem. Vazio quando ninguém aparece."),
+          /* ── Vários b-rolls numa fala, e por que separados por ponto e vírgula ──
+
+             Decidido com o Yan em 23/08/2026, ao perguntar como representar
+             cena que muda várias vezes dentro de uma frase.
+
+             A distinção que resolveu: `cenario` é onde a câmera está QUANDO ELA
+             ATUA a fala, e é o que planeja o dia de gravação; `broll` é imagem
+             que entra por cima e não exige ela presente. O video02 é 100%
+             broll (ninguém atua, texto na tela, paisagens passando por baixo);
+             o video01 é 100% atuação, sem broll nenhum.
+
+             O Yan confirmou que fala bem dividida e curta não precisa de mais
+             de uma TOMADA, só de mais de um b-roll. Então a fala continua
+             sendo uma unidade de gravação, e só o broll vira lista.
+
+             Ponto e vírgula em vez de coluna nova porque o painel renderiza
+             `broll` como um input de texto: separado assim, os clipes aparecem
+             e são editáveis hoje. Coluna nova sem UI seria dado invisível, que
+             é o defeito que este painel passou o mês fechando. Vira estrutura
+             de verdade quando a plataforma descongelar, e a conversão é um
+             split. */
+          broll: t(
+            "Imagens que entram por cima da fala, na ordem, SEPARADAS POR PONTO E VÍRGULA. É aqui que vai toda paisagem, clipe ou imagem que passa enquanto o texto ou a voz corre, uma por trecho: 'praia com costão ao amanhecer; pôr do sol num píer; mar com neblina'. Vazio se a câmera só mostra a pessoa falando.",
+          ),
           /* "além da legenda" e não só "o que aparece escrito": achado no
              primeiro teste real, 23/08/2026. A Ge queima legenda automática em
              todas as falas, então o campo voltou preenchido nas 12, idêntico ao
@@ -435,10 +458,11 @@ Regras que não se negociam:
 0. Um Reel pode ter TRÊS camadas de texto, e elas não se misturam: (a) o que a pessoa fala; (b) a legenda queimada, que acompanha a fala e é duplicata dela; (c) uma MANCHETE parada na tela, geralmente no topo, que fica ali enquanto o vídeo corre e quase nunca é falada em voz alta. A manchete vai em texto_fixo_na_tela, NUNCA vira uma fala.
 1. Transcreva palavra por palavra. No tipo A, o que foi dito em voz alta. No tipo B, o que está escrito na tela. Não corrija gramática, não troque palavra por sinônimo melhor, não resuma, não junte frases. Se ela repetiu, repita. Se usou gíria, mantenha a gíria. Se tem erro de digitação na tela, mantenha o erro.
 2. Uma entrada por frase. Frase com três orações vira três entradas. No tipo B, cada bloco de texto que aparece na tela é uma entrada, na ordem em que aparecem. Se o MESMO texto continua na tela enquanto a imagem de fundo muda, isso é UMA entrada só, não uma por imagem.
-3. Descreva o que aparece na imagem em enquadramento, cenário e ação, pelo que dá pra VER. Isso vale nos dois tipos: uma paisagem também é uma cena, e saber que a paisagem existe é informação útil. Se não der pra ver, deixe vazio. Nunca invente.
-4. Em origem_imagem, o valor certo quase sempre é "indefinido". Uma paisagem bonita NÃO é banco de imagem só porque não tem gente nela: praia, mata, serra e rua são lugares concretos que alguém pode ter filmado. Só marque "banco" se for inequivocamente genérico: gradiente, textura, fundo abstrato, ilustração, cena de estúdio impessoal.
-5. A função de cada fala é classificação sua e pode ser deduzida: identifique o trabalho que a frase faz na história.
-6. Se for imagem parada, duracao_segundos é 0.`;
+3. CENÁRIO e B-ROLL são coisas diferentes e o erro entre os dois é caro. Cenário é onde a pessoa está enquanto ATUA a fala: só preencha se ela aparece. B-roll é imagem que passa por cima sem ela: paisagem, clipe, foto. Num vídeo sem ninguém na tela, cenário e ação ficam VAZIOS e TUDO vai pra broll, separado por ponto e vírgula, na ordem em que as imagens aparecem. Se a mesma frase fica na tela enquanto passam quatro paisagens, é UMA fala com quatro b-rolls, nunca quatro falas.
+4. Descreva o que aparece na imagem em enquadramento, cenário e ação, pelo que dá pra VER. Isso vale nos dois tipos: uma paisagem também é uma cena, e saber que a paisagem existe é informação útil. Se não der pra ver, deixe vazio. Nunca invente.
+5. Em origem_imagem, o valor certo quase sempre é "indefinido". Uma paisagem bonita NÃO é banco de imagem só porque não tem gente nela: praia, mata, serra e rua são lugares concretos que alguém pode ter filmado. Só marque "banco" se for inequivocamente genérico: gradiente, textura, fundo abstrato, ilustração, cena de estúdio impessoal.
+6. A função de cada fala é classificação sua e pode ser deduzida: identifique o trabalho que a frase faz na história.
+7. Se for imagem parada, duracao_segundos é 0.`;
 
 /* ── O probe ────────────────────────────────────────────────────────────────── */
 
