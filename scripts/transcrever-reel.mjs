@@ -462,7 +462,8 @@ Regras que não se negociam:
 4. Descreva o que aparece na imagem em enquadramento, cenário e ação, pelo que dá pra VER. Isso vale nos dois tipos: uma paisagem também é uma cena, e saber que a paisagem existe é informação útil. Se não der pra ver, deixe vazio. Nunca invente.
 5. Em origem_imagem, o valor certo quase sempre é "indefinido". Uma paisagem bonita NÃO é banco de imagem só porque não tem gente nela: praia, mata, serra e rua são lugares concretos que alguém pode ter filmado. Só marque "banco" se for inequivocamente genérico: gradiente, textura, fundo abstrato, ilustração, cena de estúdio impessoal.
 6. A função de cada fala é classificação sua e pode ser deduzida: identifique o trabalho que a frase faz na história.
-7. Se for imagem parada, duracao_segundos é 0.`;
+7. Se for imagem parada, duracao_segundos é 0.
+8. TUDO que você escrever é em português do Brasil, inclusive título, cenário e b-roll. Nenhuma palavra em inglês, nem quando a palavra parecer parecida com a portuguesa.`;
 
 /* ── O probe ────────────────────────────────────────────────────────────────── */
 
