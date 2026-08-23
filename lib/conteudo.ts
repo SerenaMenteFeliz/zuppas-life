@@ -244,8 +244,32 @@ export async function aprenderCenas(postId: string, local: string | null): Promi
   if (!local) return;
   try {
     const falas = await carregarFalas(postId);
+
+    /* Cena que só repete o nome do local não é cena, é o local de novo.
+
+       Achado testando em 22/08/2026: com a ficha de locais ainda sem recursos
+       preenchidos, o modelo devolveu `cenario: "casa"` nas doze falas, e o
+       catálogo aprendeu a linha inútil `casa :: casa`. Ela voltaria pro prompt
+       das próximas gerações como "cena que já funcionou: casa", que é ruído
+       ocupando o lugar de exemplo de verdade.
+
+       O schema agora pede o ponto dentro do local, mas a guarda fica aqui de
+       qualquer jeito: o catálogo é alimentado por saída de modelo, e saída de
+       modelo não se garante por instrução. */
+    const ehSoOLocal = (v: string) => {
+      /* Compara sem acento e sem caixa: o id do local é "condominio" e o
+         modelo escreve "Condomínio". */
+      const n = (s: string) =>
+        s
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[̀-ͯ]/g, "")
+          .trim();
+      return n(v) === n(local);
+    };
+
     const cenas = falas
-      .filter((f) => f.cenario && f.cenario.trim() !== "")
+      .filter((f) => f.cenario && f.cenario.trim() !== "" && !ehSoOLocal(f.cenario))
       .map((f) => ({
         local,
         descricao: (f.cenario as string).trim().slice(0, 200),

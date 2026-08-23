@@ -457,6 +457,34 @@ try {
   );
   ok("resposta ilegível devolve null em vez de estourar", extrairTexto("nao e json") === null);
 
+  /* Envelope REAL de uma chamada de 22/08/2026 ao /v1beta/interactions, com o
+     campo `signature` encurtado. Está aqui porque a documentação prometia um
+     `output_text` que NÃO existe na resposta crua, e porque o primeiro `step`
+     é um `thought` sem texto: quem parasse no primeiro item da lista pegaria
+     null e concluiria que a IA não respondeu. */
+  const ENVELOPE_REAL = JSON.stringify({
+    status: "completed",
+    usage: { total_tokens: 78, total_input_tokens: 40, total_output_tokens: 38 },
+    created: "2026-08-23T01:25:03Z",
+    steps: [
+      { signature: "EmcKZQERTTIPCOnFgqpS", type: "thought" },
+      {
+        content: [
+          { text: '{\n  "frase": "Você dorme oito horas?",\n  "funcao": "gancho"\n}', type: "text" },
+        ],
+        type: "model_output",
+      },
+    ],
+    object: "interaction",
+    model: "gemini-3.7-flash",
+  });
+
+  ok(
+    "envelope real do Gemini: acha o texto pulando o step de raciocínio",
+    JSON.parse(extrairTexto(ENVELOPE_REAL)).funcao === "gancho",
+    extrairTexto(ENVELOPE_REAL)
+  );
+
   console.log(
     falhas.length
       ? `\n✗ ${falhas.length} falha(s):\n  ${falhas.join("\n  ")}\n`

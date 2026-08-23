@@ -46,7 +46,14 @@ export const ESQUEMA_FALA = {
       "Que trabalho esta frase faz na história: gancho segura quem ia passar, contexto situa a dor, virada muda a cabeça, prova sustenta, cta faz o único pedido.",
     ),
     enquadramento: texto("Como a câmera vê. Ex: close, plano médio, de costas."),
-    cenario: texto("Onde a cena acontece, dentro do local escolhido pra gravação."),
+    /* "Onde, dentro do local" e não "onde": achado testando em 22/08/2026, com
+       a ficha de locais ainda sem recursos preenchidos, o modelo devolveu
+       `cenario: "casa"` nas doze falas, que é o nome do próprio local. Isso não
+       informa nada (o post já sabe o local) e ainda envenenava o catálogo de
+       cenas com a linha `casa :: casa`. */
+    cenario: texto(
+      "Em que ponto do local a cena acontece: a cozinha, a beira da cama, a varanda, o sofá. NUNCA repita o nome do local em si. Deixe vazio se não der pra ser mais específico que o local.",
+    ),
     acao: texto("O que a pessoa está fazendo enquanto fala. Ex: andando, servindo o chá."),
     broll: texto("Imagem que entra por cima da fala, quando entra. Vazio se não precisa."),
     texto_tela: texto("O que aparece escrito na tela nesta fala. Vazio se nada aparece."),

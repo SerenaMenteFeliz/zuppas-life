@@ -191,6 +191,10 @@ async function executar(
       modelo: r.modelo,
       chave: r.chave,
       tentativas: r.tentativas,
+      /* Contagem que o próprio Google reportou. Serve pra responder "quanto a
+         gente está gastando de cota por roteiro" sem estimativa. */
+      tokensEntrada: r.tokens.entrada,
+      tokensSaida: r.tokens.saida,
       falas: roteiro.falas.length,
       local: opcoes.localId,
       perfil: opcoes.perfilId,

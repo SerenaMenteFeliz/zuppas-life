@@ -61,20 +61,15 @@ const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions"
 
 /* ── Modelos ──────────────────────────────────────────────────────────────────
 
-   ⚠️ Os ids abaixo foram derivados dos NOMES DE EXIBIÇÃO da tela de limites do
-   AI Studio (22/08/2026), não de uma chamada real: a tela mostra "Gemini 3.7
-   Flash", e o id documentado segue o padrão `gemini-3.7-flash`. **A primeira
-   chamada de verdade confirma ou corrige isto**, e o modo de falha é limpo: id
-   errado devolve 404, que a cascata trata como "pula pro próximo" e registra.
-   Não há como um id errado virar roteiro errado. */
+   Os ids abaixo foram **confirmados por chamada real em 22/08/2026**, não
+   derivados dos nomes de exibição da tela de limites. A diferença importou:
+   `gemini-3-flash`, que a tela chama de "Gemini 3 Flash", **não existe** como
+   id e devolveu 404 ("Did you mean 'gemini-3.6-flash'?"). Saiu da lista.
+
+   Os outros seis responderam, com o enum do schema respeitado. */
 
 /** Os Flash bons. Melhor primeiro. 20 requisições/dia cada, por chave. */
-const FLASH = [
-  "gemini-3.7-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-  "gemini-3-flash",
-] as const;
+const FLASH = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"] as const;
 
 /** Os Lite. 500/dia cada, por chave. Bons o bastante pra classificar texto. */
 const LITE = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"] as const;
@@ -128,7 +123,24 @@ export type RespostaModelo = {
   chave: string;
   tentativas: number;
   duracaoMs: number;
+  tokens: { entrada: number | null; saida: number | null };
 };
+
+/* Teto por tentativa.
+
+   Medido em 22/08/2026 no probe: o mesmo pedido curto levou 0,9s no
+   3.5-flash-lite, 2,3s no 2.5-flash, 4,1s no 3.7-flash e **79,5s no
+   3.5-flash**. Ou seja, a variação entre modelos é de quase cem vezes, e não é
+   previsível.
+
+   Sem teto, uma tentativa lenta pode estourar o limite de duração da função na
+   Vercel, e aí a pessoa recebe erro de plataforma em vez de "não deu, tenta de
+   novo". Com teto, a cascata desiste daquele modelo e vai pro próximo, que é o
+   comportamento que ela já sabe ter.
+
+   45s deixa espaço pra uma segunda tentativa caber dentro de um limite de 60s,
+   que é o piso comum. O custo de abortar é a cota já gasta naquela chamada. */
+const TETO_POR_TENTATIVA_MS = 45_000;
 
 export class ErroModelo extends Error {
   constructor(
@@ -195,6 +207,7 @@ export async function chamarModelo(p: PedidoModelo): Promise<RespostaModelo> {
         chave: chave.rotulo,
         tentativas,
         duracaoMs: Date.now() - inicio,
+        tokens: r.tokens,
       };
     }
 
@@ -251,7 +264,7 @@ export async function chamarModelo(p: PedidoModelo): Promise<RespostaModelo> {
 }
 
 type Resultado =
-  | { tipo: "ok"; dados: unknown }
+  | { tipo: "ok"; dados: unknown; tokens: { entrada: number | null; saida: number | null } }
   | { tipo: "cota" | "chave-morta" | "falhou"; status: number; corpo: string };
 
 async function tentar(modelo: string, chave: Chave, p: PedidoModelo): Promise<Resultado> {
@@ -283,10 +296,18 @@ async function tentar(modelo: string, chave: Chave, p: PedidoModelo): Promise<Re
         },
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(TETO_POR_TENTATIVA_MS),
     });
   } catch (e) {
-    /* Rede caiu ou o fetch estourou: é falha de tentativa, não de credencial. */
-    return { tipo: "falhou", status: 0, corpo: e instanceof Error ? e.message : "erro de rede" };
+    /* Rede caiu, ou o teto por tentativa estourou. Nos dois casos é falha
+       DAQUELA tentativa, não de credencial: a cascata segue pro próximo. */
+    const erro = e instanceof Error ? e.message : "erro de rede";
+    const demorou = e instanceof Error && e.name === "TimeoutError";
+    return {
+      tipo: "falhou",
+      status: 0,
+      corpo: demorou ? "passou de " + TETO_POR_TENTATIVA_MS / 1000 + "s sem responder" : erro,
+    };
   }
 
   if (!resp.ok) {
@@ -304,8 +325,18 @@ async function tentar(modelo: string, chave: Chave, p: PedidoModelo): Promise<Re
     return { tipo: "falhou", status: resp.status, corpo: "resposta sem texto: " + bruto.slice(0, 300) };
   }
 
+  /* O envelope carrega a contagem de tokens, e ela é lida DAQUI e não do texto:
+     o texto é o roteiro, o envelope é a nota fiscal. */
+  let envelope: unknown = null;
   try {
-    return { tipo: "ok", dados: JSON.parse(texto) };
+    envelope = JSON.parse(bruto);
+  } catch {
+    /* `extrairTexto` já parseou com sucesso pra chegar até aqui, então isto não
+       deveria acontecer. Se acontecer, some só a contagem de tokens do log. */
+  }
+
+  try {
+    return { tipo: "ok", dados: JSON.parse(texto), tokens: tokensDe(envelope) };
   } catch {
     /* Com `response_format` isto não deveria acontecer, e se acontecer é do
        modelo, não do transporte: cai como falha e a cascata tenta o próximo. */
@@ -313,15 +344,21 @@ async function tentar(modelo: string, chave: Chave, p: PedidoModelo): Promise<Re
   }
 }
 
-/** Quanto de tokens a resposta reportou, quando reporta. Só pra log: o nome do
-    campo ainda varia nesta API, e um número faltando no log não pode derrubar
-    nada. */
-export function tokensDe(bruto: unknown): { entrada: number | null; saida: number | null } {
-  const o = (bruto ?? {}) as Record<string, unknown>;
+/** Quanto de tokens a resposta reportou.
+
+    Os nomes vieram de resposta real (22/08/2026): o envelope traz
+    `usage.total_input_tokens` e `usage.total_output_tokens`. **Nenhum dos nomes
+    que eu tinha chutado existia** (`input_tokens`, `prompt_tokens`,
+    `promptTokenCount`), então isto teria logado `null` pra sempre sem nada
+    acusar. Os alternativos ficam como rede pra caso a API mude de novo.
+
+    Só pra log: número faltando aqui nunca pode derrubar uma importação. */
+export function tokensDe(envelope: unknown): { entrada: number | null; saida: number | null } {
+  const o = (envelope ?? {}) as Record<string, unknown>;
   const uso = (o.usage ?? o.usage_metadata ?? o.usageMetadata ?? {}) as Record<string, unknown>;
   const n = (v: unknown) => (typeof v === "number" ? v : null);
   return {
-    entrada: n(uso.input_tokens ?? uso.prompt_tokens ?? uso.promptTokenCount),
-    saida: n(uso.output_tokens ?? uso.candidates_tokens ?? uso.candidatesTokenCount),
+    entrada: n(uso.total_input_tokens ?? uso.input_tokens ?? uso.promptTokenCount),
+    saida: n(uso.total_output_tokens ?? uso.output_tokens ?? uso.candidatesTokenCount),
   };
 }
