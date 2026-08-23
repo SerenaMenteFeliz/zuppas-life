@@ -397,13 +397,6 @@ export default function RoteiroEditor({
                       aoSair={agora}
                     />
                     <Campo
-                      rotulo="B-roll"
-                      valor={fala.broll}
-                      exemplo="o que entra por cima da fala"
-                      aoMudar={(v) => alterar(i, "broll", v)}
-                      aoSair={agora}
-                    />
-                    <Campo
                       rotulo="Texto na tela"
                       valor={fala.texto_tela}
                       exemplo="o que aparece escrito"
@@ -415,6 +408,18 @@ export default function RoteiroEditor({
                       valor={fala.observacao}
                       exemplo="direção, tom, pausa"
                       aoMudar={(v) => alterar(i, "observacao", v)}
+                      aoSair={agora}
+                    />
+                    {/* B-roll é o último e ocupa a linha inteira (23/08/2026).
+
+                        Ele saiu do meio da grade de 3 colunas porque deixou de
+                        ser um campo de uma frase: uma fala pode ter vários
+                        clipes por cima (o 1º Reel de paisagem carregado tem
+                        cinco numa fala só), e cinco descrições espremidas num
+                        terço da largura não dá pra ler. */}
+                    <CampoBroll
+                      valor={fala.broll}
+                      aoMudar={(v) => alterar(i, "broll", v)}
                       aoSair={agora}
                     />
                   </div>
@@ -526,6 +531,134 @@ function resumoDaCena(f: Fala): string {
     (p) => p && p.trim() !== "",
   );
   return partes.length === 0 ? "Cena não planejada" : partes.join(" · ");
+}
+
+/* B-roll como lista, guardada numa string separada por ponto e vírgula.
+
+   ── Por que a lista mora na tela e não no banco ──
+
+   A coluna `broll` continua sendo um `text`. Uma tabela (ou um `jsonb`) seria
+   mais correto e é pra onde isto vai, mas hoje seria migration + join em toda
+   leitura de fala + escrita nova no autosave, pra um ganho que esta tela já
+   entrega: separar por `; ` deixa cada clipe visível, editável e ordenado.
+
+   O custo aceito é que um `;` digitado dentro da descrição de um clipe parte
+   ele em dois. Vale menos que o risco de mexer no caminho de escrita do
+   roteiro, que é justamente onde este painel teve os defeitos mais caros
+   (22/08: fala apagada e recriada a cada autosave).
+
+   Converter depois é um `split(";")` sobre uma coluna que já está no formato. */
+function CampoBroll({
+  valor,
+  aoMudar,
+  aoSair,
+}: {
+  valor: string | null;
+  aoMudar: (v: string) => void;
+  aoSair: () => void;
+}) {
+  /* Tira só UM espaço da frente, nunca do fim, e o motivo é digitação.
+
+     Achado exercitando no navegador em 23/08/2026, e a primeira correção que
+     tentei estava no lugar errado. `trim()` aqui roda a cada render: o
+     usuário digitava "praia ", o valor voltava por este `map`, o espaço final
+     era cortado, e a letra seguinte colava na anterior. "teste de clipe" saía
+     "testedeclipe", e não dava pra escrever duas palavras.
+
+     A gravação junta com "; ", então o único espaço a remover é o da frente,
+     que este código pôs. O do fim é da pessoa e fica.
+
+     Só o vazio de verdade (`!== ""`) é filtrado, não o `.trim() !== ""`: uma
+     linha que no momento tem um espaço só é alguém no meio de digitar. */
+  const clipes = (valor ?? "")
+    .split(";")
+    .map((c) => (c.startsWith(" ") ? c.slice(1) : c))
+    .filter((c) => c !== "");
+
+  /* Uma linha em branco no fim, quando pedida, e só uma.
+
+     Ela precisa de estado local porque não existe no valor: gravar string
+     vazia encheria a coluna de `; ; ;`, e filtrar a vazia na hora de gravar
+     faria a linha recém-criada sumir no próximo render, que foi exatamente o
+     defeito da 1ª versão disto. Uma só porque duas em branco não servem pra
+     nada além de sujeira na tela. */
+  const [emBranco, setEmBranco] = useState(false);
+
+  /* Lista vazia mostra UMA linha, não nenhuma: campo que só aparece depois de
+     clicar em "adicionar" é invisível pra quem não sabe que ele existe, e este
+     é justamente o campo que a Ge menos conhece. */
+  const linhas = clipes.length === 0 && !emBranco ? [""] : emBranco ? [...clipes, ""] : clipes;
+  const ultima = useRef<HTMLInputElement>(null);
+
+  /* NÃO faz `trim()` aqui, e isso não é descuido.
+
+     A 1ª versão fazia, e o efeito só apareceu digitando no navegador: como
+     `gravar` roda a cada tecla, o espaço recém-digitado era cortado antes do
+     próximo caractere chegar, e "teste de clipe novo" virava
+     "testedeclipenovo". Ninguém escreve duas palavras num campo assim.
+
+     Filtra só string vazia de verdade (`!== ""`, não `.trim() !== ""`) porque
+     uma linha que no momento tem só um espaço é alguém no meio de digitar, e
+     descartá-la limparia o campo embaixo do dedo da pessoa.
+
+     Espaço solto nas pontas não faz falta: quem lê já separa por `;` e dá
+     trim em cada pedaço. */
+  const gravar = (proximas: string[]) => aoMudar(proximas.filter((c) => c !== "").join("; "));
+
+  return (
+    <label className="conteudo-campo conteudo-campo-total conteudo-broll">
+      <span>B-roll{clipes.length > 1 ? " · " + clipes.length + " clipes" : ""}</span>
+      {linhas.map((clipe, n) => (
+        <div key={n} className="conteudo-broll-linha">
+          <input
+            ref={n === linhas.length - 1 ? ultima : undefined}
+            type="text"
+            value={clipe}
+            placeholder={n === 0 ? "imagem que entra por cima da fala" : "próxima imagem"}
+            onChange={(e) => {
+              const proximas = [...linhas];
+              proximas[n] = e.target.value;
+              /* Digitou na linha em branco: ela virou clipe de verdade e sai
+                 do estado local, senão sobraria uma linha vazia extra. */
+              if (emBranco && n === linhas.length - 1 && e.target.value.trim() !== "") setEmBranco(false);
+              gravar(proximas);
+            }}
+            onBlur={aoSair}
+          />
+          {linhas.length > 1 && (
+            <button
+              type="button"
+              className="conteudo-broll-tirar"
+              aria-label={"Tirar o b-roll " + (n + 1)}
+              title="Tirar este clipe"
+              onClick={() => {
+                if (emBranco && n === linhas.length - 1) {
+                  setEmBranco(false);
+                  return;
+                }
+                gravar(linhas.filter((_, k) => k !== n));
+                aoSair();
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        className="conteudo-broll-mais"
+        onClick={() => {
+          setEmBranco(true);
+          /* Foco na linha nova: sem isso o clique adiciona algo que a pessoa
+             não percebe, e ela clica de novo. */
+          requestAnimationFrame(() => ultima.current?.focus());
+        }}
+      >
+        + outro clipe
+      </button>
+    </label>
+  );
 }
 
 function Campo({
