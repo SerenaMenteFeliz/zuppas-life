@@ -225,7 +225,25 @@ const e = (v, d) => ({ type: "string", enum: ["", ...v], description: d });
 const ESQUEMA = {
   type: "object",
   properties: {
-    titulo: t("Nome curto pra reconhecer o post na lista. Não é o gancho."),
+    /* ── Por que o título sai do gancho, e não é livre (23/08/2026) ──
+
+       A instrução era uma linha ("nome curto pra reconhecer o post na lista")
+       e não pedia nada. Trinta chamadas decidiram trinta vezes: cinco vieram
+       em minúscula, dois perderam a acentuação, e vários viraram etiqueta de
+       assunto ("Sistema", "Resposta Difícil") que não distingue um post de
+       nenhum outro numa lista de trinta.
+
+       O caso que fecha o diagnóstico é o 17: o título saiu
+       "A religiao nao quer que voce entenda isso" enquanto a manchete, lida
+       pelo MESMO modelo na MESMA chamada, saiu "A religião não quer que você
+       entenda isso". Ele copiou o gancho e degradou no caminho, porque campo
+       sem regra é campo sem cuidado.
+
+       Decisão do Yan: o título é parte do gancho. Isso resolve os três de uma
+       vez, porque o gancho já existe transcrito e não precisa ser inventado. */
+    titulo: t(
+      "Nome curto pra reconhecer o post numa lista, TIRADO DO GANCHO: a manchete da tela quando houver, senão as primeiras palavras da primeira fala. Pode encurtar, não pode reescrever: as palavras têm que ser as dela. Começa com letra MAIÚSCULA e mantém a acentuação do português. Nunca um rótulo genérico de assunto: se o título não distingue este post dos outros, ele não serve.",
+    ),
     formato: e(FORMATOS, "Que mídia é esta publicação."),
     pilar: e(PILARES, "Qual pilar de conteúdo esta publicação serve."),
     /* ── Duas perguntas que eu tinha juntado numa só, e não são a mesma ──
