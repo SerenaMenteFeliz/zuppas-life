@@ -266,6 +266,31 @@ const ESQUEMA = {
     /* Idem: só faz sentido em material já publicado. Serve pra conferir a
        transcrição contra a duração real antes de aceitar. */
     duracao_segundos: { type: "number", description: "Duração aproximada do vídeo em segundos." },
+    /* ── A manchete, e o dia inteiro que ela custou pra aparecer ──
+
+       Achado em 23/08/2026 conferindo por que uma linha sumia da transcrição.
+       A hipótese era omissão do modelo. Um frame do segundo zero mostrou que
+       não: "Você mal lembra o que fez ontem e isso já devia te assustar" é um
+       TÍTULO FIXO no topo do quadro, parado do início ao fim, enquanto a
+       legenda queimada embaixo acompanha o que ela fala. Ela nunca diz essa
+       frase. O modelo estava certo em começar a transcrição depois dela.
+
+       São três camadas de texto num Reel dela, e eu tinha modelado uma:
+
+         1. o que ela FALA               → `texto` da fala
+         2. a legenda queimada da fala   → descartada, é duplicata da 1
+         3. a MANCHETE parada na tela    → não tinha onde morar, sumia
+
+       A 3 é a copy mais cara do vídeo: é o que segura quem ia passar direto,
+       escrita pra ser lida em meio segundo. Perder justamente ela numa ficha
+       que existe pra aprender a escrever gancho seria o erro mais caro
+       possível, e ele estava acontecendo em silêncio.
+
+       Fica no post e não na fala porque é uma por vídeo e não acompanha o
+       corte: ela fica lá enquanto as falas passam por baixo. */
+    texto_fixo_na_tela: t(
+      "A manchete escrita na tela que fica PARADA no quadro enquanto o vídeo corre, geralmente no topo, independente do que está sendo falado. NÃO é a legenda da fala (essa muda junto com a voz e não conta aqui). Transcreva exatamente como está escrita. Vazio se não houver.",
+    ),
     /* Fato sobre o post, não sobre cada fala.
 
        A Ge queima legenda em tudo, e isso é observação real sobre o estilo
@@ -359,6 +384,7 @@ const ESQUEMA = {
     "origem_imagem",
     "local_observado",
     "duracao_segundos",
+    "texto_fixo_na_tela",
     "legenda_queimada",
     "voz",
     "falas",
@@ -406,6 +432,7 @@ B) IMAGEM OU VÍDEO SEM NINGUÉM FALANDO, com a mensagem escrita na tela.
 Sua tarefa é registrar o que ESTÁ LÁ, não propor nada.
 
 Regras que não se negociam:
+0. Um Reel pode ter TRÊS camadas de texto, e elas não se misturam: (a) o que a pessoa fala; (b) a legenda queimada, que acompanha a fala e é duplicata dela; (c) uma MANCHETE parada na tela, geralmente no topo, que fica ali enquanto o vídeo corre e quase nunca é falada em voz alta. A manchete vai em texto_fixo_na_tela, NUNCA vira uma fala.
 1. Transcreva palavra por palavra. No tipo A, o que foi dito em voz alta. No tipo B, o que está escrito na tela. Não corrija gramática, não troque palavra por sinônimo melhor, não resuma, não junte frases. Se ela repetiu, repita. Se usou gíria, mantenha a gíria. Se tem erro de digitação na tela, mantenha o erro.
 2. Uma entrada por frase. Frase com três orações vira três entradas. No tipo B, cada bloco de texto que aparece na tela é uma entrada, na ordem em que aparecem. Se o MESMO texto continua na tela enquanto a imagem de fundo muda, isso é UMA entrada só, não uma por imagem.
 3. Descreva o que aparece na imagem em enquadramento, cenário e ação, pelo que dá pra VER. Isso vale nos dois tipos: uma paisagem também é uma cena, e saber que a paisagem existe é informação útil. Se não der pra ver, deixe vazio. Nunca invente.
@@ -591,10 +618,81 @@ console.log("\nSubindo pro Files API...");
 const arquivo = await esperarAtivo(await subirArquivo());
 console.log("  ✓ pronto: " + arquivo.uri);
 
-console.log("\nProcurando o formato de entrada que este endpoint aceita:");
+/* ── Duas passadas, e a comparação entre elas ─────────────────────────────────
+
+   Achado caro em 23/08/2026: uma das rodadas do 1º vídeo **perdeu a primeira
+   fala**, o gancho, e nada acusou. 203 palavras contra 216, o que dá 169
+   palavras por minuto: taxa de fala perfeitamente normal, então nenhum limite
+   razoável de wpm pegaria.
+
+   E a revisão humana também não pega. A página de revisão mostra o que ESTÁ na
+   transcrição; ausência não aparece em lista nenhuma. O Yan leu e aprovou o
+   texto sem o gancho, e não tinha como ser diferente.
+
+   O que pega omissão é repetição independente. Duas passadas no mesmo vídeo,
+   compara o texto das duas: o que aparece numa e não na outra é exatamente a
+   classe de erro invisível. Custa uma chamada a mais por vídeo, e no Flash
+   Lite (500/dia por chave, 3 chaves) isso é irrelevante mesmo pros 30.
+
+   Não decide sozinho: escolhe a passada mais completa e IMPRIME o que a outra
+   perdeu, porque a diferença também pode ser invenção da mais longa, e isso é
+   julgamento de gente. */
+function normalizar(s) {
+  return (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Frases que estão em `a` e não estão em `b`, comparando por conteúdo.
+
+    Compara fala a fala e não palavra a palavra: a segmentação varia entre
+    passadas (12, 13, 14 e 31 falas no mesmo vídeo), então diferença de corte
+    apareceria como diferença de conteúdo o tempo todo. Uma fala conta como
+    presente se o texto dela couber no texto corrido da outra passada. */
+function faltandoEm(a, b) {
+  const corridoB = normalizar((b.falas ?? []).map((f) => f.texto).join(" "));
+  return (a.falas ?? [])
+    .map((f) => f.texto)
+    .filter((t) => {
+      const n = normalizar(t);
+      return n.length > 0 && !corridoB.includes(n);
+    });
+}
+
+function palavras(d) {
+  return normalizar((d.falas ?? []).map((f) => f.texto).join(" ")).split(" ").filter(Boolean).length;
+}
+
+console.log("\nTranscrevendo (2 passadas, pra pegar omissão):");
 let r;
 try {
-  r = await transcrever(arquivo.uri);
+  const p1 = await transcrever(arquivo.uri);
+  const p2 = await transcrever(arquivo.uri);
+
+  const n1 = palavras(p1.dados);
+  const n2 = palavras(p2.dados);
+  const perdidoPor2 = faltandoEm(p1.dados, p2.dados);
+  const perdidoPor1 = faltandoEm(p2.dados, p1.dados);
+
+  console.log("  passada 1: " + (p1.dados.falas?.length ?? 0) + " falas, " + n1 + " palavras");
+  console.log("  passada 2: " + (p2.dados.falas?.length ?? 0) + " falas, " + n2 + " palavras");
+
+  r = n2 > n1 ? p2 : p1;
+  const soNaOutra = n2 > n1 ? perdidoPor1 : perdidoPor2;
+  r.meta.passadas = { falas1: p1.dados.falas?.length ?? 0, falas2: p2.dados.falas?.length ?? 0, palavras1: n1, palavras2: n2 };
+  r.meta.escolhida = n2 > n1 ? 2 : 1;
+
+  if (soNaOutra.length > 0) {
+    r.meta.soNaOutraPassada = soNaOutra;
+    console.log("\n  ⚠ As duas passadas discordam. Fiquei com a mais completa (passada " + r.meta.escolhida + ").");
+    console.log("    A outra tinha " + soNaOutra.length + " trecho(s) que esta não tem:");
+    for (const t of soNaOutra.slice(0, 8)) console.log("      · " + t);
+    console.log("    Confira estes contra o vídeo: ou a escolhida perdeu, ou a outra inventou.");
+  }
 } catch (err) {
   console.error("\n" + err.message + "\n");
   console.error(JSON.stringify(err.tentadas ?? [], null, 2));

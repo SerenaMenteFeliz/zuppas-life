@@ -57,6 +57,7 @@ for (const nome of arquivos) {
   L.push("| | |");
   L.push("|---|---|");
   L.push("| Título | " + (r.titulo ?? "") + " |");
+  L.push("| **Manchete na tela** | " + (r.texto_fixo_na_tela || "_nenhuma_") + " |");
   L.push("| Pilar | " + (r.pilar ?? "") + " |");
   L.push("| Voz | " + (r.voz ?? "") + " |");
   L.push("| Pessoa na câmera | " + (r.pessoa_na_camera ?? "") + " |");
@@ -156,6 +157,7 @@ for (const nome of arquivos) {
   H.push("<table>");
   const linha = (k, v) => H.push("<tr><td>" + k + "</td><td>" + v + "</td></tr>");
   linha("Título", esc(r.titulo));
+  linha("<b>Manchete na tela</b>", r.texto_fixo_na_tela ? "<b>" + esc(r.texto_fixo_na_tela) + "</b>" : "<em>nenhuma</em>");
   linha("Pilar", esc(r.pilar));
   linha("Voz", esc(r.voz));
   linha("Pessoa na câmera", esc(r.pessoa_na_camera));
