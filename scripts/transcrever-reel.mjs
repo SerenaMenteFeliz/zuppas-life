@@ -239,10 +239,17 @@ const ESQUEMA = {
        entenda isso". Ele copiou o gancho e degradou no caminho, porque campo
        sem regra é campo sem cuidado.
 
-       Decisão do Yan: o título é parte do gancho. Isso resolve os três de uma
-       vez, porque o gancho já existe transcrito e não precisa ser inventado. */
+       Decisão do Yan: o título é curto, objetivo e COERENTE com o gancho, pra
+       dar pra entender o vídeo de relance na lista.
+
+       "Coerente com" e não "tirado de": a primeira versão desta regra mandava
+       usar as palavras dela e só encurtar, e isso foi testado nos 30 posts do
+       backfill. Piorou a maioria, porque encurtar não é truncar: saíram coisas
+       como "Ninguém nasce ansioso," com a vírgula pendurada e
+       "Se o seu sonho é comprar um apartamento na praia, nao...". O gancho é
+       de onde se LÊ o assunto; o título é um rótulo escrito. */
     titulo: t(
-      "Nome curto pra reconhecer o post numa lista, TIRADO DO GANCHO: a manchete da tela quando houver, senão as primeiras palavras da primeira fala. Pode encurtar, não pode reescrever: as palavras têm que ser as dela. Começa com letra MAIÚSCULA e mantém a acentuação do português. Nunca um rótulo genérico de assunto: se o título não distingue este post dos outros, ele não serve.",
+      "Nome CURTO e OBJETIVO (3 a 7 palavras) que diga de relance sobre o que é o vídeo, COERENTE COM O GANCHO: leia a manchete da tela, ou a primeira fala quando não houver manchete, e nomeie o assunto dela. Não é pra copiar o gancho nem cortá-lo no meio: um gancho cortado vira título truncado, com vírgula pendurada e reticências. Escreva o rótulo. Começa com letra MAIÚSCULA e mantém a acentuação do português. Nunca um rótulo genérico de assunto: se o título não distingue este post dos outros, ele não serve. Exemplos do que funciona: gancho \"Eu não vou te dar a resposta fácil, vou te dar a pergunta que ninguém teve coragem de te fazer\" vira \"A pergunta que ninguém te fez\"; gancho \"Lógico que o sistema não quer que você saiba disso...\" vira \"O que o sistema não quer que você saiba\".",
     ),
     formato: e(FORMATOS, "Que mídia é esta publicação."),
     pilar: e(PILARES, "Qual pilar de conteúdo esta publicação serve."),
