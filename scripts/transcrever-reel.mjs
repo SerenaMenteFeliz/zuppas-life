@@ -46,12 +46,27 @@ try {
   process.exit(1);
 }
 
-const MIMES = { ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm", ".m4v": "video/mp4" };
+/* Imagem entra junto com vídeo (23/08): parte dos posts da Ge é imagem ou
+   vídeo de banco com o texto por cima, e nesses o roteiro dela é o texto da
+   tela. São os mais fáceis de conseguir e não podiam ser os únicos de fora. */
+const MIMES = {
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".webm": "video/webm",
+  ".m4v": "video/mp4",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+};
 const mime = MIMES[extname(caminho).toLowerCase()];
 if (!mime) {
-  console.error("Extensão não reconhecida: " + extname(caminho) + ". Esperado .mp4, .mov, .webm ou .m4v.");
+  console.error(
+    "Extensão não reconhecida: " + extname(caminho) + ". Esperado .mp4, .mov, .webm, .m4v, .jpg, .png ou .webp.",
+  );
   process.exit(1);
 }
+const ehImagem = mime.startsWith("image/");
 
 /* ── Chaves ─────────────────────────────────────────────────────────────────── */
 
@@ -213,12 +228,29 @@ const ESQUEMA = {
     titulo: t("Nome curto pra reconhecer o post na lista. Não é o gancho."),
     formato: e(FORMATOS, "Que mídia é esta publicação."),
     pilar: e(PILARES, "Qual pilar de conteúdo esta publicação serve."),
+    /* O campo mais importante deste esquema, e ele não tem equivalente no app.
+
+       Parte dos posts é vídeo ou imagem de BANCO com o texto por cima. Neles a
+       imagem não é evidência de nada: não foi ela que gravou, não é um lugar a
+       que ela tem acesso, e a cena não prova que aquilo é gravável.
+
+       Sem este campo, esses posts entrariam no catálogo de cenas ensinando
+       lugares que não existem na vida dela, e o Gerar passaria a propor cena
+       de banco de imagem como se fosse a varanda de casa. É exatamente o
+       `casa :: casa` de 22/08 outra vez, só que mais difícil de perceber,
+       porque a cena volta bonita e plausível em vez de trivial.
+
+       Só `cena_real: "sim"` pode alimentar `conteudo_cenas` no backfill. */
+    cena_real: e(
+      ["sim", "nao"],
+      'Ela mesma gravou esta imagem num lugar real da vida dela? "sim" quando ela aparece ou quando é um lugar concreto filmado por ela. "nao" quando é vídeo ou imagem de banco, fundo abstrato, stock footage ou arte, com texto por cima.',
+    ),
     /* Não existe no esquema do app: lá o local é escolhido pela pessoa antes
        de gerar. Aqui ele é lido do que aparece na imagem, e é justamente um
        dos ganhos do backfill. */
     local_observado: e(
       LOCAIS,
-      "Onde este vídeo foi gravado, pelo que dá pra ver na imagem. Vazio se não der pra dizer.",
+      'Onde este vídeo foi gravado, pelo que dá pra ver na imagem. OBRIGATORIAMENTE vazio se cena_real for "nao".',
     ),
     /* Idem: só faz sentido em material já publicado. Serve pra conferir a
        transcrição contra a duração real antes de aceitar. */
@@ -230,8 +262,13 @@ const ESQUEMA = {
       items: {
         type: "object",
         properties: {
+          /* "dita OU escrita" e não só "dita": em post de fundo com texto por
+             cima, o roteiro dela É o texto da tela, e ele é a amostra mais
+             pura da escrita dela justamente por ser escrito, não falado. Se
+             caísse só em `texto_tela`, o roteiro voltaria com `texto` vazio em
+             todas as falas e a ficha não aprenderia nada desses posts. */
           texto: t(
-            "A frase EXATA que foi dita, palavra por palavra. Não corrija, não melhore, não resuma. Se ela repetiu ou gaguejou, transcreva como saiu.",
+            "A frase EXATA, palavra por palavra: o que foi dito em voz alta, ou, quando ninguém fala, o que está escrito na tela. Não corrija, não melhore, não resuma. Se ela repetiu ou gaguejou, transcreva como saiu.",
           ),
           funcao: e(
             FUNCOES,
@@ -250,7 +287,7 @@ const ESQUEMA = {
       },
     },
   },
-  required: ["titulo", "formato", "pilar", "local_observado", "duracao_segundos", "falas"],
+  required: ["titulo", "formato", "pilar", "cena_real", "local_observado", "duracao_segundos", "falas"],
 };
 
 /* A diferença inteira entre este prompt e o do Importar cabe numa frase: lá o
@@ -260,16 +297,22 @@ const ESQUEMA = {
    voz real da Ge, e modelo de linguagem corrige gramática por reflexo.
    Transcrição embelezada ensinaria a ficha a escrever como o Gemini, não como
    ela, e ninguém perceberia lendo o resultado: ele sai bonito. */
-const INSTRUCAO = `Você está assistindo a um Reel já publicado, gravado pela pessoa que aparece nele, em português do Brasil.
+const INSTRUCAO = `Você está analisando uma publicação já no ar de uma criadora brasileira, em português do Brasil.
+
+Ela pode ser de dois tipos, e o tratamento muda:
+
+A) ELA NA CÂMERA, falando, num lugar real da vida dela.
+B) VÍDEO OU IMAGEM DE BANCO (stock, fundo abstrato, arte) com o texto escrito por cima, sem ninguém falando.
 
 Sua tarefa é registrar o que ESTÁ LÁ, não propor nada.
 
 Regras que não se negociam:
-1. Transcreva as falas palavra por palavra, exatamente como foram ditas. Não corrija gramática, não troque palavra por sinônimo melhor, não resuma, não junte frases. Se ela repetiu, repita. Se usou gíria, mantenha a gíria.
-2. Quebre o texto em uma entrada por frase falada. Frase com três orações vira três entradas.
-3. Preencha enquadramento, cenário e ação com o que APARECE NA IMAGEM. Se não der pra ver, deixe vazio. Nunca invente cena: cena inventada aqui vira exemplo de "cena que já funcionou" mais adiante e contamina todo roteiro futuro.
-4. A função de cada fala é classificação sua e pode ser deduzida: identifique o trabalho que a frase faz na história.
-5. Transcreva o texto na tela como ele está escrito, com os erros que tiver.`;
+1. Transcreva palavra por palavra. No tipo A, o que foi dito em voz alta. No tipo B, o que está escrito na tela. Não corrija gramática, não troque palavra por sinônimo melhor, não resuma, não junte frases. Se ela repetiu, repita. Se usou gíria, mantenha a gíria. Se tem erro de digitação na tela, mantenha o erro.
+2. Uma entrada por frase. Frase com três orações vira três entradas. No tipo B, cada cartão ou bloco de texto que aparece na tela é uma entrada, na ordem em que aparecem.
+3. Decida cena_real antes de tudo. No tipo A é "sim". No tipo B é "nao", e aí enquadramento, cenário, ação e local_observado ficam TODOS VAZIOS, sem exceção. Imagem de banco não é lugar dela e não prova que nada é gravável ali. Preencher esses campos num post tipo B contamina o catálogo de cenas com lugares que não existem na vida dela.
+4. No tipo A, preencha enquadramento, cenário e ação com o que APARECE NA IMAGEM. Se não der pra ver, deixe vazio. Nunca invente.
+5. A função de cada fala é classificação sua e pode ser deduzida: identifique o trabalho que a frase faz na história.
+6. Se for imagem parada, duracao_segundos é 0.`;
 
 /* ── O probe ────────────────────────────────────────────────────────────────── */
 
@@ -459,7 +502,9 @@ async function transcrever(uri) {
 
 /* ── Execução ───────────────────────────────────────────────────────────────── */
 
-console.log("\nArquivo: " + basename(caminho) + " (" + (tamanho / 1048576).toFixed(1) + " MB)");
+console.log(
+  "\nArquivo: " + basename(caminho) + " (" + (tamanho / 1048576).toFixed(1) + " MB, " + (ehImagem ? "imagem" : "vídeo") + ")",
+);
 console.log("Chaves disponíveis: " + chaves.length + ", usando a chave-1");
 console.log("\nSubindo pro Files API...");
 
@@ -489,8 +534,27 @@ console.log("É este que entra em lib/ia/modelo.ts, com asserção no npm run ve
 console.log("─".repeat(70));
 console.log("\nTítulo:  " + d.titulo);
 console.log("Pilar:   " + d.pilar + "    Formato: " + d.formato);
-console.log("Local:   " + (d.local_observado || "(não deu pra ver)") + "    Duração: " + d.duracao_segundos + "s");
-console.log("Tokens:  " + r.meta.tokens.entrada + " entrada / " + r.meta.tokens.saida + " saída");
+console.log(
+  "Cena:    " +
+    (d.cena_real === "sim"
+      ? "gravada por ela em " + (d.local_observado || "local não identificado") + " → ENTRA no catálogo"
+      : "banco de imagem / fundo com texto → NÃO entra no catálogo"),
+);
+console.log("Duração: " + d.duracao_segundos + "s    Tokens: " + r.meta.tokens.entrada + " entrada / " + r.meta.tokens.saida + " saída");
+
+/* Incoerência que o schema não pega: o enum garante que cena_real seja "sim"
+   ou "nao", e não garante que os campos de cena estejam vazios quando é "nao".
+   Avisar aqui é barato e evita a linha ruim passar despercebida num lote. */
+if (d.cena_real === "nao") {
+  const vazou = (d.falas ?? []).filter((f) => f.cenario || f.enquadramento || f.acao).length;
+  if (vazou > 0 || d.local_observado) {
+    console.log(
+      "\n  ⚠ Marcou cena_real=nao mas preencheu cena em " + vazou + " fala(s)" +
+        (d.local_observado ? ' e local="' + d.local_observado + '"' : "") +
+        ".\n    Ignorar esses campos na carga, ou conferir se o tipo está certo.",
+    );
+  }
+}
 console.log("\nFalas (" + (d.falas?.length ?? 0) + "):\n");
 for (const [i, f] of (d.falas ?? []).entries()) {
   console.log("  " + String(i + 1).padStart(2) + ". [" + (f.funcao || "?").padEnd(8) + "] " + f.texto);
@@ -500,5 +564,5 @@ for (const [i, f] of (d.falas ?? []).entries()) {
 }
 console.log("\nSalvo em: " + destino);
 console.log(
-  "\nConfira contra o vídeo antes de qualquer coisa ir pro banco. O que mais\nimporta olhar: se as falas são as PALAVRAS DELA ou uma versão melhorada, e\nse alguma cena foi inventada.\n",
+  "\nConfira contra o original antes de qualquer coisa ir pro banco. O que mais\nimporta olhar: se as falas são as PALAVRAS DELA ou uma versão melhorada, e\nse alguma cena foi inventada.\n",
 );
