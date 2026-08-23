@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { salvarRoteiroAcao } from "@/app/painel/conteudo/acoes";
 import { Check, Lixeira } from "@/components/icones";
 import { avisar } from "@/components/painel/Avisos";
@@ -584,6 +584,17 @@ function CampoBroll({
      nada além de sujeira na tela. */
   const [emBranco, setEmBranco] = useState(false);
 
+  /* Nenhum delete acontece no primeiro clique (Yan, 23/08/2026): a regra vale
+     pra tela inteira, não só pra fala, que já perguntava desde 21/08.
+
+     Aqui ela morde mais do que parece. O `×` do clipe fica a poucos pixels do
+     campo que a pessoa está digitando, a fala inteira tem até cinco deles
+     empilhados, e o que se perde não é recuperável pelo Ctrl+Z do navegador:
+     o autosave grava 900ms depois e a linha some do banco.
+
+     Guardada por índice, igual à confirmação da fala. */
+  const [confirmando, setConfirmando] = useState<number | null>(null);
+
   /* Lista vazia mostra UMA linha, não nenhuma: campo que só aparece depois de
      clicar em "adicionar" é invisível pra quem não sabe que ele existe, e este
      é justamente o campo que a Ge menos conhece. */
@@ -609,7 +620,8 @@ function CampoBroll({
     <label className="conteudo-campo conteudo-campo-total conteudo-broll">
       <span>B-roll{clipes.length > 1 ? " · " + clipes.length + " clipes" : ""}</span>
       {linhas.map((clipe, n) => (
-        <div key={n} className="conteudo-broll-linha">
+        <Fragment key={n}>
+        <div className="conteudo-broll-linha">
           <input
             ref={n === linhas.length - 1 ? ultima : undefined}
             type="text"
@@ -631,19 +643,61 @@ function CampoBroll({
               className="conteudo-broll-tirar"
               aria-label={"Tirar o b-roll " + (n + 1)}
               title="Tirar este clipe"
+              aria-expanded={confirmando === n}
               onClick={() => {
+                /* A linha em branco recém-criada é a única que some sem
+                   perguntar, e não é exceção à regra: ela não tem conteúdo
+                   pra perder. Perguntar quando nada se perde é o que ensina a
+                   pessoa a responder "Apagar" sem ler, e aí a confirmação que
+                   importa (a do clipe escrito, logo acima) já não protege. */
                 if (emBranco && n === linhas.length - 1) {
                   setEmBranco(false);
                   return;
                 }
-                gravar(linhas.filter((_, k) => k !== n));
-                aoSair();
+                setConfirmando(n);
               }}
             >
               ×
             </button>
           )}
         </div>
+
+        {confirmando === n && (
+          <div
+            className="conteudo-confirma-faixa"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setConfirmando(null);
+            }}
+          >
+            {/* Mostra o texto do clipe, não só "este clipe": são até cinco
+                linhas parecidas empilhadas ("praia ensolarada...", "praia
+                nublada..."), e uma pergunta que não diz qual delas obriga a
+                pessoa a conferir na mão qual botão ela apertou. */}
+            <span>Apagar o clipe &ldquo;{clipe}&rdquo;?</span>
+            <button
+              type="button"
+              className="conteudo-confirma-sim"
+              onClick={() => {
+                gravar(linhas.filter((_, k) => k !== n));
+                setConfirmando(null);
+                aoSair();
+              }}
+            >
+              Apagar
+            </button>
+            {/* Foco no Cancelar, igual à confirmação da fala: a tecla Enter
+                logo depois de abrir a pergunta tem que desfazer, nunca apagar. */}
+            <button
+              type="button"
+              className="conteudo-confirma-nao"
+              autoFocus
+              onClick={() => setConfirmando(null)}
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+        </Fragment>
       ))}
       <button
         type="button"

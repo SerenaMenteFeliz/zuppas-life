@@ -1704,7 +1704,13 @@ textarea {
 
 /* Dentro da fala a confirmação é uma faixa, não uma caixa: a linha do roteiro
    já é estreita e uma caixa flutuando ali empurraria as falas de baixo. */
-.conteudo-fala-confirma {
+/* Faixa de confirmação de delete, compartilhada.
+   `conteudo-fala-confirma` é o nome antigo, de quando só a fala perguntava;
+   `conteudo-confirma-faixa` é o genérico, usado pelo b-roll e pelo que vier.
+   Mesmo desenho de propósito: dois lugares que perguntam a mesma coisa não
+   podem parecer dois avisos diferentes. */
+.conteudo-fala-confirma,
+.conteudo-confirma-faixa {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1718,8 +1724,22 @@ textarea {
   border-radius: 9px;
 }
 
-.conteudo-fala-confirma > span {
+.conteudo-fala-confirma > span,
+.conteudo-confirma-faixa > span {
   flex: 1 1 auto;
+}
+
+/* Dentro do b-roll a faixa entra no meio de uma pilha de linhas, então ela
+   respira menos em cima e recua um tiquinho, pra ficar claro que pertence à
+   linha de cima e não à de baixo. O texto do clipe pode ser longo: quebra em
+   vez de empurrar os botões pra fora do card. */
+.conteudo-broll .conteudo-confirma-faixa {
+  margin-top: 0.3rem;
+  margin-left: 0.75rem;
+}
+
+.conteudo-broll .conteudo-confirma-faixa > span {
+  overflow-wrap: anywhere;
 }
 
 .conteudo-vazio-inline {
