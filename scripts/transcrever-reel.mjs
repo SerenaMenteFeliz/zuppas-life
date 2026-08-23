@@ -255,6 +255,16 @@ const ESQUEMA = {
     /* Idem: só faz sentido em material já publicado. Serve pra conferir a
        transcrição contra a duração real antes de aceitar. */
     duracao_segundos: { type: "number", description: "Duração aproximada do vídeo em segundos." },
+    /* Fato sobre o post, não sobre cada fala.
+
+       A Ge queima legenda em tudo, e isso é observação real sobre o estilo
+       dela que vale guardar. O que não vale é guardar doze vezes dentro de
+       `texto_tela`, que quer dizer outra coisa. Um campo aqui em cima diz o
+       mesmo e não estraga o outro. */
+    legenda_queimada: e(
+      ["sim", "nao"],
+      "A transcrição do que é falado aparece escrita na tela ao longo do vídeo (legenda queimada)?",
+    ),
     falas: {
       type: "array",
       description:
@@ -275,20 +285,77 @@ const ESQUEMA = {
             "Que trabalho esta frase faz na história: gancho segura quem ia passar, contexto situa a dor, virada muda a cabeça, prova sustenta, cta faz o único pedido.",
           ),
           enquadramento: t("Como a câmera vê NESTA fala, pelo que aparece na imagem. Ex: close, plano médio, de costas."),
+          /* "descreva o que dá pra ver" e não "diga o cômodo": achado
+             conferindo o primeiro teste contra um frame do vídeo, 23/08/2026.
+             O modelo respondeu "quarto" numa rodada e "sala" em duas, e o
+             quadro é uma parede lisa clara ao lado de um batente de porta, sem
+             um móvel sequer. Não havia como saber o cômodo: ele estava
+             adivinhando com confiança.
+
+             Nome de cômodo adivinhado é pior que campo vazio aqui, porque é
+             ele que entra no catálogo como "cena que funcionou" (princípio 12
+             do vault). E a descrição física é mais útil de qualquer jeito:
+             "parede lisa clara ao lado do batente" dá pra reproduzir amanhã,
+             "sala" não diz onde apontar a câmera. */
           cenario: t(
-            "Em que ponto do local a cena acontece: a cozinha, a beira da cama, a varanda, o sofá. NUNCA repita o nome do local em si. Vazio se não der pra ser mais específico.",
+            "Descreva o que aparece ATRÁS dela, fisicamente: parede lisa clara, canto com planta, bancada da cozinha, cabeceira da cama, batente de porta. NÃO adivinhe o nome do cômodo se não houver móvel ou objeto que prove qual é. NUNCA repita o nome do local em si. Vazio se o fundo não tiver nada identificável.",
           ),
           acao: t("O que ela está fazendo enquanto fala, pelo que aparece na imagem."),
           broll: t("Imagem que entra por cima da fala, quando entra. Vazio se não tem."),
-          texto_tela: t("O que aparece escrito na tela nesta fala, transcrito como está. Vazio se nada aparece."),
+          /* "além da legenda" e não só "o que aparece escrito": achado no
+             primeiro teste real, 23/08/2026. A Ge queima legenda automática em
+             todas as falas, então o campo voltou preenchido nas 12, idêntico ao
+             `texto` em 9.
+
+             No painel, `texto_tela` quer dizer escolha de design (o teste de
+             22/08 registrou "texto na tela só onde ajuda, falas 1, 7 e 12").
+             Carregar legenda aqui ensinaria a ficha que ela põe texto na tela
+             em toda fala, e o Gerar passaria a propor isso sempre. Pior: no
+             banco fica indistinguível de decisão deliberada. */
+          texto_tela: t(
+            "Texto AUTORAL na tela: título, palavra destacada, número, aviso. NÃO é a legenda do que está sendo dito. Se o que está escrito é só a transcrição da fala (legenda queimada), deixe VAZIO.",
+          ),
           observacao: t("Tom, pausa ou intenção observada. Vazio quando não há nada a dizer."),
         },
         required: ["texto", "funcao", "enquadramento", "cenario", "acao", "broll", "texto_tela", "observacao"],
       },
     },
   },
-  required: ["titulo", "formato", "pilar", "cena_real", "local_observado", "duracao_segundos", "falas"],
+  required: [
+    "titulo",
+    "formato",
+    "pilar",
+    "cena_real",
+    "local_observado",
+    "duracao_segundos",
+    "legenda_queimada",
+    "falas",
+  ],
 };
+
+/* A guarda mecânica que sustenta a instrução acima.
+
+   Mesmo raciocínio de `aprenderCenas` em lib/conteudo.ts: o schema pede a
+   coisa certa e a guarda existe assim mesmo, porque saída de modelo não se
+   garante por instrução. Ali era cena que só repetia o local; aqui é texto de
+   tela que só repete a fala.
+
+   Compara sem caixa, sem acento e sem pontuação: as três "diferenças" que
+   apareceram no teste de 23/08 eram uma vírgula e duas maiúsculas. */
+function ehSoALegenda(textoTela, texto) {
+  const n = (s) =>
+    (s ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const a = n(textoTela);
+  const b = n(texto);
+  if (a === "" || b === "") return false;
+  return a === b || b.includes(a) || a.includes(b);
+}
 
 /* A diferença inteira entre este prompt e o do Importar cabe numa frase: lá o
    modelo classifica texto que já existe, aqui ele é testemunha.
@@ -316,63 +383,36 @@ Regras que não se negociam:
 
 /* ── O probe ────────────────────────────────────────────────────────────────── */
 
-/* Cinco formas candidatas de anexar arquivo a `/v1beta/interactions`, da mais
-   provável pra menos. A primeira que devolver 200 é a resposta, e é ela que
-   entra em `lib/ia/modelo.ts` depois.
+/* ── O formato de entrada com arquivo, confirmado por chamada real ─────────────
 
-   Cada tentativa é uma requisição real e pode contar cota mesmo voltando 400.
-   Por isso a ordem importa e a lista é curta. */
-function formas(uri) {
+   Descoberto em 23/08/2026, e nenhuma das 5 formas que eu tinha chutado estava
+   certa. O que funciona:
+
+     input: [
+       { type: "text",  text: "..." },
+       { type: "video", uri: "...", mime_type: "video/mp4" },
+     ]
+
+   Ou seja: os itens de conteúdo vão SOLTOS no topo do `input`, sem `role` e
+   sem objeto de turno em volta. `input` como string, que é o que
+   lib/ia/modelo.ts já usa, é o atalho de um item de texto só.
+
+   As duas coisas que o probe derrubou, e a ordem em que ele derrubou:
+
+   1. O `type` do item **não** é `file` nem `input_file`. Cada mídia tem o
+      próprio tipo: `video`, `image`, `audio`, `document`. A API lista os
+      aceitos na mensagem de erro, que foi o que resolveu.
+   2. Envolver em `{ role, content }` (o formato de chat de sempre) é recusado
+      com "use step_list input format instead of turn_list". Esse erro só
+      apareceu DEPOIS do item de mídia estar certo, porque a validação para no
+      primeiro problema: enquanto o `type` do item estava errado, o envelope
+      errado ficava escondido atrás dele.
+
+   O campo é `uri`, e não `file_uri` como no `generateContent` clássico. */
+function entradaCom(uri) {
   return [
-    {
-      nome: "content[] com input_text/input_file",
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: INSTRUCAO },
-            { type: "input_file", file_uri: uri, mime_type: mime },
-          ],
-        },
-      ],
-    },
-    {
-      nome: "content[] com text/file",
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: INSTRUCAO },
-            { type: "file", file_uri: uri, mime_type: mime },
-          ],
-        },
-      ],
-    },
-    {
-      nome: "parts[] com file_data (estilo generateContent)",
-      input: [
-        {
-          role: "user",
-          parts: [{ text: INSTRUCAO }, { file_data: { file_uri: uri, mime_type: mime } }],
-        },
-      ],
-    },
-    {
-      nome: "content[] com file_data aninhado",
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: INSTRUCAO },
-            { type: "file", file_data: { file_uri: uri, mime_type: mime } },
-          ],
-        },
-      ],
-    },
-    {
-      nome: "parts[] no topo, sem role",
-      input: { parts: [{ text: INSTRUCAO }, { file_data: { file_uri: uri, mime_type: mime } }] },
-    },
+    { type: "text", text: INSTRUCAO },
+    { type: ehImagem ? "image" : "video", uri, mime_type: mime },
   ];
 }
 
@@ -412,90 +452,98 @@ async function transcrever(uri) {
   const tentadas = [];
 
   for (const modelo of MODELOS) {
-    for (const forma of formas(uri)) {
-      const t0 = Date.now();
-      let resp;
-      try {
-        resp = await fetch(BASE + "/v1beta/interactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
-          body: JSON.stringify({
-            model: modelo,
-            system_instruction: INSTRUCAO,
-            input: forma.input,
-            store: false,
-            generation_config: { temperature: 0.1, thinking_level: "low" },
-            response_format: { type: "text", mime_type: "application/json", schema: ESQUEMA },
-          }),
-          /* Bem mais folgado que os 45s do app: lá tem alguém esperando na
-             tela e limite de duração de função na Vercel. Aqui é terminal, e
-             vídeo leva mais que texto. */
-          signal: AbortSignal.timeout(180_000),
-        });
-      } catch (err) {
-        tentadas.push({ modelo, forma: forma.nome, resultado: "rede/timeout: " + err.message });
-        console.log("  ✗ " + modelo + " / " + forma.nome + " → " + err.message);
-        continue;
-      }
-
-      const ms = Date.now() - t0;
-      const bruto = await resp.text();
-
-      if (!resp.ok) {
-        tentadas.push({ modelo, forma: forma.nome, resultado: "HTTP " + resp.status, corpo: bruto.slice(0, 300) });
-        console.log("  ✗ " + modelo + " / " + forma.nome + " → HTTP " + resp.status);
-        /* 429 é cota: insistir noutra forma no mesmo modelo só queima mais.
-           403/401 é chave morta e nenhuma forma vai salvar. Nos dois casos,
-           pula o modelo inteiro. Mesma distinção de lib/ia/cascata.ts. */
-        if (resp.status === 429 || resp.status === 403 || resp.status === 401) break;
-        continue;
-      }
-
-      const texto = extrairTexto(bruto);
-      if (texto === null) {
-        tentadas.push({ modelo, forma: forma.nome, resultado: "200 mas sem texto legível", corpo: bruto.slice(0, 400) });
-        console.log("  ✗ " + modelo + " / " + forma.nome + " → 200 sem texto (a resposta mudou de forma?)");
-        continue;
-      }
-
-      let dados;
-      try {
-        dados = JSON.parse(texto);
-      } catch {
-        tentadas.push({ modelo, forma: forma.nome, resultado: "JSON inválido", corpo: texto.slice(0, 400) });
-        console.log("  ✗ " + modelo + " / " + forma.nome + " → devolveu texto que não é JSON");
-        continue;
-      }
-
-      let envelope = null;
-      try {
-        envelope = JSON.parse(bruto);
-      } catch {
-        /* `extrairTexto` já parseou pra chegar aqui. Se falhar, some só a
-           contagem de tokens. */
-      }
-      const uso = envelope?.usage ?? envelope?.usage_metadata ?? {};
-
-      console.log(
-        "  ✓ " + modelo + " / " + forma.nome + " → " + (dados.falas?.length ?? 0) + " falas em " + (ms / 1000).toFixed(1) + "s",
-      );
-      return {
-        dados,
-        meta: {
-          modelo,
-          forma: forma.nome,
-          duracaoMs: ms,
-          tokens: {
-            entrada: uso.total_input_tokens ?? uso.input_tokens ?? null,
-            saida: uso.total_output_tokens ?? uso.output_tokens ?? null,
-          },
-          tentadas,
-        },
-      };
+    const t0 = Date.now();
+    let resp;
+    try {
+      resp = await fetch(BASE + "/v1beta/interactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
+        body: JSON.stringify({
+          model: modelo,
+          system_instruction: INSTRUCAO,
+          input: entradaCom(uri),
+          store: false,
+          /* Temperatura no chão: aqui não se quer criatividade nenhuma, se
+             quer a palavra que foi dita. */
+          generation_config: { temperature: 0.1, thinking_level: "low" },
+          response_format: { type: "text", mime_type: "application/json", schema: ESQUEMA },
+        }),
+        /* Bem mais folgado que os 45s do app: lá tem alguém esperando na tela
+           e limite de duração de função na Vercel. Aqui é terminal, e vídeo
+           leva mais que texto. */
+        signal: AbortSignal.timeout(180_000),
+      });
+    } catch (err) {
+      tentadas.push({ modelo, resultado: "rede/timeout: " + err.message });
+      console.log("  ✗ " + modelo + " → " + err.message);
+      continue;
     }
+
+    const ms = Date.now() - t0;
+    const bruto = await resp.text();
+
+    if (!resp.ok) {
+      let msg = bruto;
+      try {
+        msg = JSON.parse(bruto).error?.message ?? bruto;
+      } catch {
+        /* corpo não-JSON: fica o texto cru mesmo. */
+      }
+      tentadas.push({ modelo, resultado: "HTTP " + resp.status, corpo: msg.slice(0, 400) });
+      console.log("  ✗ " + modelo + " → HTTP " + resp.status + ": " + msg.slice(0, 160));
+      /* 403/401 é chave morta: nenhum outro modelo vai salvar, e insistir só
+         esconde o problema atrás da rotação. Mesma distinção de
+         lib/ia/cascata.ts. 429 é cota e o próximo modelo tem balde próprio. */
+      if (resp.status === 403 || resp.status === 401) break;
+      continue;
+    }
+
+    const texto = extrairTexto(bruto);
+    if (texto === null) {
+      tentadas.push({ modelo, resultado: "200 mas sem texto legível", corpo: bruto.slice(0, 400) });
+      console.log("  ✗ " + modelo + " → 200 sem texto (a resposta mudou de forma?)");
+      continue;
+    }
+
+    let dados;
+    try {
+      dados = JSON.parse(texto);
+    } catch {
+      tentadas.push({ modelo, resultado: "JSON inválido", corpo: texto.slice(0, 400) });
+      console.log("  ✗ " + modelo + " → devolveu texto que não é JSON");
+      continue;
+    }
+
+    let envelope = null;
+    try {
+      envelope = JSON.parse(bruto);
+    } catch {
+      /* `extrairTexto` já parseou pra chegar aqui. Se falhar, some só a
+         contagem de tokens. */
+    }
+    const uso = envelope?.usage ?? envelope?.usage_metadata ?? {};
+    /* `input_tokens_by_modality` é novidade vista na resposta real de 23/08:
+       separa quanto do custo foi mídia e quanto foi texto. Vale guardar, é o
+       número que diz se o lote de 30 cabe na cota. */
+    const porModalidade = Array.isArray(uso.input_tokens_by_modality) ? uso.input_tokens_by_modality : null;
+
+    console.log("  ✓ " + modelo + " → " + (dados.falas?.length ?? 0) + " falas em " + (ms / 1000).toFixed(1) + "s");
+    return {
+      dados,
+      meta: {
+        modelo,
+        duracaoMs: ms,
+        tokens: {
+          entrada: uso.total_input_tokens ?? uso.input_tokens ?? null,
+          saida: uso.total_output_tokens ?? uso.output_tokens ?? null,
+          porModalidade,
+        },
+        tentadas,
+      },
+    };
   }
 
-  const erro = new Error("Nenhuma combinação de modelo e formato funcionou.");
+  const erro = new Error("Nenhum modelo respondeu.");
   erro.tentadas = tentadas;
   throw erro;
 }
@@ -524,13 +572,28 @@ try {
   process.exit(1);
 }
 
+/* Aplica a guarda antes de gravar: o JSON que sai daqui é o que vai ser
+   conferido e carregado, então ele já sai limpo. O contador é impresso porque
+   um número alto aqui é sinal de que a instrução parou de pegar, e isso
+   precisa ser visível num lote de 30, não descoberto depois. */
+let legendasLimpas = 0;
+for (const f of r.dados.falas ?? []) {
+  if (f.texto_tela && ehSoALegenda(f.texto_tela, f.texto)) {
+    f.texto_tela = "";
+    legendasLimpas += 1;
+  }
+}
+
 const destino = join(dirname(caminho), basename(caminho, extname(caminho)) + ".roteiro.json");
-writeFileSync(destino, JSON.stringify({ arquivo: basename(caminho), ...r.meta, roteiro: r.dados }, null, 2), "utf8");
+writeFileSync(
+  destino,
+  JSON.stringify({ arquivo: basename(caminho), ...r.meta, legendasLimpas, roteiro: r.dados }, null, 2),
+  "utf8",
+);
 
 const d = r.dados;
 console.log("\n" + "─".repeat(70));
-console.log("FORMATO QUE FUNCIONOU: " + r.meta.forma + "  (modelo " + r.meta.modelo + ")");
-console.log("É este que entra em lib/ia/modelo.ts, com asserção no npm run verificar.");
+console.log("Modelo: " + r.meta.modelo);
 console.log("─".repeat(70));
 console.log("\nTítulo:  " + d.titulo);
 console.log("Pilar:   " + d.pilar + "    Formato: " + d.formato);
@@ -541,6 +604,7 @@ console.log(
       : "banco de imagem / fundo com texto → NÃO entra no catálogo"),
 );
 console.log("Duração: " + d.duracao_segundos + "s    Tokens: " + r.meta.tokens.entrada + " entrada / " + r.meta.tokens.saida + " saída");
+console.log("Legenda: " + (d.legenda_queimada === "sim" ? "queimada no vídeo" : "não") + (legendasLimpas > 0 ? "  (limpei " + legendasLimpas + " texto_tela que era só a legenda)" : ""));
 
 /* Incoerência que o schema não pega: o enum garante que cena_real seja "sim"
    ou "nao", e não garante que os campos de cena estejam vazios quando é "nao".
