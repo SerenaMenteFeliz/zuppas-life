@@ -228,29 +228,40 @@ const ESQUEMA = {
     titulo: t("Nome curto pra reconhecer o post na lista. Não é o gancho."),
     formato: e(FORMATOS, "Que mídia é esta publicação."),
     pilar: e(PILARES, "Qual pilar de conteúdo esta publicação serve."),
-    /* O campo mais importante deste esquema, e ele não tem equivalente no app.
+    /* ── Duas perguntas que eu tinha juntado numa só, e não são a mesma ──
 
-       Parte dos posts é vídeo ou imagem de BANCO com o texto por cima. Neles a
-       imagem não é evidência de nada: não foi ela que gravou, não é um lugar a
-       que ela tem acesso, e a cena não prova que aquilo é gravável.
+       A 1ª versão deste esquema tinha um campo `cena_real` que perguntava
+       "ela gravou isso num lugar real dela?". Ele errou feio no 2º vídeo
+       testado (23/08/2026): um post de paisagem com texto por cima voltou
+       classificado como banco de imagem, e as imagens eram praia com costão,
+       pôr do sol num píer e vista de montanha, tudo lugar concreto e
+       provavelmente filmado pela própria família em Ubatuba.
 
-       Sem este campo, esses posts entrariam no catálogo de cenas ensinando
-       lugares que não existem na vida dela, e o Gerar passaria a propor cena
-       de banco de imagem como se fosse a varanda de casa. É exatamente o
-       `casa :: casa` de 22/08 outra vez, só que mais difícil de perceber,
-       porque a cena volta bonita e plausível em vez de trivial.
+       A causa foi juntar "tem gente na câmera?" com "de onde veio a imagem?".
+       Sem pessoa no quadro, o campo caía pra "banco" por reflexo, e junto ia
+       o `local_observado`, que naquele post era a informação mais valiosa que
+       existia: prova de que ela TEM material de praia e de montanha.
 
-       Só `cena_real: "sim"` pode alimentar `conteudo_cenas` no backfill. */
-    cena_real: e(
-      ["sim", "nao"],
-      'Ela mesma gravou esta imagem num lugar real da vida dela? "sim" quando ela aparece ou quando é um lugar concreto filmado por ela. "nao" quando é vídeo ou imagem de banco, fundo abstrato, stock footage ou arte, com texto por cima.',
+       Separado, cada pergunta é respondível. E a de origem ganhou o
+       "indefinido", que é o valor honesto na maioria dos casos: dá pra ver que
+       é uma praia, não dá pra ver quem filmou. */
+    pessoa_na_camera: e(["sim", "nao"], "Aparece uma pessoa falando ou atuando no vídeo?"),
+    /* `indefinido` existe e é o padrão esperado: princípio 12 do vault, campo
+       vazio (ou marcado como incerto) é melhor que campo preenchido por
+       palpite, porque o vazio pede que alguém preencha e o palpite ensina a
+       desconfiar da ferramenta inteira. Só `gravada` CONFIRMADA POR GENTE pode
+       alimentar o catálogo de cenas. */
+    origem_imagem: e(
+      ["gravada", "banco", "indefinido"],
+      'De onde vem a imagem. "gravada" só se for um lugar concreto e específico que dá pra reconhecer (uma praia com formação identificável, um cômodo de casa, uma rua). "banco" só se for claramente stock ou arte genérica: fundo abstrato, textura, gradiente, ilustração, cena de estúdio impessoal. "indefinido" em qualquer dúvida, e é o valor certo na maioria dos casos.',
     ),
     /* Não existe no esquema do app: lá o local é escolhido pela pessoa antes
        de gerar. Aqui ele é lido do que aparece na imagem, e é justamente um
-       dos ganhos do backfill. */
+       dos ganhos do backfill: é assim que se descobre que ela já tem material
+       de praia e de montanha, os dois locais mais caros da ficha. */
     local_observado: e(
       LOCAIS,
-      'Onde este vídeo foi gravado, pelo que dá pra ver na imagem. OBRIGATORIAMENTE vazio se cena_real for "nao".',
+      'Qual destes locais aparece na imagem. Vale mesmo sem ninguém na tela: paisagem de praia é "praia", mata e serra é "montanha". Vazio só se não der pra dizer, ou se a imagem for de banco.',
     ),
     /* Idem: só faz sentido em material já publicado. Serve pra conferir a
        transcrição contra a duração real antes de aceitar. */
@@ -264,6 +275,25 @@ const ESQUEMA = {
     legenda_queimada: e(
       ["sim", "nao"],
       "A transcrição do que é falado aparece escrita na tela ao longo do vídeo (legenda queimada)?",
+    ),
+    /* O campo que decide se a guarda de legenda pode disparar.
+
+       Achado no 2º vídeo (23/08/2026): num post sem ninguém falando, o texto
+       da tela É o roteiro, e ele cai em `texto` por desenho. A guarda então
+       via `texto_tela` igual a `texto` e apagava os dois... quer dizer, apagava
+       o `texto_tela` de um texto que era autoral, não legenda. Ela zerou as 5
+       falas de um post em que não havia legenda nenhuma pra limpar.
+
+       Legenda só existe onde há fala. Sem este campo a guarda não tem como
+       saber a diferença, porque a comparação de strings é idêntica nos dois
+       casos.
+
+       Serve também pra ficha: texto escrito e texto falado são registros
+       diferentes, e misturar os dois numa amostra de voz esconde justamente o
+       que a pessoa faz diferente em cada um. */
+    voz: e(
+      ["falada", "texto-na-tela", "ambos"],
+      'Como o conteúdo chega: "falada" quando alguém fala, "texto-na-tela" quando ninguém fala e a mensagem está escrita, "ambos" quando há fala E texto autoral separado dela.',
     ),
     falas: {
       type: "array",
@@ -325,10 +355,12 @@ const ESQUEMA = {
     "titulo",
     "formato",
     "pilar",
-    "cena_real",
+    "pessoa_na_camera",
+    "origem_imagem",
     "local_observado",
     "duracao_segundos",
     "legenda_queimada",
+    "voz",
     "falas",
   ],
 };
@@ -368,16 +400,16 @@ const INSTRUCAO = `Você está analisando uma publicação já no ar de uma cria
 
 Ela pode ser de dois tipos, e o tratamento muda:
 
-A) ELA NA CÂMERA, falando, num lugar real da vida dela.
-B) VÍDEO OU IMAGEM DE BANCO (stock, fundo abstrato, arte) com o texto escrito por cima, sem ninguém falando.
+A) ALGUÉM NA CÂMERA falando.
+B) IMAGEM OU VÍDEO SEM NINGUÉM FALANDO, com a mensagem escrita na tela.
 
 Sua tarefa é registrar o que ESTÁ LÁ, não propor nada.
 
 Regras que não se negociam:
 1. Transcreva palavra por palavra. No tipo A, o que foi dito em voz alta. No tipo B, o que está escrito na tela. Não corrija gramática, não troque palavra por sinônimo melhor, não resuma, não junte frases. Se ela repetiu, repita. Se usou gíria, mantenha a gíria. Se tem erro de digitação na tela, mantenha o erro.
-2. Uma entrada por frase. Frase com três orações vira três entradas. No tipo B, cada cartão ou bloco de texto que aparece na tela é uma entrada, na ordem em que aparecem.
-3. Decida cena_real antes de tudo. No tipo A é "sim". No tipo B é "nao", e aí enquadramento, cenário, ação e local_observado ficam TODOS VAZIOS, sem exceção. Imagem de banco não é lugar dela e não prova que nada é gravável ali. Preencher esses campos num post tipo B contamina o catálogo de cenas com lugares que não existem na vida dela.
-4. No tipo A, preencha enquadramento, cenário e ação com o que APARECE NA IMAGEM. Se não der pra ver, deixe vazio. Nunca invente.
+2. Uma entrada por frase. Frase com três orações vira três entradas. No tipo B, cada bloco de texto que aparece na tela é uma entrada, na ordem em que aparecem. Se o MESMO texto continua na tela enquanto a imagem de fundo muda, isso é UMA entrada só, não uma por imagem.
+3. Descreva o que aparece na imagem em enquadramento, cenário e ação, pelo que dá pra VER. Isso vale nos dois tipos: uma paisagem também é uma cena, e saber que a paisagem existe é informação útil. Se não der pra ver, deixe vazio. Nunca invente.
+4. Em origem_imagem, o valor certo quase sempre é "indefinido". Uma paisagem bonita NÃO é banco de imagem só porque não tem gente nela: praia, mata, serra e rua são lugares concretos que alguém pode ter filmado. Só marque "banco" se for inequivocamente genérico: gradiente, textura, fundo abstrato, ilustração, cena de estúdio impessoal.
 5. A função de cada fala é classificação sua e pode ser deduzida: identifique o trabalho que a frase faz na história.
 6. Se for imagem parada, duracao_segundos é 0.`;
 
@@ -575,12 +607,18 @@ try {
 /* Aplica a guarda antes de gravar: o JSON que sai daqui é o que vai ser
    conferido e carregado, então ele já sai limpo. O contador é impresso porque
    um número alto aqui é sinal de que a instrução parou de pegar, e isso
-   precisa ser visível num lote de 30, não descoberto depois. */
+   precisa ser visível num lote de 30, não descoberto depois.
+
+   `voz !== "texto-na-tela"` é a condição que faltava na 1ª versão: onde
+   ninguém fala não existe legenda, e o que parece duplicata é o roteiro
+   autoral aparecendo nos dois campos por desenho. */
 let legendasLimpas = 0;
-for (const f of r.dados.falas ?? []) {
-  if (f.texto_tela && ehSoALegenda(f.texto_tela, f.texto)) {
-    f.texto_tela = "";
-    legendasLimpas += 1;
+if (r.dados.voz !== "texto-na-tela") {
+  for (const f of r.dados.falas ?? []) {
+    if (f.texto_tela && ehSoALegenda(f.texto_tela, f.texto)) {
+      f.texto_tela = "";
+      legendasLimpas += 1;
+    }
   }
 }
 
@@ -598,26 +636,36 @@ console.log("─".repeat(70));
 console.log("\nTítulo:  " + d.titulo);
 console.log("Pilar:   " + d.pilar + "    Formato: " + d.formato);
 console.log(
-  "Cena:    " +
-    (d.cena_real === "sim"
-      ? "gravada por ela em " + (d.local_observado || "local não identificado") + " → ENTRA no catálogo"
-      : "banco de imagem / fundo com texto → NÃO entra no catálogo"),
+  "Imagem:  " +
+    (d.pessoa_na_camera === "sim" ? "pessoa na câmera" : "sem pessoa") +
+    ", origem " +
+    d.origem_imagem +
+    (d.local_observado ? ", local " + d.local_observado : "") +
+    "\n         " +
+    (d.origem_imagem === "banco"
+      ? "→ NÃO entra no catálogo de cenas"
+      : "→ candidata ao catálogo, DEPOIS de você confirmar que é material dela"),
 );
+console.log("Voz:     " + d.voz);
 console.log("Duração: " + d.duracao_segundos + "s    Tokens: " + r.meta.tokens.entrada + " entrada / " + r.meta.tokens.saida + " saída");
 console.log("Legenda: " + (d.legenda_queimada === "sim" ? "queimada no vídeo" : "não") + (legendasLimpas > 0 ? "  (limpei " + legendasLimpas + " texto_tela que era só a legenda)" : ""));
 
-/* Incoerência que o schema não pega: o enum garante que cena_real seja "sim"
-   ou "nao", e não garante que os campos de cena estejam vazios quando é "nao".
-   Avisar aqui é barato e evita a linha ruim passar despercebida num lote. */
-if (d.cena_real === "nao") {
-  const vazou = (d.falas ?? []).filter((f) => f.cenario || f.enquadramento || f.acao).length;
-  if (vazou > 0 || d.local_observado) {
-    console.log(
-      "\n  ⚠ Marcou cena_real=nao mas preencheu cena em " + vazou + " fala(s)" +
-        (d.local_observado ? ' e local="' + d.local_observado + '"' : "") +
-        ".\n    Ignorar esses campos na carga, ou conferir se o tipo está certo.",
-    );
-  }
+/* Texto repetido em falas seguidas, que o schema não tem como impedir.
+
+   Achado no 2º vídeo (23/08/2026): a mesma frase ficou na tela enquanto o
+   fundo trocava de paisagem, e voltaram 3 falas idênticas, uma por imagem. A
+   instrução pede uma entrada só nesse caso e não foi obedecida.
+
+   Não corrijo automaticamente: juntar as 3 apagaria a informação de que
+   existem 3 paisagens diferentes ali, e essa é justamente a parte cara de
+   descobrir. Fica o aviso, e a decisão de juntar ou não é de quem confere. */
+const repetidas = (d.falas ?? []).filter((f, i, todas) => i > 0 && f.texto.trim() === todas[i - 1].texto.trim()).length;
+if (repetidas > 0) {
+  console.log(
+    "\n  ⚠ " +
+      repetidas +
+      " fala(s) repetem o texto da anterior. Provavelmente é um texto só\n    segurado enquanto a imagem de fundo troca. Ao carregar, decidir se vira\n    uma fala com várias cenas ou várias falas.",
+  );
 }
 console.log("\nFalas (" + (d.falas?.length ?? 0) + "):\n");
 for (const [i, f] of (d.falas ?? []).entries()) {
