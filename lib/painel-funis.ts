@@ -11,11 +11,11 @@ import type { EtapaContagem, EtapaGaleria } from "@/components/painel/Funil";
 export const POSTHOG_PROJECT_ID = "536747";
 export const POSTHOG_HOST = "https://us.posthog.com";
 
-export type TipoFunil = "Quiz" | "Landing";
+export type TipoFunil = "Quiz" | "Landing" | "Catálogo";
 
 export type FunilMeta = {
   id: string;
-  produtoSlug: "lar-interior" | "metodo-calice";
+  produtoSlug: "lar-interior" | "metodo-calice" | "biblioteca-oculta";
   produto: string;
   tipo: TipoFunil;
   urlPublica: string;
@@ -35,6 +35,13 @@ export const FUNIS: FunilMeta[] = [
     produto: "Lar Interior",
     tipo: "Landing",
     urlPublica: "https://larinterior.serenamentefeliz.com/desafio-7-dias",
+  },
+  {
+    id: "biblioteca-oculta-catalogo",
+    produtoSlug: "biblioteca-oculta",
+    produto: "Biblioteca Oculta",
+    tipo: "Catálogo",
+    urlPublica: "https://bibliotecaoculta.serenamentefeliz.com/",
   },
 ];
 
@@ -66,14 +73,33 @@ export type ResumoProduto = {
 };
 
 export async function carregarResumoProdutos(): Promise<ResumoProduto[]> {
-  const [leads, acessos] = await Promise.all([
+  const [leads, acessos, vendasBiblioteca] = await Promise.all([
     supabaseSelect<LeadEvent>("lead_events?select=contact_id,product,signed_at"),
     supabaseSelect<ProductAccess>("product_access?select=contact_id,product,status&status=eq.active"),
+    supabaseSelect<PedidoBiblioteca>("bo_pedidos?select=itens,status,total,criado_em"),
   ]);
 
   const produtosUnicos = [...new Set(FUNIS.map((f) => f.produtoSlug))];
 
   return produtosUnicos.map((produtoSlug) => {
+    /* A Biblioteca não passa por `lead_events`/`product_access` de propósito:
+       comprador de feitiço e lead da Liz não podem virar a mesma lista, e a
+       migração `0001_bo_pedidos.sql` diz isso com todas as letras. Então o
+       resumo dela sai da tabela própria. Aqui "leads" é PEDIDO CRIADO e
+       "compras" é PEDIDO PAGO, e a lista troca o rótulo pra não mentir. */
+    if (produtoSlug === "biblioteca-oculta") {
+      const criados = vendasBiblioteca.length;
+      const pagos = vendasBiblioteca.filter((p) => p.status === "pago").length;
+      const criados7d = vendasBiblioteca.filter((p) => diasAtras(p.criado_em) <= 7).length;
+      return {
+        produtoSlug,
+        totalLeads: criados,
+        leads7d: criados7d,
+        totalCompras: pagos,
+        conversao: criados ? (pagos / criados) * 100 : 0,
+      };
+    }
+
     const leadsDoProduto = leads.filter((l) => l.product === produtoSlug);
     const contatosUnicos = new Set(leadsDoProduto.map((l) => l.contact_id));
     const ultimos7d = new Set(
@@ -123,6 +149,12 @@ export async function consultarFunilPostHog(eventos: string[]): Promise<EtapaCon
 }
 
 const ROTULOS_EVENTO: Record<string, string> = {
+  bo_vitrine_vista: "Abriu a vitrine",
+  bo_livro_visto: "Abriu um livro",
+  bo_add_carrinho: "Pôs no carrinho",
+  bo_checkout_iniciado: "Foi pro checkout",
+  bo_pedido_criado: "Gerou o Pix",
+  bo_pagamento_confirmado: "Pagou",
   quiz_started: "Início do quiz",
   quiz_completed: "Quiz concluído",
   lead_submitted: "Virou lead",
@@ -325,5 +357,145 @@ export async function carregarDetalheFunil(id: string): Promise<DetalheFunil> {
     };
   }
 
+  if (id === "biblioteca-oculta-catalogo") {
+    const etapas = await consultarFunilBiblioteca();
+    if (etapas === null) {
+      return { etapas: [], previewUrls: [], vazio: "Não consegui consultar a PostHog agora." };
+    }
+    // A galeria quer `views`; o funil devolve `count`. Mesma coisa, nome outro.
+    const galeria = etapas.map((e) => ({ label: e.label, views: e.count }));
+    const base = "https://bibliotecaoculta.serenamentefeliz.com";
+    return {
+      etapas: galeria,
+      // A entrega e o leitor não entram no preview: são telas de quem já pagou
+      // e exigem token, então mostrariam só o estado de erro.
+      previewUrls: [`${base}/`, `${base}/livro/?t=ele-sumiu`, `${base}/carrinho/`, `${base}/carrinho/`, `${base}/checkout/`, `${base}/checkout/`],
+      vazio: "Sem visita registrada ainda nesse funil.",
+    };
+  }
+
   return { etapas: [], previewUrls: [], vazio: "Funil não encontrado." };
+}
+
+
+/* ─────────────────────────── BIBLIOTECA OCULTA ───────────────────────────
+
+   A Biblioteca não usa `lead_events`/`product_access`: ela tem tabela própria
+   (`bo_pedidos`), porque comprador de feitiço e lead da Liz não podem virar a
+   mesma lista. Então o funil dela se monta de duas fontes, e a divisão importa:
+
+   - O TOPO vem da PostHog, e ele SUBESTIMA. Uma fatia do público chega pelo
+     browser embutido do TikTok e bloqueia analytics. O site já manda os eventos
+     por um proxy no próprio domínio pra reduzir isso, mas não zera.
+   - O FUNDO (pedido e pagamento) vem do BANCO, e ele é exato.
+
+   Por isso NÃO se divide "pagou" por "abriu a vitrine" e se chama aquilo de
+   taxa de conversão: o numerador é completo e o denominador não. Pra comparar
+   livros ENTRE SI os números servem, porque o viés é o mesmo pra todos.
+*/
+
+type PedidoBiblioteca = { itens: string[]; status: string; total: number; criado_em: string };
+
+/** Slug do catálogo vira título legível sem duplicar o catálogo aqui. */
+function tituloDoSlug(slug: string) {
+  const miudas = new Set(["de", "da", "do", "e", "na", "no", "por", "pra", "com", "que", "me"]);
+  return slug
+    .split("-")
+    .map((palavra, i) =>
+      i > 0 && miudas.has(palavra) ? palavra : palavra.charAt(0).toUpperCase() + palavra.slice(1)
+    )
+    .join(" ");
+}
+
+/** Funil do catálogo: vitrine → livro → carrinho → checkout → Pix → pago. */
+export async function consultarFunilBiblioteca(): Promise<EtapaContagem[] | null> {
+  return consultarFunilPostHog([
+    "bo_vitrine_vista",
+    "bo_livro_visto",
+    "bo_add_carrinho",
+    "bo_checkout_iniciado",
+    "bo_pedido_criado",
+    "bo_pagamento_confirmado",
+  ]);
+}
+
+/** Ranking de livros por um evento, lido da propriedade `slug`. */
+async function rankingPorSlug(evento: string, limite = 12): Promise<EtapaContagem[] | null> {
+  const key = process.env.POSTHOG_PERSONAL_API_KEY;
+  if (!key) return null;
+
+  const resp = await fetch(`${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: {
+        kind: "HogQLQuery",
+        query: `
+          SELECT properties.slug AS livro, count() AS total
+          FROM events
+          WHERE event = {evento}
+            AND timestamp > now() - INTERVAL 90 DAY
+            AND properties.slug != ''
+          GROUP BY livro
+          ORDER BY total DESC
+          LIMIT {limite}
+        `,
+        values: { evento, limite },
+      },
+    }),
+    cache: "no-store",
+  });
+
+  if (!resp.ok) return null;
+  const data = await resp.json().catch(() => null);
+  const linhas = Array.isArray(data?.results) ? data.results : null;
+  if (!linhas) return null;
+
+  return linhas.map((l: [string, number]) => ({ label: tituloDoSlug(l[0]), count: l[1] }));
+}
+
+export type VendasBiblioteca = {
+  pedidosPagos: number;
+  pedidosAguardando: number;
+  receitaCentavos: number;
+  ticketMedioCentavos: number;
+  maisComprados: EtapaContagem[];
+};
+
+/** Verdade do dinheiro: sai de `bo_pedidos`, não da PostHog. */
+export async function carregarVendasBiblioteca(): Promise<VendasBiblioteca | null> {
+  const pedidos = await supabaseSelect<PedidoBiblioteca>(
+    "bo_pedidos?select=itens,status,total,criado_em"
+  );
+  if (!Array.isArray(pedidos)) return null;
+
+  const pagos = pedidos.filter((p) => p.status === "pago");
+  const receita = pagos.reduce((soma, p) => soma + (p.total ?? 0), 0);
+
+  const porLivro = new Map<string, number>();
+  for (const pedido of pagos) {
+    for (const slug of pedido.itens ?? []) {
+      porLivro.set(slug, (porLivro.get(slug) ?? 0) + 1);
+    }
+  }
+
+  return {
+    pedidosPagos: pagos.length,
+    pedidosAguardando: pedidos.filter((p) => p.status === "aguardando").length,
+    receitaCentavos: receita,
+    ticketMedioCentavos: pagos.length ? Math.round(receita / pagos.length) : 0,
+    maisComprados: [...porLivro.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([slug, n]) => ({ label: tituloDoSlug(slug), count: n })),
+  };
+}
+
+/** Os dois rankings de comportamento, em paralelo. */
+export async function carregarLivrosBiblioteca() {
+  const [vistos, noCarrinho] = await Promise.all([
+    rankingPorSlug("bo_livro_visto"),
+    rankingPorSlug("bo_add_carrinho"),
+  ]);
+  return { vistos, noCarrinho };
 }

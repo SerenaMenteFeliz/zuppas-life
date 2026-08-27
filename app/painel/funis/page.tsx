@@ -49,7 +49,10 @@ export default async function FunisPage() {
                   </div>
 
                   <div className="flex items-center gap-6">
-                    <MetricaInline rotulo="Leads" valor={resumo?.totalLeads ?? 0} />
+                    <MetricaInline
+                      rotulo={f.produtoSlug === "biblioteca-oculta" ? "Pedidos" : "Leads"}
+                      valor={resumo?.totalLeads ?? 0}
+                    />
                     <MetricaInline rotulo="Compras" valor={resumo?.totalCompras ?? 0} />
                     <MetricaInline rotulo="Conversão" valor={`${(resumo?.conversao ?? 0).toFixed(1)}%`} />
                     <span aria-hidden style={{ color: "var(--ink-soft)" }}>
