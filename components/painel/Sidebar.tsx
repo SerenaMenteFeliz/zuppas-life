@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bussola, Claquete, Funil, Pauta, Raio } from "@/components/icones";
+import { Bussola, Claquete, Funil, Pauta, Pessoas, Raio } from "@/components/icones";
 
 /* Sidebar do painel interno — só pro Yan (ver middleware.ts). Diferente da
    Nav da família (5 destinos fixos, barra embaixo no celular): aqui é
@@ -12,9 +12,15 @@ import { Bussola, Claquete, Funil, Pauta, Raio } from "@/components/icones";
 /* Ordem por frequência de uso, não por importância: Conteúdo é o que a Ge e a
    Liz abrem todo dia, e Inteligência e Registros são de manutenção. Por isso os
    dois entraram no FIM em 22/08/2026, e não ao lado de Conteúdo. */
+/* Contatos entrou em 28/08/2026, entre Automações e Conteúdo. O critério
+   continua sendo frequência, e o lugar dele não é o fim: Funis, Automações e
+   Contatos respondem as três perguntas do mesmo minuto quando uma venda
+   acontece (de onde veio, o que foi disparado, quem é a pessoa). Conteúdo é
+   rotina de outro turno, e de outra pessoa. */
 const DESTINOS = [
   { href: "/painel/funis", rotulo: "Funis", Icone: Funil },
   { href: "/painel/automacoes", rotulo: "Automações", Icone: Raio },
+  { href: "/painel/contatos", rotulo: "Contatos", Icone: Pessoas },
   { href: "/painel/conteudo", rotulo: "Conteúdo", Icone: Claquete },
   { href: "/painel/inteligencia", rotulo: "Inteligência", Icone: Bussola },
   { href: "/painel/registros", rotulo: "Registros", Icone: Pauta },

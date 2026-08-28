@@ -289,3 +289,17 @@ export function Claquete({ className }: Props) {
     </svg>
   );
 }
+
+/* Pessoas, a aba Contatos. Duas figuras e não uma: o que a tela mostra é a
+   base inteira, não uma ficha de alguém. A de trás fica incompleta de
+   propósito, porque é assim que a base é (metade das pessoas o negócio só
+   conhece por e-mail). */
+export function Pessoas({ className }: Props) {
+  return (
+    <svg {...base(className)}>
+      <circle cx="9.5" cy="8" r="3.2" />
+      <path d="M3.5 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" />
+      <path d="M16 5.4a3.2 3.2 0 0 1 0 5.9M18 14.9c1.6.8 2.6 2.4 2.6 4.4" />
+    </svg>
+  );
+}
