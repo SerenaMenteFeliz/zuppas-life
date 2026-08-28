@@ -1,5 +1,50 @@
 import "server-only";
 import type { EtapaContagem, EtapaGaleria } from "@/components/painel/Funil";
+import { livroBiblioteca, type LivroBiblioteca } from "@/lib/catalogo-biblioteca";
+import { somarDias } from "@/lib/datas";
+
+/* Filtro de datas (28/08/2026, pedido do Yan: "zuppas life ainda não tem
+   filtro por data"). `RangeDatas` trafega em ISO (`AAAA-MM-DD`), igual todo
+   resto do app — ver o cabeçalho de `lib/datas.ts`. Sem `de`/`ate`, cada
+   consulta cai no comportamento de sempre (janela de 90 dias fixa). */
+export type RangeDatas = { de?: string; ate?: string };
+export type EtapaLivro = LivroBiblioteca & { count: number };
+
+function faixaPostHog(range?: RangeDatas): { date_from: string; date_to?: string } {
+  if (!range?.de && !range?.ate) return { date_from: "-90d" };
+  return {
+    date_from: range.de ?? "-90d",
+    // PostHog trata `date_to` como o FIM do dia informado — não precisa somar 1.
+    ...(range.ate ? { date_to: range.ate } : {}),
+  };
+}
+
+/** Mesmo range, em cláusula HogQL. `ate` é o fim do dia (exclusivo o dia seguinte). */
+function faixaHogQL(range?: RangeDatas): { clausula: string; valores: Record<string, string> } {
+  if (!range?.de && !range?.ate) {
+    return { clausula: "timestamp > now() - INTERVAL 90 DAY", valores: {} };
+  }
+  const partes: string[] = [];
+  const valores: Record<string, string> = {};
+  if (range.de) {
+    partes.push("timestamp >= toDateTime({desde})");
+    valores.desde = range.de;
+  }
+  if (range.ate) {
+    partes.push("timestamp < toDateTime({ateExclusivo})");
+    valores.ateExclusivo = somarDias(range.ate, 1);
+  }
+  return { clausula: partes.join(" AND "), valores };
+}
+
+/** Mesmo range, em querystring do PostgREST (Supabase) sobre uma coluna timestamptz. */
+function faixaSupabaseQS(range: RangeDatas | undefined, coluna: string): string {
+  if (!range?.de && !range?.ate) return "";
+  const partes: string[] = [];
+  if (range.de) partes.push(`${coluna}=gte.${range.de}`);
+  if (range.ate) partes.push(`${coluna}=lt.${somarDias(range.ate, 1)}`);
+  return partes.length ? `&${partes.join("&")}` : "";
+}
 
 /* Camada de dados do painel de funis — extraída de app/painel/funis/page.tsx
    em 05/08 quando a tela virou lista + detalhe (antes era uma página só,
@@ -120,7 +165,10 @@ export async function carregarResumoProdutos(): Promise<ResumoProduto[]> {
 /* Query API (HogQL) — a conta não tem acesso ao endpoint legado
    /insights/funnel/ ("Legacy insight endpoints are not available for this
    user"), então é FunnelsQuery via /query/ mesmo. */
-export async function consultarFunilPostHog(eventos: string[]): Promise<EtapaContagem[] | null> {
+export async function consultarFunilPostHog(
+  eventos: string[],
+  range?: RangeDatas
+): Promise<EtapaContagem[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
 
@@ -131,7 +179,7 @@ export async function consultarFunilPostHog(eventos: string[]): Promise<EtapaCon
       query: {
         kind: "FunnelsQuery",
         series: eventos.map((event) => ({ kind: "EventsNode", event })),
-        dateRange: { date_from: "-90d" },
+        dateRange: faixaPostHog(range),
       },
     }),
     cache: "no-store",
@@ -187,7 +235,7 @@ const QUIZ_STEP_LABELS = [
   "Resultado completo",
 ];
 
-async function consultarStepsQuiz(): Promise<EtapaGaleria[] | null> {
+async function consultarStepsQuiz(range?: RangeDatas): Promise<EtapaGaleria[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
 
@@ -201,7 +249,7 @@ async function consultarStepsQuiz(): Promise<EtapaGaleria[] | null> {
         // não de pessoa única, e cliques duplos infla a etapa visualmente.
         series: [{ kind: "EventsNode", event: "quiz_step_viewed", math: "dau" }],
         breakdownFilter: { breakdown_type: "event", breakdown: "step_index" },
-        dateRange: { date_from: "-90d" },
+        dateRange: faixaPostHog(range),
         interval: "day",
       },
     }),
@@ -228,9 +276,11 @@ async function consultarStepsQuiz(): Promise<EtapaGaleria[] | null> {
    "dias com pelo menos 1 pessoa"; (2) exige JOIN com quem passou pelo
    Resultado completo (step_index = último), senão visita de aparelho
    diferente do quiz original contava como pessoa nova sem ligação. */
-async function consultarMaterialViewed(): Promise<number | null> {
+async function consultarMaterialViewed(range?: RangeDatas): Promise<number | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
+
+  const { clausula, valores } = faixaHogQL(range);
 
   const resp = await fetch(`${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`, {
     method: "POST",
@@ -242,19 +292,20 @@ async function consultarMaterialViewed(): Promise<number | null> {
           SELECT count(DISTINCT person_id)
           FROM events
           WHERE event = {matEvent}
-            AND timestamp > now() - INTERVAL 90 DAY
+            AND ${clausula}
             AND person_id IN (
               SELECT DISTINCT person_id
               FROM events
               WHERE event = {quizEvent}
                 AND properties.step_index = {stepIndex}
-                AND timestamp > now() - INTERVAL 90 DAY
+                AND ${clausula}
             )
         `,
         values: {
           matEvent: "material_viewed",
           quizEvent: "quiz_step_viewed",
           stepIndex: QUIZ_STEP_LABELS.length - 1,
+          ...valores,
         },
       },
     }),
@@ -269,7 +320,7 @@ async function consultarMaterialViewed(): Promise<number | null> {
 
 /* Funil do Lar Interior: página única (não tem "telas" como o quiz), então
    as etapas são visita -> começou a preencher -> virou lead. */
-async function consultarFunilLarInterior(): Promise<EtapaGaleria[] | null> {
+async function consultarFunilLarInterior(range?: RangeDatas): Promise<EtapaGaleria[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
 
@@ -290,7 +341,7 @@ async function consultarFunilLarInterior(): Promise<EtapaGaleria[] | null> {
           { kind: "EventsNode", event: "form_started" },
           { kind: "EventsNode", event: "lead_submitted" },
         ],
-        dateRange: { date_from: "-90d" },
+        dateRange: faixaPostHog(range),
       },
     }),
     cache: "no-store",
@@ -323,9 +374,12 @@ export type DetalheFunil = {
    jeito diferente (quiz tem 18 telas navegáveis por step_index; landing é
    página única, "etapas" são estágios conceituais do mesmo pageview) e
    monta a URL de preview correspondente. */
-export async function carregarDetalheFunil(id: string): Promise<DetalheFunil> {
+export async function carregarDetalheFunil(id: string, range?: RangeDatas): Promise<DetalheFunil> {
   if (id === "metodo-calice-quiz") {
-    const [stepsQuiz, materialViews] = await Promise.all([consultarStepsQuiz(), consultarMaterialViewed()]);
+    const [stepsQuiz, materialViews] = await Promise.all([
+      consultarStepsQuiz(range),
+      consultarMaterialViewed(range),
+    ]);
 
     if (stepsQuiz === null) {
       return { etapas: [], previewUrls: [], vazio: "Não consegui consultar a PostHog agora." };
@@ -346,7 +400,7 @@ export async function carregarDetalheFunil(id: string): Promise<DetalheFunil> {
   }
 
   if (id === "lar-interior-landing") {
-    const etapas = await consultarFunilLarInterior();
+    const etapas = await consultarFunilLarInterior(range);
     if (etapas === null) {
       return { etapas: [], previewUrls: [], vazio: "Não consegui consultar a PostHog agora." };
     }
@@ -358,7 +412,7 @@ export async function carregarDetalheFunil(id: string): Promise<DetalheFunil> {
   }
 
   if (id === "biblioteca-oculta-catalogo") {
-    const etapas = await consultarFunilBiblioteca();
+    const etapas = await consultarFunilBiblioteca(range);
     if (etapas === null) {
       return { etapas: [], previewUrls: [], vazio: "Não consegui consultar a PostHog agora." };
     }
@@ -394,35 +448,106 @@ export async function carregarDetalheFunil(id: string): Promise<DetalheFunil> {
    livros ENTRE SI os números servem, porque o viés é o mesmo pra todos.
 */
 
-type PedidoBiblioteca = { itens: string[]; status: string; total: number; criado_em: string };
+type OrigemPedido = {
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  ref: string | null;
+  referrer: string | null;
+  entrada: string | null;
+} | null;
 
-/** Slug do catálogo vira título legível sem duplicar o catálogo aqui. */
-function tituloDoSlug(slug: string) {
-  const miudas = new Set(["de", "da", "do", "e", "na", "no", "por", "pra", "com", "que", "me"]);
-  return slug
-    .split("-")
-    .map((palavra, i) =>
-      i > 0 && miudas.has(palavra) ? palavra : palavra.charAt(0).toUpperCase() + palavra.slice(1)
-    )
-    .join(" ");
+type PedidoBiblioteca = {
+  itens: string[];
+  status: string;
+  total: number;
+  criado_em: string;
+  origem?: OrigemPedido;
+};
+
+/** Rótulo de origem: perfil (utm_content) é o mais específico, depois canal
+    (utm_source), depois "direto" (chegou sem nenhum utm). Pedido gravado
+    ANTES de 28/08/2026 (`bo_pedidos.origem` não existia) não vira "direto"
+    por palpite — campo vazio é melhor que campo preenchido por adivinhação,
+    então fica na própria categoria "sem registro". */
+function rotuloOrigem(origem: OrigemPedido | undefined): string {
+  if (origem === undefined || origem === null) return "sem registro (antes de 28/08)";
+  return origem.utm_content || origem.utm_source || "direto";
 }
 
-/** Funil do catálogo: vitrine → livro → carrinho → checkout → Pix → pago. */
-export async function consultarFunilBiblioteca(): Promise<EtapaContagem[] | null> {
-  return consultarFunilPostHog([
-    "bo_vitrine_vista",
-    "bo_livro_visto",
-    "bo_add_carrinho",
-    "bo_checkout_iniciado",
-    "bo_pedido_criado",
-    "bo_pagamento_confirmado",
-  ]);
+/** Funil do catálogo: vitrine → livro → carrinho → checkout → Pix → pago.
+    As duas últimas etapas só ligam com as primeiras a partir de 28/08/2026
+    (`aparelho_id` viajando de `lib/aparelho.js` até o evento de servidor —
+    ver CLAUDE.md do repo `biblioteca-oculta`); pedido pago ANTES disso nunca
+    vai aparecer aqui, porque usava outra identidade no PostHog. */
+export async function consultarFunilBiblioteca(range?: RangeDatas): Promise<EtapaContagem[] | null> {
+  return consultarFunilPostHog(
+    [
+      "bo_vitrine_vista",
+      "bo_livro_visto",
+      "bo_add_carrinho",
+      "bo_checkout_iniciado",
+      "bo_pedido_criado",
+      "bo_pagamento_confirmado",
+    ],
+    range
+  );
 }
 
-/** Ranking de livros por um evento, lido da propriedade `slug`. */
-async function rankingPorSlug(evento: string, limite = 12): Promise<EtapaContagem[] | null> {
+/** De onde vêm as VISITAS (comportamento, PostHog) — perfil (utm_content),
+    canal (utm_source) ou "direto". Super-propriedade registrada uma vez por
+    aparelho em `lib/metrica.js`, presente em todo evento `bo_*` do
+    navegador; por isso qualquer um deles serve de contagem, e `bo_vitrine_vista`
+    é o de maior volume (entrada mais comum). */
+export async function consultarOrigemBiblioteca(range?: RangeDatas): Promise<EtapaContagem[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
+
+  const { clausula, valores } = faixaHogQL(range);
+
+  const resp = await fetch(`${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: {
+        kind: "HogQLQuery",
+        query: `
+          SELECT
+            coalesce(nullIf(properties.utm_content, ''), nullIf(properties.utm_source, ''), 'direto') AS origem,
+            count(DISTINCT person_id) AS pessoas
+          FROM events
+          WHERE event = 'bo_vitrine_vista'
+            AND ${clausula}
+          GROUP BY origem
+          ORDER BY pessoas DESC
+          LIMIT 12
+        `,
+        values: valores,
+      },
+    }),
+    cache: "no-store",
+  });
+
+  if (!resp.ok) return null;
+  const data = await resp.json().catch(() => null);
+  const linhas = Array.isArray(data?.results) ? data.results : null;
+  if (!linhas) return null;
+
+  return linhas.map((l: [string, number]) => ({ label: l[0], count: l[1] }));
+}
+
+/** Ranking de livros por um evento, lido da propriedade `slug`, com capa e
+    título de verdade (não derivado do slug — ver `lib/catalogo-biblioteca`). */
+async function rankingPorSlug(
+  evento: string,
+  range?: RangeDatas,
+  limite = 12
+): Promise<EtapaLivro[] | null> {
+  const key = process.env.POSTHOG_PERSONAL_API_KEY;
+  if (!key) return null;
+
+  const { clausula, valores } = faixaHogQL(range);
 
   const resp = await fetch(`${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`, {
     method: "POST",
@@ -434,13 +559,13 @@ async function rankingPorSlug(evento: string, limite = 12): Promise<EtapaContage
           SELECT properties.slug AS livro, count() AS total
           FROM events
           WHERE event = {evento}
-            AND timestamp > now() - INTERVAL 90 DAY
+            AND ${clausula}
             AND properties.slug != ''
           GROUP BY livro
           ORDER BY total DESC
           LIMIT {limite}
         `,
-        values: { evento, limite },
+        values: { evento, limite, ...valores },
       },
     }),
     cache: "no-store",
@@ -451,7 +576,7 @@ async function rankingPorSlug(evento: string, limite = 12): Promise<EtapaContage
   const linhas = Array.isArray(data?.results) ? data.results : null;
   if (!linhas) return null;
 
-  return linhas.map((l: [string, number]) => ({ label: tituloDoSlug(l[0]), count: l[1] }));
+  return linhas.map((l: [string, number]) => ({ ...livroBiblioteca(l[0]), count: l[1] }));
 }
 
 export type VendasBiblioteca = {
@@ -459,13 +584,17 @@ export type VendasBiblioteca = {
   pedidosAguardando: number;
   receitaCentavos: number;
   ticketMedioCentavos: number;
-  maisComprados: EtapaContagem[];
+  maisComprados: EtapaLivro[];
+  /** De qual perfil/canal veio a RECEITA (não a visita). Vazio até o primeiro
+      pedido pago depois de `0003_bo_origem.sql` em produção. */
+  porOrigem: EtapaContagem[];
 };
 
 /** Verdade do dinheiro: sai de `bo_pedidos`, não da PostHog. */
-export async function carregarVendasBiblioteca(): Promise<VendasBiblioteca | null> {
+export async function carregarVendasBiblioteca(range?: RangeDatas): Promise<VendasBiblioteca | null> {
+  const filtro = faixaSupabaseQS(range, "criado_em");
   const pedidos = await supabaseSelect<PedidoBiblioteca>(
-    "bo_pedidos?select=itens,status,total,criado_em"
+    `bo_pedidos?select=itens,status,total,criado_em,origem${filtro}`
   );
   if (!Array.isArray(pedidos)) return null;
 
@@ -479,6 +608,12 @@ export async function carregarVendasBiblioteca(): Promise<VendasBiblioteca | nul
     }
   }
 
+  const porOrigem = new Map<string, number>();
+  for (const pedido of pagos) {
+    const rotulo = rotuloOrigem(pedido.origem);
+    porOrigem.set(rotulo, (porOrigem.get(rotulo) ?? 0) + 1);
+  }
+
   return {
     pedidosPagos: pagos.length,
     pedidosAguardando: pedidos.filter((p) => p.status === "aguardando").length,
@@ -487,15 +622,18 @@ export async function carregarVendasBiblioteca(): Promise<VendasBiblioteca | nul
     maisComprados: [...porLivro.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)
-      .map(([slug, n]) => ({ label: tituloDoSlug(slug), count: n })),
+      .map(([slug, n]) => ({ ...livroBiblioteca(slug), count: n })),
+    porOrigem: [...porOrigem.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ label, count })),
   };
 }
 
 /** Os dois rankings de comportamento, em paralelo. */
-export async function carregarLivrosBiblioteca() {
+export async function carregarLivrosBiblioteca(range?: RangeDatas) {
   const [vistos, noCarrinho] = await Promise.all([
-    rankingPorSlug("bo_livro_visto"),
-    rankingPorSlug("bo_add_carrinho"),
+    rankingPorSlug("bo_livro_visto", range),
+    rankingPorSlug("bo_add_carrinho", range),
   ]);
   return { vistos, noCarrinho };
 }

@@ -2,14 +2,18 @@ import { notFound } from "next/navigation";
 import { Rotulo } from "@/components/ui";
 import { FunilEtapas } from "@/components/painel/Funil";
 import { FunilPreview } from "@/components/painel/FunilPreview";
+import { RankingLivros } from "@/components/painel/RankingLivros";
+import FiltroData from "@/components/painel/FiltroData";
 import PainelTopo from "@/components/painel/PainelTopo";
 import {
   FUNIS,
   carregarDetalheFunil,
   consultarFunilPostHog,
   consultarFunilBiblioteca,
+  consultarOrigemBiblioteca,
   carregarLivrosBiblioteca,
   carregarVendasBiblioteca,
+  type RangeDatas,
 } from "@/lib/painel-funis";
 
 /* Detalhe de um funil (05/08): header com voltar/labels/link pro funil de
@@ -21,22 +25,31 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function FunilDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function FunilDetalhePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ de?: string; ate?: string }>;
+}) {
   const { id } = await params;
+  const { de, ate } = await searchParams;
+  const range: RangeDatas = { de, ate };
   const meta = FUNIS.find((f) => f.id === id);
   if (!meta) notFound();
 
   const ehBiblioteca = meta.produtoSlug === "biblioteca-oculta";
 
-  const [detalhe, visaoGeral, biblioteca, vendas] = await Promise.all([
-    carregarDetalheFunil(id),
+  const [detalhe, visaoGeral, biblioteca, vendas, origem] = await Promise.all([
+    carregarDetalheFunil(id, range),
     meta.produtoSlug === "metodo-calice"
-      ? consultarFunilPostHog(["quiz_started", "quiz_completed", "lead_submitted", "purchase"])
+      ? consultarFunilPostHog(["quiz_started", "quiz_completed", "lead_submitted", "purchase"], range)
       : ehBiblioteca
-        ? consultarFunilBiblioteca()
+        ? consultarFunilBiblioteca(range)
         : Promise.resolve(null),
-    ehBiblioteca ? carregarLivrosBiblioteca() : Promise.resolve(null),
-    ehBiblioteca ? carregarVendasBiblioteca() : Promise.resolve(null),
+    ehBiblioteca ? carregarLivrosBiblioteca(range) : Promise.resolve(null),
+    ehBiblioteca ? carregarVendasBiblioteca(range) : Promise.resolve(null),
+    ehBiblioteca ? consultarOrigemBiblioteca(range) : Promise.resolve(null),
   ]);
 
   return (
@@ -44,7 +57,12 @@ export default async function FunilDetalhePage({ params }: { params: Promise<{ i
       <PainelTopo
         titulo={meta.produto}
         voltar={{ href: "/painel/funis", rotulo: "Todos os funis" }}
-        controles={<span className="painel-badge">{meta.tipo}</span>}
+        controles={
+          <>
+            <FiltroData />
+            <span className="painel-badge">{meta.tipo}</span>
+          </>
+        }
         acoes={
           <a
             href={meta.urlPublica}
@@ -69,6 +87,8 @@ export default async function FunilDetalhePage({ params }: { params: Promise<{ i
               As três primeiras etapas vêm do navegador e <b>subestimam</b>: parte do público chega
               pelo TikTok e bloqueia analytics. As duas últimas vêm do banco e são exatas. Não
               divida uma pela outra para achar conversão; para comparar livros entre si, serve.
+              Pedido pago antes de 28/08/2026 não aparece em &quot;pagou&quot;: o evento de pagamento
+              só passou a se ligar à visita da mesma pessoa a partir dessa data.
             </p>
           )}
         </section>
@@ -89,21 +109,39 @@ export default async function FunilDetalhePage({ params }: { params: Promise<{ i
       {vendas && vendas.maisComprados.length > 0 && (
         <section className="mb-8">
           <Rotulo>Livros mais comprados</Rotulo>
-          <FunilEtapas etapas={vendas.maisComprados} vazio="Nenhuma compra ainda." />
+          <RankingLivros etapas={vendas.maisComprados} vazio="Nenhuma compra ainda." />
         </section>
       )}
 
       {biblioteca?.vistos && (
         <section className="mb-8">
           <Rotulo>Livros mais abertos</Rotulo>
-          <FunilEtapas etapas={biblioteca.vistos} vazio="Nenhuma visita a livro ainda." />
+          <RankingLivros etapas={biblioteca.vistos} vazio="Nenhuma visita a livro ainda." />
         </section>
       )}
 
       {biblioteca?.noCarrinho && (
         <section className="mb-8">
           <Rotulo>Livros mais postos no carrinho</Rotulo>
-          <FunilEtapas etapas={biblioteca.noCarrinho} vazio="Nenhum livro no carrinho ainda." />
+          <RankingLivros etapas={biblioteca.noCarrinho} vazio="Nenhum livro no carrinho ainda." />
+        </section>
+      )}
+
+      {vendas && vendas.porOrigem.length > 0 && (
+        <section className="mb-8">
+          <Rotulo>De onde vieram as vendas</Rotulo>
+          <FunilEtapas etapas={vendas.porOrigem} vazio="Nenhuma venda ainda." />
+          <p className="mt-2 text-xs" style={{ color: "var(--ink-soft)" }}>
+            Perfil (utm_content) quando existe, senão canal (utm_source), senão &quot;direto&quot;.
+            Pedido pago antes de 28/08/2026 cai em &quot;sem registro&quot;: a coluna não existia.
+          </p>
+        </section>
+      )}
+
+      {ehBiblioteca && origem && (
+        <section className="mb-8">
+          <Rotulo>De onde vieram as visitas</Rotulo>
+          <FunilEtapas etapas={origem} vazio="Sem visita registrada ainda." />
         </section>
       )}
 
