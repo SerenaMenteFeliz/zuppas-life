@@ -28,6 +28,25 @@
 
 const COLUNA_DATA_LEAD_EVENTS = "signed_at";
 
+/* Rótulo legível por event_type. `bo_checkout_identificado` e `bo_pix_gerado`
+   entraram em 28/08/2026 com a captura de lead da Biblioteca, e a diferença
+   entre os dois é o que a tela precisa deixar óbvia:
+
+     identificado, sem pix   desistiu ANTES de ver o valor final
+     pix gerado, sem compra  desistiu na hora de pagar
+
+   São dois problemas diferentes e pedem respostas diferentes. Sem rótulo, os
+   dois apareceriam como o slug cru e ninguém leria a diferença. */
+const ROTULO_EVENTO: Record<string, string> = {
+  isca: "baixou a isca",
+  bo_checkout_identificado: "escreveu o e-mail no checkout",
+  bo_pix_gerado: "gerou o Pix",
+};
+
+/* De qual produto o evento veio. `offer`/`product` da Biblioteca são
+   `biblioteca-oculta`; o resto hoje é Método Cálice. */
+const PRODUTO_BIBLIOTECA = "biblioteca-oculta";
+
 export type FonteContato = "quiz" | "biblioteca" | "acesso";
 
 export type EventoContato = {
@@ -50,6 +69,10 @@ export type Pessoa = {
   gastoCentavos: number;
   pedidosPagos: number;
   produtos: string[];
+  /* Até onde a pessoa chegou no checkout da Biblioteca. Guardado como booleano
+     e não deduzido do rótulo do evento, porque rótulo é texto de tela e muda. */
+  escreveuEmail: boolean;
+  gerouPix: boolean;
 };
 
 type ContactRow = {
@@ -188,6 +211,8 @@ export async function carregarContatos(): Promise<{
         gastoCentavos: 0,
         pedidosPagos: 0,
         produtos: [],
+        escreveuEmail: false,
+        gerouPix: false,
       };
       pessoas.set(chave, p);
     }
@@ -211,15 +236,24 @@ export async function carregarContatos(): Promise<{
     const dono = ev.contact_id ? porId.get(ev.contact_id) : null;
     const p = pegar(dono?.email ?? null, dono?.name ?? null);
     if (!p) continue;
-    marcarFonte(p, "quiz");
+    /* A fonte sai do produto do evento, não do fato de vir de lead_events.
+       Antes de 28/08/2026 só o quiz escrevia nessa tabela, então "veio de
+       lead_events" e "veio do quiz" eram a mesma coisa. Deixaram de ser no dia
+       em que a Biblioteca passou a capturar lead. */
+    const daBiblioteca = ev.product === PRODUTO_BIBLIOTECA || ev.offer === PRODUTO_BIBLIOTECA;
+    const fonte: FonteContato = daBiblioteca ? "biblioteca" : "quiz";
+
+    marcarFonte(p, fonte);
+    if (ev.event_type === "bo_checkout_identificado") p.escreveuEmail = true;
+    if (ev.event_type === "bo_pix_gerado") p.gerouPix = true;
     if (!p.origem && ev.utm_source) p.origem = ev.utm_source;
     p.primeiroContato = maisAntigo(p.primeiroContato, ev.signed_at);
     p.ultimaAtividade = maisRecente(p.ultimaAtividade, ev.signed_at);
     p.eventos.push({
       quando: ev.signed_at,
-      rotulo: ev.event_type ?? "evento",
+      rotulo: ROTULO_EVENTO[ev.event_type ?? ""] ?? ev.event_type ?? "evento",
       detalhe: [ev.offer, ev.product].filter(Boolean).join(" · ") || null,
-      fonte: "quiz",
+      fonte,
     });
   }
 

@@ -16,7 +16,13 @@ export default async function ContatosPage() {
 
   const comCompra = pessoas.filter((p) => p.pedidosPagos > 0).length;
   const receita = pessoas.reduce((s, p) => s + p.gastoCentavos, 0);
-  const comWhatsapp = pessoas.filter((p) => p.whatsapp).length;
+
+  /* Os dois abandonos, separados de propósito (28/08/2026). Quem parou antes
+     do Pix desistiu sem ver o valor final; quem gerou o Pix e não pagou
+     desistiu com o valor na tela. Somar os dois num número só apagaria a única
+     informação útil que eles carregam. */
+  const paroudAntesDoPix = pessoas.filter((p) => p.escreveuEmail && !p.gerouPix && p.pedidosPagos === 0).length;
+  const paroudNoPix = pessoas.filter((p) => p.gerouPix && p.pedidosPagos === 0).length;
 
   return (
     <>
@@ -49,7 +55,30 @@ export default async function ContatosPage() {
             valor={`R$ ${(receita / 100).toFixed(2).replace(".", ",")}`}
             nota="Só pedido pago da Biblioteca"
           />
-          <Card rotulo="Com WhatsApp" valor={String(comWhatsapp)} />
+          <Card
+            rotulo="Parou antes do Pix"
+            valor={String(paroudAntesDoPix)}
+            nota="escreveu o e-mail e saiu sem ver o valor final"
+          />
+        </section>
+
+        <section className="mb-6 grid gap-4 sm:grid-cols-2">
+          <Card
+            rotulo="Gerou Pix e não pagou"
+            valor={String(paroudNoPix)}
+            nota="desistiu com o código na tela"
+          />
+          <div className="glass-card p-5">
+            <p className="text-[0.68rem] uppercase tracking-widest" style={{ color: "var(--ink-soft)" }}>
+              Por que os dois são separados
+            </p>
+            <p className="mt-1.5 text-[0.74rem]" style={{ color: "var(--ink-soft)" }}>
+              Quem para antes do Pix desistiu sem ver o total, e isso fala do preço ou da confiança.
+              Quem gera o Pix e não paga desistiu com o valor na tela, e isso fala do meio de
+              pagamento ou do momento. Somados num número só, os dois deixariam de dizer qualquer
+              coisa.
+            </p>
+          </div>
         </section>
 
         {/* Não é enfeite: a junção por e-mail é o limite real desta tela, e
