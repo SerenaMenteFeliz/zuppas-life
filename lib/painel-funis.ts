@@ -133,9 +133,16 @@ export async function carregarResumoProdutos(): Promise<ResumoProduto[]> {
        resumo dela sai da tabela própria. Aqui "leads" é PEDIDO CRIADO e
        "compras" é PEDIDO PAGO, e a lista troca o rótulo pra não mentir. */
     if (produtoSlug === "biblioteca-oculta") {
-      const criados = vendasBiblioteca.length;
-      const pagos = vendasBiblioteca.filter((p) => p.status === "pago").length;
-      const criados7d = vendasBiblioteca.filter((p) => diasAtras(p.criado_em) <= 7).length;
+      /* `total > 0` exclui os pedidos de CORTESIA (acesso dado à mão pra a
+         família revisar, gravados como `pago` com valor zero). Sem isso a lista
+         mostrava 4 compras num dia de zero venda. Mesma régua de
+         `carregarVendasBiblioteca`, e as duas precisam continuar iguais: se uma
+         filtrar e a outra não, a lista e o detalhe do mesmo produto passam a
+         discordar, que é pior que as duas erradas juntas. */
+      const reais = vendasBiblioteca.filter((p) => (p.total ?? 0) > 0);
+      const criados = reais.length;
+      const pagos = reais.filter((p) => p.status === "pago").length;
+      const criados7d = reais.filter((p) => diasAtras(p.criado_em) <= 7).length;
       return {
         produtoSlug,
         totalLeads: criados,
@@ -599,7 +606,21 @@ export async function carregarVendasBiblioteca(range?: RangeDatas): Promise<Vend
   );
   if (!Array.isArray(pedidos)) return null;
 
-  const pagos = pedidos.filter((p) => p.status === "pago");
+  /* VENDA É `status = pago` E `total > 0`, e a segunda metade foi aprendida caro
+     (29/08/2026).
+
+     `bo_pedidos` também guarda pedidos de CORTESIA: acesso dado à mão pra a
+     família revisar os livros, gravados como `pago` com `total: 0` pra que o
+     leitor os aceite. Contando só por `status`, quatro cortesias com os 31
+     livros cada viravam "4 pedidos pagos" no card de vendas e enchiam o ranking
+     de "livros mais comprados" com 31 livros empatados em 4, num dia de ZERO
+     venda real. O Yan viu isso no painel minutos depois de pedir a limpeza das
+     métricas.
+
+     Receita R$ 0,00 já estava certa; o que mentia era a CONTAGEM. Número de
+     pedidos e ranking de produto são tão métrica quanto dinheiro, e filtrar só
+     onde se soma valor deixa os outros dois errados. */
+  const pagos = pedidos.filter((p) => p.status === "pago" && (p.total ?? 0) > 0);
   const receita = pagos.reduce((soma, p) => soma + (p.total ?? 0), 0);
 
   const porLivro = new Map<string, number>();
@@ -621,7 +642,10 @@ export async function carregarVendasBiblioteca(range?: RangeDatas): Promise<Vend
 
   return {
     pedidosPagos: pagos.length,
-    pedidosAguardando: pedidos.filter((p) => p.status === "aguardando").length,
+    // Mesma régua do `pagos`: cortesia nunca fica "aguardando" (nasce paga), mas
+    // filtrar aqui também impede que um dia alguém crie cortesia por outro
+    // caminho e ela apareça como carrinho abandonado.
+    pedidosAguardando: pedidos.filter((p) => p.status === "aguardando" && (p.total ?? 0) > 0).length,
     receitaCentavos: receita,
     ticketMedioCentavos: pagos.length ? Math.round(receita / pagos.length) : 0,
     maisComprados: [...porLivro.entries()]
