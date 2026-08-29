@@ -1,6 +1,6 @@
 import "server-only";
 import type { EtapaContagem, EtapaGaleria } from "@/components/painel/Funil";
-import { livroBiblioteca, type LivroBiblioteca } from "@/lib/catalogo-biblioteca";
+import { carregarCatalogo, type LivroBiblioteca } from "@/lib/catalogo-biblioteca";
 import { somarDias } from "@/lib/datas";
 
 /* Filtro de datas (28/08/2026, pedido do Yan: "zuppas life ainda não tem
@@ -576,7 +576,8 @@ async function rankingPorSlug(
   const linhas = Array.isArray(data?.results) ? data.results : null;
   if (!linhas) return null;
 
-  return linhas.map((l: [string, number]) => ({ ...livroBiblioteca(l[0]), count: l[1] }));
+  const catalogo = await carregarCatalogo();
+  return linhas.map((l: [string, number]) => ({ ...catalogo(l[0]), count: l[1] }));
 }
 
 export type VendasBiblioteca = {
@@ -614,6 +615,10 @@ export async function carregarVendasBiblioteca(range?: RangeDatas): Promise<Vend
     porOrigem.set(rotulo, (porOrigem.get(rotulo) ?? 0) + 1);
   }
 
+  // Catálogo ao vivo da Biblioteca (título e capa de verdade), com reserva local
+  // se ela estiver fora do ar. Ver `lib/catalogo-biblioteca`.
+  const catalogo = await carregarCatalogo();
+
   return {
     pedidosPagos: pagos.length,
     pedidosAguardando: pedidos.filter((p) => p.status === "aguardando").length,
@@ -622,7 +627,7 @@ export async function carregarVendasBiblioteca(range?: RangeDatas): Promise<Vend
     maisComprados: [...porLivro.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)
-      .map(([slug, n]) => ({ ...livroBiblioteca(slug), count: n })),
+      .map(([slug, n]) => ({ ...catalogo(slug), count: n })),
     porOrigem: [...porOrigem.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([label, count]) => ({ label, count })),
