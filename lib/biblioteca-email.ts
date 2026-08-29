@@ -12,19 +12,34 @@
 
    SE O E-MAIL DE LÁ MUDAR, ESTE ARQUIVO PRECISA ACOMPANHAR À MÃO. O painel
    avisa a data do espelho na tela, pra que ninguém leia uma prévia velha
-   achando que é o que está sendo enviado hoje. */
+   achando que é o que está sendo enviado hoje.
 
-export const ESPELHADO_EM = "28/08/2026";
+   E O AVISO JÁ COBROU O QUE PROMETIA: em 29/08/2026 o molde de lá foi
+   redesenhado e este espelho ficou pra trás por algumas horas. O Yan viu a
+   prévia branca no painel e perguntou. Funcionou como rede, mas o custo do
+   espelho manual é exatamente esse: alguém precisa lembrar. */
+
+export const ESPELHADO_EM = "29/08/2026";
 
 const SITE = "https://bibliotecaoculta.serenamentefeliz.com";
 
 /* O molde real, caractere por caractere igual ao de `api/_email.js`.
 
-   Ele é deliberadamente pobre: sem imagem, sem tabela de layout, sem web
-   font. Isso NÃO é descuido de design, é escolha de entregabilidade escrita
-   no comentário da função original: e-mail de entrega precisa CHEGAR, e
-   quanto mais leve e mais parecido com mensagem escrita por gente, melhor
-   passa em filtro. A atmosfera da casa mora no site, aqui mora a informação. */
+   REDESENHADO EM 29/08/2026. Ele era branco e genérico, justificado por
+   entregabilidade. A justificativa estava misturando duas coisas: o que custa
+   entrega em filtro é imagem, anexo, encurtador e HTML sem alternativa em
+   texto. Cor e fonte não movem spam score. E este é o primeiro contato depois
+   do pagamento num nicho onde a objeção número um é "isso é golpe?", então
+   recibo que não parece a loja aumenta a dúvida no pior momento.
+
+   O que continua valendo, e não deve ser afrouxado: SEM IMAGEM (cliente de
+   e-mail bloqueia por padrão), SEM WEB FONT (Gmail e Outlook removem
+   `@font-face`, então Cinzel não renderiza de jeito nenhum e Georgia é a
+   serifa que existe em todo aparelho), e SEMPRE com versão em texto puro.
+
+   A estrutura é de TABELA porque o Outlook do Windows renderiza com o motor do
+   Word, que ignora `max-width`, `border-radius` e background em `<div>`. Sem
+   tabela, o fundo escuro vira texto claro sobre branco lá. */
 function molde({
   titulo,
   corpo,
@@ -36,15 +51,69 @@ function molde({
   url: string;
   rotuloBotao: string;
 }) {
-  return `<!doctype html><html lang="pt-BR"><body style="margin:0;padding:24px;background:#f5f3f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#26202e">
-<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:8px;padding:32px 28px">
-<h1 style="margin:0 0 18px;font-size:20px;font-weight:600;color:#16121c">${titulo}</h1>
-${corpo.map((p) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6">${p}</p>`).join("")}
-<p style="margin:26px 0 22px"><a href="${url}" style="display:inline-block;background:#4b2e83;color:#fff;text-decoration:none;padding:13px 24px;border-radius:5px;font-size:15px">${rotuloBotao}</a></p>
-<p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#5c5566">Se o botão não abrir, copie este endereço:</p>
-<p style="margin:0 0 24px;font-size:13px;line-height:1.6;color:#5c5566;word-break:break-all">${url}</p>
-<p style="margin:0;padding-top:18px;border-top:1px solid #e7e3ee;font-size:12px;line-height:1.6;color:#8b8496">Você recebeu este e-mail porque fez uma compra na Biblioteca Oculta. Este endereço envia apenas entrega de pedido e recuperação de acesso.</p>
-</div></body></html>`;
+  const SERIFA = "Georgia,'Times New Roman',Times,serif";
+  const UI = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif";
+  const FUNDO = "#0b0710";
+  const CARTAO = "#15101f";
+  const FIO = "#2c2340";
+  const PRATA = "#e6e1f0";
+  const PRATA_FOSCO = "#a79fbd";
+  const ROXO = "#5b3ba8";
+
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
+<title>${titulo}</title>
+</head>
+<body style="margin:0;padding:0;background:${FUNDO};color:${PRATA}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${FUNDO}" style="background:${FUNDO};margin:0;padding:0">
+<tr><td align="center" style="padding:32px 16px">
+
+<table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" style="width:520px;max-width:100%;background:${CARTAO};border:1px solid ${FIO}" bgcolor="${CARTAO}">
+
+<tr><td align="center" style="padding:30px 30px 0">
+<div style="font-family:${SERIFA};font-size:12px;letter-spacing:4px;color:${PRATA_FOSCO};text-transform:uppercase">Biblioteca Oculta</div>
+<div style="font-size:1px;line-height:1px;height:22px">&nbsp;</div>
+<div style="height:1px;background:${FIO};font-size:1px;line-height:1px">&nbsp;</div>
+</td></tr>
+
+<tr><td style="padding:26px 30px 0">
+<h1 style="margin:0;font-family:${SERIFA};font-size:23px;font-weight:normal;line-height:1.3;color:${PRATA}">${titulo}</h1>
+</td></tr>
+
+<tr><td style="padding:16px 30px 0;font-family:${SERIFA};font-size:16px;line-height:1.65;color:${PRATA_FOSCO}">
+${corpo.map((p) => `<p style="margin:0 0 15px">${p}</p>`).join("")}
+</td></tr>
+
+<tr><td align="center" style="padding:14px 30px 4px">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td align="center" bgcolor="${ROXO}" style="background:${ROXO};border:1px solid #7a5ccc">
+<a href="${url}" style="display:block;padding:15px 30px;font-family:${SERIFA};font-size:13px;letter-spacing:2.5px;text-transform:uppercase;color:#ffffff;text-decoration:none">${rotuloBotao}</a>
+</td></tr></table>
+</td></tr>
+
+<tr><td style="padding:24px 30px 0;font-family:${UI};font-size:12.5px;line-height:1.6;color:#8b83a3">
+<p style="margin:0 0 5px">Se o botão não abrir, copie este endereço:</p>
+<p style="margin:0;word-break:break-all"><a href="${url}" style="color:#9b8fc4;text-decoration:none">${url}</a></p>
+</td></tr>
+
+<tr><td style="padding:24px 30px 28px">
+<div style="height:1px;background:${FIO};font-size:1px;line-height:1px">&nbsp;</div>
+<p style="margin:16px 0 0;font-family:${UI};font-size:11.5px;line-height:1.6;color:#6f6889">Você recebeu este e-mail porque fez uma compra na Biblioteca Oculta. Este endereço envia apenas entrega de pedido e recuperação de acesso, nunca promoção.</p>
+</td></tr>
+
+</table>
+
+<div style="font-family:${UI};font-size:11px;line-height:1.6;color:#565068;padding:18px 10px 0;max-width:520px">
+Tradição popular brasileira de simpatias e rituais. Não substitui orientação médica, psicológica ou jurídica.
+</div>
+
+</td></tr>
+</table>
+</body></html>`;
 }
 
 export type EmailBiblioteca = {
