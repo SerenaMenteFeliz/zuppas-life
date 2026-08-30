@@ -830,6 +830,11 @@ body {
      número. */
   --barra: 0.75rem;
   --barra-fio: 4px;
+
+  /* Altura do esmaecido no fim da coluna do quadro. É também o espaço morto
+     reservado lá dentro, pra que o degradê caia sobre vazio no fim da rolagem
+     (ver `.conteudo-coluna-corpo`). */
+  --fade-coluna: 1.5rem;
 }
 
 .painel-bg {
@@ -1910,82 +1915,49 @@ textarea {
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--esp-2);
   overflow-y: auto;
-  /* O truque do espaçamento, 3ª e última volta (30/08/2026).
-
-     A barra de rolagem clássica come largura da área de rolagem. Isso deixava
-     o card da coluna que rola mais estreito e afastado da borda direita do que
-     das outras colunas: o respiro da direita ficava `--esp-3` MAIS a barra, e
-     o da esquerda só `--esp-3`.
-
-     A conta que iguala os dois lados: puxar a área de rolagem pra fora em
-     exatamente a largura da barra, e não mais que isso. Assim a borda direita
-     do card volta pro mesmo `--esp-3` da esquerda, e a barra passa a morar
-     dentro do padding da coluna, centrada entre o card e a borda.
-
-     Foi tentado antes com `padding-right` junto do `margin-right`: aquilo
-     empurrava o card de volta pra dentro e recriava a assimetria, só que
-     menor. Aqui não tem padding: a compensação é uma só. */
-  margin-right: calc(var(--barra) * -1);
-  /* E a calha reservada SEMPRE, com ou sem barra à vista.
-
-     Sem ela, a compensação acima só valia na coluna que rola: medido no
-     navegador em 30/08, a coluna cheia ficava com 13px de um lado e 17 do
-     outro, e a coluna curta (sem barra) com 13 e 7. Ou seja, o desencontro
-     mudava de coluna pra coluna na mesma tela, que é pior do que ser
-     assimétrico por igual.
-
-     Com a calha fixa as duas situações viram a mesma conta: a barra ocupa
-     `--barra`, a margem negativa devolve `--barra`, e o card fica a `--esp-3`
-     das duas bordas em qualquer coluna. */
-  scrollbar-gutter: stable;
-  /* Respiro depois do último card, pra ele não terminar colado na borda de
-     baixo quando a coluna está rolada até o fim. */
-  padding-bottom: 2px;
   /* A rolagem da coluna não vira rolagem da página ao chegar no fim. */
   overscroll-behavior-y: contain;
+  /* Espaço morto no fim, do tamanho exato do esmaecido abaixo. É o que faz o
+     gradiente cair sobre vazio quando a coluna está rolada até o fim, em vez de
+     esmaecer o último card e mentir que ainda tem coisa embaixo. */
+  padding-bottom: var(--fade-coluna);
+  /* O esmaecido em si. Máscara e não gradiente pintado por cima: a coluna tem
+     fundo de vidro (translúcido), então um degradê de cor sólida por cima nunca
+     casaria com o que está atrás dele. A máscara apaga o próprio conteúdo, sem
+     precisar acertar cor nenhuma. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--fade-coluna)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--fade-coluna)),
+    transparent 100%
+  );
 }
 
-/* ── Barra de rolagem das colunas ─────────────────────────────────────────────
+/* ── Barra escondida, e por quê (30/08/2026, decisão do Yan) ──────────────────
 
-   A barra padrão do Windows tem 17px e desenha setas nas pontas: dentro de uma
-   coluna de 230px ela é a coisa mais pesada da tela, e as setas leem como
-   controle clicável de alguma coisa. Aqui vira um fio de 6px que aparece sobre
-   o fundo da coluna.
+   Três tentativas foram gastas alinhando o card com a barra de rolagem: barra
+   ocupa largura, largura tem que ser compensada, e a compensação muda conforme
+   a coluna rola ou não. Cada correção resolvia um caso e desalinhava o outro.
 
-   As duas sintaxes existem porque são motores diferentes, não redundância:
-   `scrollbar-width`/`scrollbar-color` é o padrão (Firefox e navegadores
-   recentes) e `::-webkit-scrollbar` é o que o Chrome ainda obedece. */
-/* `scrollbar-width` (a propriedade padrão) NÃO entra junto com
-   `::-webkit-scrollbar`: quando ela existe, o Chrome desenha a barra dele e
-   ignora a estilizada. Medido em 30/08: com `thin` a calha dava ~10px em vez
-   dos 6 declarados, e o alinhamento das colunas (que depende do número exato)
-   não fechava. O preço é o Firefox cair na barra padrão dele. */
+   A saída foi tirar a variável da conta. Sem barra, a coluna volta a ter o
+   `--esp-3` de sempre nos dois lados, por construção e não por compensação, e
+   nada mais pode sair do lugar quando o conteúdo cresce.
+
+   O que a barra fazia de útil (dizer "tem mais coisa embaixo") passou a ser
+   feito pelo esmaecido, que é mais honesto: ele aparece quando há conteúdo
+   cortado e some quando acaba. Rolar continua funcionando por roda, trackpad,
+   teclado e toque. */
+.conteudo-coluna-corpo {
+  scrollbar-width: none;
+}
+
 .conteudo-coluna-corpo::-webkit-scrollbar {
-  width: var(--barra);
-}
-
-.conteudo-coluna-corpo::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.conteudo-coluna-corpo-scrollbar-thumb {
-  border: calc((var(--barra) - var(--barra-fio)) / 2) solid transparent;
-  border-radius: 9999px;
-  /* Sem isto a cor pinta por baixo da borda transparente e o fio volta a ter a
-     largura do trilho inteiro. */
-  background-clip: padding-box;
-  background-color: var(--line);
-}
-
-.conteudo-coluna-corpo:hover::-webkit-scrollbar-thumb {
-  background-color: var(--ink-soft);
-}
-
-/* As setas das pontas. `display: none` some com elas; sem isto o Chrome no
-   Windows desenha dois quadrados nas extremidades da barra de 6px. */
-.conteudo-coluna-corpo::-webkit-scrollbar-button {
   display: none;
 }
 
