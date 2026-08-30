@@ -772,6 +772,53 @@ body {
      mexia no enquadramento a cada clique. Um número só, aqui (Yan, 22/08/2026:
      padronizar pela largura da aba de Conteúdo, que é a que ele já gostava). */
   --painel-largura: 1400px;
+
+  /* ── Escala do painel (30/08/2026) ───────────────────────────────────────
+
+     Por que existe: contei os valores soltos no arquivo antes de escrever isto
+     e deu **27 tamanhos de fonte distintos e 15 raios de canto**. Nenhum deles
+     estava errado sozinho; juntos, é o que faz a plataforma parecer montada em
+     dias diferentes, que foi o que o Yan descreveu. Escolher entre 0,72rem e
+     0,74rem não é decisão de design, é decisão que não devia existir.
+
+     Quatro degraus de texto, e cada um tem um PAPEL, não um tamanho:
+
+     - `--txt-xs`  rótulo, meta, dado de apoio. Nunca conteúdo principal.
+     - `--txt-sm`  o corpo do painel: célula de tabela, chip, botão, campo.
+     - `--txt-md`  o que a pessoa lê primeiro num bloco (título de card, item
+                   de navegação).
+     - `--txt-lg`  título de seção. Um por tela.
+
+     A regra pra usar: escolher pelo papel do texto, e se nenhum degrau servir,
+     o problema é a hierarquia, não a escala. Degrau novo só entra aqui, e
+     nunca solto numa regra.
+
+     Espaçamento em múltiplos de 0,25rem (4px), que é o passo que o resto da
+     tela já usava sem dizer. Raio em três degraus: peça pequena, caixa, painel.
+
+     Aplicado na aba de Conteúdo primeiro, que é a que está em uso; o resto do
+     painel migra quando for mexido, e não numa varredura só, que seria
+     reescrever 3 mil linhas de CSS sem ninguém pra conferir na tela. */
+  --txt-xs: 0.68rem;
+  --txt-sm: 0.78rem;
+  --txt-md: 0.875rem;
+  --txt-lg: 1.05rem;
+
+  --esp-1: 0.25rem;
+  --esp-2: 0.5rem;
+  --esp-3: 0.75rem;
+  --esp-4: 1rem;
+  --esp-5: 1.5rem;
+
+  --raio-xs: 6px;
+  --raio-sm: 8px;
+  --raio-md: 10px;
+  --raio-lg: 14px;
+
+  /* Espessura das barras de rolagem próprias. Vive aqui porque o alinhamento
+     das colunas do quadro depende de o CSS saber esse número (ver
+     `.conteudo-coluna-corpo`). */
+  --barra: 6px;
 }
 
 .painel-bg {
@@ -1191,18 +1238,6 @@ textarea {
 
 /* Dropdown de status dentro do card do quadro: ocupa a largura do card e fica
    discreto, porque ali ele é rodapé de um cartão, não o campo principal. */
-.conteudo-status-card {
-  display: flex;
-  width: 100%;
-  margin-top: 0.5rem;
-}
-
-.conteudo-status-card .pn-drop-botao {
-  padding: 0.35rem 0.5rem;
-  font-size: 0.72rem;
-  color: var(--ink-soft);
-}
-
 /* Dropdown de função da fala: largura fixa pra que trocar "sem função" por
    "Contexto" não faça a linha inteira do roteiro dançar. */
 .conteudo-fala-funcao {
@@ -1212,7 +1247,7 @@ textarea {
 
 .conteudo-fala-funcao .pn-drop-botao {
   padding: 0.3rem 0.5rem;
-  font-size: 0.72rem;
+  font-size: var(--txt-xs);
 }
 
 /* Seletor de visão: botões colados num bloco só, não chips soltos. Colados,
@@ -1225,14 +1260,14 @@ textarea {
   padding: 3px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--raio-md);
 }
 
 .conteudo-visao {
-  padding: 0.32rem 0.75rem;
-  font-size: 0.78rem;
+  padding: 0.32rem var(--esp-3);
+  font-size: var(--txt-sm);
   color: var(--ink-soft);
-  border-radius: 7px;
+  border-radius: var(--raio-sm);
   white-space: nowrap;
   transition: color 0.12s ease, background 0.12s ease;
 }
@@ -1398,7 +1433,7 @@ textarea {
    compacta, não num letreiro. */
 .conteudo-topo-h1 {
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: var(--txt-lg);
   line-height: 1.2;
   /* Título longo não pode empurrar o status e o voltar pra fora da faixa. */
   overflow: hidden;
@@ -1426,12 +1461,12 @@ textarea {
   align-items: center;
   gap: 0.3rem;
   padding: 0.45rem 0.9rem;
-  font-size: 0.78rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
   color: var(--accent);
   background: var(--accent-wash);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: 9px;
+  border-radius: var(--raio-sm);
   white-space: nowrap;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
@@ -1448,12 +1483,12 @@ textarea {
 
 .conteudo-botao-perigo {
   padding: 0.45rem 0.9rem;
-  font-size: 0.78rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
   color: var(--perigo);
   background: color-mix(in srgb, var(--perigo) 7%, transparent);
   border: 1px solid color-mix(in srgb, var(--perigo) 45%, transparent);
-  border-radius: 9px;
+  border-radius: var(--raio-sm);
 }
 
 .conteudo-botao-perigo:hover {
@@ -1465,7 +1500,7 @@ textarea {
 /* Indicador do autosave. Ocupa o lugar do botão que saiu, e por isso precisa
    ser discreto e nunca sumir: é a única prova de que o trabalho está gravado. */
 .conteudo-salvo {
-  font-size: 0.74rem;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
   white-space: nowrap;
 }
@@ -1478,27 +1513,27 @@ textarea {
 .conteudo-select,
 .conteudo-select-status {
   padding: 0.45rem 0.6rem;
-  font-size: 0.8rem;
+  font-size: var(--txt-sm);
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: var(--raio-sm);
 }
 
 .conteudo-select-status {
   width: 100%;
   margin-top: 0.5rem;
-  font-size: 0.72rem;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
 }
 
 .conteudo-botao {
   padding: 0.5rem 1rem;
-  font-size: 0.82rem;
+  font-size: var(--txt-sm);
   font-weight: 600;
   color: var(--accent-foreground);
   background: var(--accent);
-  border-radius: 9px;
+  border-radius: var(--raio-sm);
   transition: opacity 0.15s ease;
 }
 
@@ -1525,13 +1560,13 @@ textarea {
   padding: 0.7rem 0.85rem;
   background: color-mix(in srgb, var(--terracotta) 8%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--terracotta) 35%, transparent);
-  border-radius: 11px;
+  border-radius: var(--raio-md);
 }
 
 .conteudo-confirma-pergunta {
   flex: 1 1 240px;
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--txt-sm);
   line-height: 1.45;
   color: var(--ink);
 }
@@ -1546,9 +1581,9 @@ textarea {
 .conteudo-confirma-sim,
 .conteudo-confirma-nao {
   padding: 0.4rem 0.75rem;
-  font-size: 0.76rem;
+  font-size: var(--txt-xs);
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: var(--raio-sm);
   white-space: nowrap;
 }
 
@@ -1717,11 +1752,11 @@ textarea {
   gap: 0.5rem;
   margin-top: 0.5rem;
   padding: 0.45rem 0.6rem;
-  font-size: 0.76rem;
+  font-size: var(--txt-xs);
   color: var(--ink);
   background: color-mix(in srgb, var(--terracotta) 8%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--terracotta) 30%, transparent);
-  border-radius: 9px;
+  border-radius: var(--raio-sm);
 }
 
 .conteudo-fala-confirma > span,
@@ -1744,7 +1779,7 @@ textarea {
 
 .conteudo-vazio-inline {
   padding: 1rem 0;
-  font-size: 0.82rem;
+  font-size: var(--txt-sm);
   color: var(--ink-soft);
 }
 
@@ -1813,13 +1848,8 @@ textarea {
 /* A barra horizontal do quadro segue a mesma linguagem das verticais das
    colunas: fio fino, sem setas. Ela só aparece quando as cinco colunas não
    cabem na largura. */
-.conteudo-quadro {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
-}
-
 .conteudo-quadro::-webkit-scrollbar {
-  height: 6px;
+  height: var(--barra);
 }
 
 .conteudo-quadro::-webkit-scrollbar-track {
@@ -1843,10 +1873,10 @@ textarea {
      acontece. É a mesma armadilha do `min-width: 0` em filho de flex. */
   min-height: 0;
   flex-direction: column;
-  padding: 0.75rem;
+  padding: var(--esp-3);
   background: var(--glass);
   border: 1px solid var(--glass-border);
-  border-radius: 14px;
+  border-radius: var(--raio-lg);
 }
 
 /* Cabeçalho e ajuda ficam fora da área que rola, então o pill de status e a
@@ -1867,23 +1897,37 @@ textarea {
   flex-direction: column;
   gap: 0.5rem;
   overflow-y: auto;
-  /* O truque do espaçamento (30/08/2026, 2ª volta).
+  /* O truque do espaçamento, 3ª e última volta (30/08/2026).
 
-     Antes era `scrollbar-gutter: stable`, que reserva uma calha do tamanho da
-     barra do sistema DENTRO da área de rolagem. Resultado no Windows: os cards
-     da coluna que rola ficavam mais estreitos e deslocados pra esquerda em
-     relação aos das colunas que não rolam, e a barra encostava neles. Era o
-     desencontro que o Yan descreveu como agoniante.
+     A barra de rolagem clássica come largura da área de rolagem. Isso deixava
+     o card da coluna que rola mais estreito e afastado da borda direita do que
+     das outras colunas: o respiro da direita ficava `--esp-3` MAIS a barra, e
+     o da esquerda só `--esp-3`.
 
-     Agora a área de rolagem sangra pra dentro do padding da própria coluna
-     (`padding-right` positivo cancelado por `margin-right` negativo do mesmo
-     tamanho): o card mantém a largura das outras colunas e a barra, fininha,
-     mora no respiro que já existia entre o card e a borda. */
-  padding-right: 0.45rem;
-  margin-right: -0.45rem;
+     A conta que iguala os dois lados: puxar a área de rolagem pra fora em
+     exatamente a largura da barra, e não mais que isso. Assim a borda direita
+     do card volta pro mesmo `--esp-3` da esquerda, e a barra passa a morar
+     dentro do padding da coluna, centrada entre o card e a borda.
+
+     Foi tentado antes com `padding-right` junto do `margin-right`: aquilo
+     empurrava o card de volta pra dentro e recriava a assimetria, só que
+     menor. Aqui não tem padding: a compensação é uma só. */
+  margin-right: calc(var(--barra) * -1);
+  /* E a calha reservada SEMPRE, com ou sem barra à vista.
+
+     Sem ela, a compensação acima só valia na coluna que rola: medido no
+     navegador em 30/08, a coluna cheia ficava com 13px de um lado e 17 do
+     outro, e a coluna curta (sem barra) com 13 e 7. Ou seja, o desencontro
+     mudava de coluna pra coluna na mesma tela, que é pior do que ser
+     assimétrico por igual.
+
+     Com a calha fixa as duas situações viram a mesma conta: a barra ocupa
+     `--barra`, a margem negativa devolve `--barra`, e o card fica a `--esp-3`
+     das duas bordas em qualquer coluna. */
+  scrollbar-gutter: stable;
   /* Respiro depois do último card, pra ele não terminar colado na borda de
      baixo quando a coluna está rolada até o fim. */
-  padding-bottom: 0.15rem;
+  padding-bottom: 2px;
   /* A rolagem da coluna não vira rolagem da página ao chegar no fim. */
   overscroll-behavior-y: contain;
 }
@@ -1898,13 +1942,13 @@ textarea {
    As duas sintaxes existem porque são motores diferentes, não redundância:
    `scrollbar-width`/`scrollbar-color` é o padrão (Firefox e navegadores
    recentes) e `::-webkit-scrollbar` é o que o Chrome ainda obedece. */
-.conteudo-coluna-corpo {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
-}
-
+/* `scrollbar-width` (a propriedade padrão) NÃO entra junto com
+   `::-webkit-scrollbar`: quando ela existe, o Chrome desenha a barra dele e
+   ignora a estilizada. Medido em 30/08: com `thin` a calha dava ~10px em vez
+   dos 6 declarados, e o alinhamento das colunas (que depende do número exato)
+   não fechava. O preço é o Firefox cair na barra padrão dele. */
 .conteudo-coluna-corpo::-webkit-scrollbar {
-  width: 6px;
+  width: var(--barra);
 }
 
 .conteudo-coluna-corpo::-webkit-scrollbar-track {
@@ -1930,7 +1974,7 @@ textarea {
    navegação dentro da coluna, e um botão cheio ali competiria com os cards. */
 .conteudo-coluna-mais {
   padding: 0.4rem 0.2rem;
-  font-size: 0.75rem;
+  font-size: var(--txt-xs);
   font-weight: 600;
   color: var(--accent);
   text-align: center;
@@ -1951,62 +1995,108 @@ textarea {
   color: var(--cor, var(--ink));
   background: color-mix(in srgb, var(--cor, var(--ink)) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--cor, var(--ink)) 28%, transparent);
-  font-size: 0.74rem;
+  font-size: var(--txt-xs);
 }
 
 .conteudo-coluna-contagem {
-  font-size: 0.72rem;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
 }
 
 .conteudo-coluna-ajuda {
-  margin: 0.15rem 0 0.75rem;
-  font-size: 0.66rem;
+  margin: 0.15rem 0 var(--esp-3);
+  font-size: var(--txt-xs);
   line-height: 1.35;
   color: var(--ink-soft);
 }
 
 .conteudo-coluna-vazia {
-  padding: 0.5rem 0;
-  font-size: 0.72rem;
+  padding: var(--esp-2) 0;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
 }
 
+/* Card do quadro: duas linhas, ~52px. Ver o comentário no ConteudoQuadro pra
+   régua que decidiu o que sai e o que fica. */
 .conteudo-card {
-  padding: 0.7rem;
+  padding: var(--esp-2) 0.6rem;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 11px;
-  transition: opacity 0.15s ease, border-color 0.15s ease;
+  border-radius: var(--raio-md);
+  cursor: pointer;
+  transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 
+/* O card inteiro é alvo de clique, então o hover precisa dizer isso do card
+   inteiro, e não só da borda: sem o fundo, a única resposta ao mouse era um fio
+   de 1px mudando de tom. */
 .conteudo-card:hover {
   border-color: var(--glass-border);
+  background: var(--accent-wash);
 }
 
+.conteudo-card-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--esp-1);
+}
+
+/* Uma linha, com reticências. O texto inteiro vai no `title` do elemento.
+
+   `min-width: 0` porque ele é filho de flex: sem isso o título não encolhe, e
+   em vez de cortar com reticências ele empurra o botão de mover pra fora. */
 .conteudo-card-titulo {
   display: block;
-  font-size: 0.84rem;
-  line-height: 1.3;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--txt-sm);
+  line-height: 1.35;
   color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .conteudo-card-titulo:hover {
   color: var(--accent);
 }
 
-.conteudo-card-meta,
-.conteudo-card-rodape {
+.conteudo-card-mover {
+  flex: none;
+  /* Sobe 1px pra alinhar o centro óptico da seta com a linha do título, que
+     tem `line-height` maior que a caixa do botão. */
+  margin-top: -1px;
+}
+
+.conteudo-card-meta {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.4rem;
-  font-size: 0.68rem;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  margin-top: var(--esp-1);
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
 }
 
-.conteudo-card-rodape {
-  justify-content: space-between;
+/* Quem: encolhe primeiro. A bolinha colorida já diz de quem é, então perder o
+   fim do @ é barato; perder a data não é. */
+.conteudo-card-quem {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.conteudo-card-perfil {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conteudo-card-quando {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--esp-1);
 }
 
 .conteudo-card-sep {
@@ -2021,13 +2111,13 @@ textarea {
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--raio-lg);
   overflow: hidden;
 }
 
 .conteudo-cal-cabecalho {
-  padding: 0.45rem 0.5rem;
-  font-size: 0.64rem;
+  padding: 0.45rem var(--esp-2);
+  font-size: var(--txt-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -2054,8 +2144,8 @@ textarea {
 
 .conteudo-cal-numero {
   display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.68rem;
+  margin-bottom: var(--esp-1);
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
 }
 
@@ -2063,12 +2153,12 @@ textarea {
   display: block;
   margin-bottom: 0.2rem;
   padding: 0.2rem 0.35rem;
-  font-size: 0.68rem;
+  font-size: var(--txt-xs);
   line-height: 1.25;
   color: var(--ink);
   background: var(--accent-wash);
   border-left: 3px solid var(--ink-soft);
-  border-radius: 5px;
+  border-radius: var(--raio-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2095,8 +2185,8 @@ textarea {
    varrer de cima a baixo procurando o número grande. Em chips lado a lado, a
    idade viraria mais um pedaço de texto no meio da frase. */
 .conteudo-semdata {
-  margin-top: 1.25rem;
-  padding: 0.9rem 1rem 1rem;
+  margin-top: var(--esp-5);
+  padding: var(--esp-3) var(--esp-4) var(--esp-4);
 }
 
 .conteudo-semdata-topo {
@@ -2109,7 +2199,7 @@ textarea {
 }
 
 .conteudo-semdata-titulo {
-  font-size: 0.68rem;
+  font-size: var(--txt-xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -2125,10 +2215,16 @@ textarea {
   gap: 0.5rem;
 }
 
+/* Grade e não coluna (30/08/2026, conferido no navegador): cada item é um
+   título curto e a idade, então uma linha de 1200px por item deixava 85% da
+   largura vazia e empurrava o card pra fora da tela. Com `auto-fill` o card se
+   adapta à janela sem breakpoint: 4 colunas num monitor, 1 num notebook
+   estreito. O mínimo de 260px é o ponto em que o título ainda cabe antes das
+   reticências. */
 .conteudo-semdata-lista {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--esp-1);
 }
 
 .conteudo-semdata-item {
@@ -2138,9 +2234,9 @@ textarea {
   gap: 0.75rem;
   padding: 0.45rem 0.6rem;
   border-left: 3px solid var(--ink-soft);
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 var(--raio-sm) var(--raio-sm) 0;
   background: var(--bg);
-  font-size: 0.8rem;
+  font-size: var(--txt-sm);
   color: var(--ink);
 }
 
@@ -2157,7 +2253,7 @@ textarea {
 
 .conteudo-semdata-idade {
   flex: none;
-  font-size: 0.72rem;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
 }
 
@@ -2174,7 +2270,7 @@ textarea {
   min-width: 0;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.7rem;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
 }
 
@@ -2205,11 +2301,11 @@ textarea {
 .conteudo-campo textarea {
   width: 100%;
   padding: 0.42rem 0.6rem;
-  font-size: 0.82rem;
+  font-size: var(--txt-sm);
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--raio-sm);
 }
 
 .conteudo-campo textarea {
@@ -2249,6 +2345,28 @@ textarea {
   border-radius: 8px;
   text-align: left;
   transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+/* Botão de mover do card: só a seta, num alvo de 22px. O rótulo do status
+   saiu porque ele repetia o cabeçalho da coluna (ver ConteudoQuadro). */
+.pn-drop-botao-compacto {
+  width: 1.375rem;
+  height: 1.375rem;
+  justify-content: center;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.pn-drop-botao-compacto:hover {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.pn-drop-botao-compacto .pn-drop-seta {
+  margin-left: 0;
 }
 
 .pn-drop-botao:hover {
@@ -2397,10 +2515,10 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  padding: 0.75rem;
+  padding: var(--esp-3);
   background: var(--glass);
   border: 1px solid var(--glass-border);
-  border-radius: 14px;
+  border-radius: var(--raio-lg);
 }
 
 /* Ponto que acende no botão de visão clicado (ver LinkVisao.tsx). Fica DENTRO
@@ -2480,8 +2598,8 @@ textarea {
    meio e deixava metade da largura vazia ao lado. Aqui é aviso de uma frase, na
    largura do quadro que ele explica, não parágrafo de texto corrido. */
 .conteudo-primeiro-passo {
-  margin-bottom: 1rem;
-  font-size: 0.85rem;
+  margin-bottom: var(--esp-4);
+  font-size: var(--txt-sm);
   line-height: 1.6;
   color: var(--ink-soft);
 }
@@ -2492,8 +2610,8 @@ textarea {
 }
 
 .conteudo-lista-vazia {
-  padding: 1.5rem;
-  font-size: 0.85rem;
+  padding: var(--esp-5);
+  font-size: var(--txt-sm);
   color: var(--ink-soft);
 }
 
@@ -2521,14 +2639,9 @@ textarea {
   }
 }
 
-.conteudo-lista-caixa {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
-}
-
 .conteudo-lista-caixa::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: var(--barra);
+  height: var(--barra);
 }
 
 .conteudo-lista-caixa::-webkit-scrollbar-track {
@@ -2552,7 +2665,7 @@ textarea {
    dava ~36px e cabiam 15 numa tela; com 0,4rem e 0,78rem ela dá ~28px e cabem
    20. É uma linha a cada quatro que antes exigia rolar. */
 .conteudo-lista-tabela {
-  font-size: 0.78rem;
+  font-size: var(--txt-sm);
 }
 
 .conteudo-lista-tabela th {
@@ -2562,7 +2675,7 @@ textarea {
   top: 0;
   z-index: 1;
   padding: 0.45rem 0.6rem;
-  font-size: 0.64rem;
+  font-size: var(--txt-xs);
   background: var(--surface);
 }
 
@@ -2582,7 +2695,7 @@ textarea {
 }
 
 .conteudo-paginacao-conta {
-  font-size: 0.75rem;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
 }
 
@@ -2612,7 +2725,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 9999px;
   background: var(--surface);
-  font-size: 0.8rem;
+  font-size: var(--txt-sm);
   color: var(--ink);
 }
 
@@ -2871,7 +2984,7 @@ textarea {
    à vista (roxo de contorno). */
 .conteudo-chip-acao {
   padding: 0.3rem 0.7rem;
-  font-size: 0.75rem;
+  font-size: var(--txt-xs);
   font-weight: 600;
   white-space: nowrap;
   color: var(--accent);
@@ -2887,7 +3000,7 @@ textarea {
 
 .conteudo-chip-criar {
   padding: 0.3rem 0.75rem;
-  font-size: 0.75rem;
+  font-size: var(--txt-xs);
   font-weight: 600;
   white-space: nowrap;
   color: var(--accent-foreground);
@@ -2919,7 +3032,7 @@ textarea {
   padding: 0.6rem;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: var(--raio-md);
 }
 
 /* Fala gravada: fundo levemente verde e número esmaecido. Serve pra bater o
@@ -2948,7 +3061,7 @@ textarea {
   height: 28px;
   align-items: center;
   justify-content: center;
-  font-size: 0.72rem;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
   background: var(--bg);
   border: 1px solid var(--line);
@@ -2976,12 +3089,12 @@ textarea {
 .conteudo-fala-texto {
   width: 100%;
   padding: 0.4rem 0.55rem;
-  font-size: 0.92rem;
+  font-size: var(--txt-md);
   line-height: 1.5;
   color: var(--ink);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--raio-sm);
   /* Sem `resize` aqui: a fala também cresce sozinha (ver CampoTexto.tsx). Este
      bloco vem DEPOIS de `.conteudo-campo-cresce` no arquivo e tem a mesma
      especificidade, então um `resize: vertical` esquecido aqui venceria e a
@@ -3007,10 +3120,10 @@ textarea {
 .conteudo-cena-resumo {
   cursor: pointer;
   padding: 0.3rem 0.5rem;
-  font-size: 0.7rem;
+  font-size: var(--txt-xs);
   color: var(--ink-soft);
   background: var(--accent-wash);
-  border-radius: 7px;
+  border-radius: var(--raio-sm);
   list-style: none;
 }
 
@@ -3025,7 +3138,7 @@ textarea {
   margin-top: 0.5rem;
   padding: 0.6rem;
   background: var(--bg);
-  border-radius: 9px;
+  border-radius: var(--raio-sm);
 }
 
 @media (max-width: 900px) {
@@ -3088,11 +3201,11 @@ textarea {
   margin-top: 0.35rem;
   padding: 0.2rem 0.5rem;
   border: 1px dashed var(--line);
-  border-radius: 7px;
+  border-radius: var(--raio-sm);
   background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: var(--txt-xs);
 }
 
 .conteudo-broll-mais:hover {
@@ -3128,7 +3241,7 @@ textarea {
   align-items: center;
   justify-content: center;
   color: var(--ink-soft);
-  border-radius: 7px;
+  border-radius: var(--raio-sm);
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
@@ -3196,7 +3309,7 @@ textarea {
 }
 
 .conteudo-metrica-titulo {
-  font-size: 0.62rem;
+  font-size: var(--txt-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;

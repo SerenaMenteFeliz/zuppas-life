@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { mudarStatusAcao } from "@/app/painel/conteudo/acoes";
 import Dropdown from "@/components/painel/Dropdown";
@@ -112,49 +113,99 @@ export default function ConteudoQuadro({
   );
 }
 
+/* O card, refeito em 30/08/2026 pra caber mais e dizer o mesmo.
+
+   Era: título em até três linhas, uma linha de perfil, uma linha de data e um
+   `<select>` de largura inteira embaixo. ~95px por card, ou seja, cinco cards
+   por tela numa coluna.
+
+   A referência de kanban é consistente nisto: o card é a CAPA, não a ficha.
+   Ele responde o quê, de quem e quando; o resto mora na tela do post, a um
+   clique. Duas coisas saíram por essa régua:
+
+   1. **O título passou a caber numa linha só**, com reticências e o texto
+      inteiro no `title`. Título de três linhas empurrava o próximo card pra
+      fora da tela pra mostrar uma frase que ninguém lê inteira no quadro.
+   2. **O status virou um botão de seta.** O valor dele é o nome da coluna em
+      que o card está: escrever "Postado" dentro da coluna Postado gastava uma
+      linha inteira pra repetir o cabeçalho. O gesto (mover de coluna) fica; o
+      rótulo sai.
+
+   Sobrou ~52px por card, quase o dobro de cards por tela.
+
+   **O card inteiro clica** e abre o post, igual à linha da Lista. O título
+   continua sendo um link de verdade pra que teclado, clique do meio e "abrir
+   em nova aba" continuem funcionando, que é o que um `onClick` sozinho
+   quebraria. O dropdown para o clique antes que ele vire navegação. */
 function Card({ post, contagem }: { post: PostResumo; contagem?: Contagem }) {
   const [pendente, iniciar] = useTransition();
+  const router = useRouter();
   const perfil = perfilPorId(post.perfil);
   const data = dataDoPost(post);
+  const href = "/painel/conteudo/" + post.id;
 
   return (
-    <article className="conteudo-card" style={{ opacity: pendente ? 0.5 : 1 }}>
-      <Link href={"/painel/conteudo/" + post.id} className="conteudo-card-titulo">
-        {tituloDe(post)}
-      </Link>
+    <article
+      className="conteudo-card"
+      style={{ opacity: pendente ? 0.5 : 1 }}
+      onClick={() => router.push(href)}
+    >
+      <div className="conteudo-card-topo">
+        <Link href={href} className="conteudo-card-titulo" title={tituloDe(post)}>
+          {tituloDe(post)}
+        </Link>
 
+        {/* O `stopPropagation` nos dois eventos, e não só no clique: a lista do
+            dropdown escolhe no `pointerdown` (ver Dropdown.tsx), então sem o de
+            baixo o card navegaria antes de a escolha acontecer. */}
+        <span
+          className="conteudo-card-mover"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Dropdown
+            compacto
+            rotuloAcessivel={"Mover " + tituloDe(post) + ", agora em " + STATUS_INFO[post.status].rotulo}
+            largura={230}
+            valor={post.status}
+            opcoes={[...STATUS_QUADRO, "descartado" as Status].map((s) => ({
+              valor: s,
+              rotulo: STATUS_INFO[s].rotulo,
+              ajuda: STATUS_INFO[s].ajuda,
+            }))}
+            aoEscolher={(v) => {
+              iniciar(() => {
+                void mudarStatusAcao(post.id, v as Status);
+              });
+            }}
+          />
+        </span>
+      </div>
+
+      {/* Uma linha de meta em vez de duas: quem à esquerda, quando e quanto à
+          direita. O nome do perfil encolhe com reticências antes de empurrar a
+          data, porque a bolinha colorida já identifica de quem é. */}
       <div className="conteudo-card-meta">
-        <span className="conteudo-ponto" style={{ background: perfil?.cor ?? "var(--ink-soft)" }} />
-        <span>{perfil?.rotulo ?? post.perfil}</span>
-        {post.formato && <span className="conteudo-card-sep">·</span>}
-        {post.formato && <span>{post.formato}</span>}
-      </div>
+        <span className="conteudo-card-quem">
+          <span
+            className="conteudo-ponto"
+            style={{ background: perfil?.cor ?? "var(--ink-soft)" }}
+          />
+          <span className="conteudo-card-perfil">{perfil?.rotulo ?? post.perfil}</span>
+        </span>
 
-      <div className="conteudo-card-rodape">
-        {data ? <span>{data.slice(8, 10) + "/" + data.slice(5, 7)}</span> : <span>Sem data</span>}
-        {contagem && contagem.total > 0 && (
-          <span title="falas gravadas do roteiro">
-            {contagem.gravadas}/{contagem.total} falas
-          </span>
-        )}
+        <span className="conteudo-card-quando">
+          {data ? data.slice(8, 10) + "/" + data.slice(5, 7) : "sem data"}
+          {contagem && contagem.total > 0 && (
+            <>
+              <span className="conteudo-card-sep">·</span>
+              <span title="falas gravadas do roteiro">
+                {contagem.gravadas}/{contagem.total}
+              </span>
+            </>
+          )}
+        </span>
       </div>
-
-      <Dropdown
-        className="conteudo-status-card"
-        rotuloAcessivel={"Status de " + tituloDe(post)}
-        largura={230}
-        valor={post.status}
-        opcoes={[...STATUS_QUADRO, "descartado" as Status].map((s) => ({
-          valor: s,
-          rotulo: STATUS_INFO[s].rotulo,
-          ajuda: STATUS_INFO[s].ajuda,
-        }))}
-        aoEscolher={(v) => {
-          iniciar(() => {
-            void mudarStatusAcao(post.id, v as Status);
-          });
-        }}
-      />
     </article>
   );
 }

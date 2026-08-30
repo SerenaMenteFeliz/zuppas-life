@@ -54,6 +54,7 @@ export default function Dropdown({
   vazio = "Escolher",
   className = "",
   largura,
+  compacto = false,
 }: {
   valor: string;
   opcoes: OpcaoDropdown[];
@@ -65,6 +66,14 @@ export default function Dropdown({
   /* Largura do painel aberto quando ele precisa ser maior que o botão (opções
      com linha de ajuda ficam ilegíveis espremidas na largura de um chip). */
   largura?: number;
+  /* Botão só com a seta, sem o texto da opção escolhida (30/08/2026).
+
+     Existe pro card do quadro: ali o valor escolhido é o NOME DA COLUNA em que
+     o card está, então escrever "Postado" dentro de um card que já mora na
+     coluna Postado é dizer a mesma coisa duas vezes ocupando uma linha inteira.
+     O controle vira só o gesto de mover, e o nome continua no `aria-label`,
+     que é por onde o leitor de tela lê. */
+  compacto?: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
   const [marcado, setMarcado] = useState(0);
@@ -186,7 +195,11 @@ export default function Dropdown({
       <button
         ref={botao}
         type="button"
-        className={"pn-drop-botao" + (escolhida ? "" : " pn-drop-botao-vazio")}
+        className={
+          "pn-drop-botao" +
+          (escolhida ? "" : " pn-drop-botao-vazio") +
+          (compacto ? " pn-drop-botao-compacto" : "")
+        }
         /* `role="combobox"` sobre o `<button>`: é o padrão do combobox
            "só seleção", e é o único role que aceita `aria-activedescendant`.
            Sem ele, o botão anuncia a lista mas não consegue dizer qual opção
@@ -203,7 +216,7 @@ export default function Dropdown({
         {escolhida?.cor && (
           <span aria-hidden className="conteudo-ponto" style={{ background: escolhida.cor }} />
         )}
-        <span className="pn-drop-texto">{escolhida?.rotulo ?? vazio}</span>
+        {!compacto && <span className="pn-drop-texto">{escolhida?.rotulo ?? vazio}</span>}
         <svg
           aria-hidden
           className="pn-drop-seta"
