@@ -58,9 +58,14 @@ type Busca = {
     comparação que ela promete. */
 const POR_PAGINA = 25;
 
-/** Itens por página no card de "sem data marcada". Menor que a Lista porque ali
-    o card é um aviso dentro do calendário, não a peça principal da tela. */
-const SEM_DATA_POR_PAGINA = 8;
+/** Itens por página no card de "sem data marcada".
+
+    Era 8 quando cada item ocupava uma linha inteira. Com a grade `auto-fill`
+    (30/08) eles entram lado a lado, 4 ou 5 por linha num monitor, então 24
+    cabem em 5 linhas sem o card virar a peça principal da tela. O ganho é o
+    calendário passar a mostrar o backlog inteiro numa página só enquanto ele
+    for pequeno, e a paginação só aparecer quando de fato acumular. */
+const SEM_DATA_POR_PAGINA = 24;
 
 const VISOES = [
   { id: "quadro", rotulo: "Quadro" },
@@ -195,6 +200,15 @@ export default async function ConteudoPage({
         : undefined,
   };
 
+  /* O recorte atual, pendurado no link de cada post: é o que faz o "‹ Conteúdo"
+     da tela do post devolver a lista como ela estava (ver `DA_LISTA` lá).
+     `link({})` já sabe montar a URL do estado corrente; aqui fica só a parte da
+     query. */
+  const sufixo = (() => {
+    const q = link({}).split("?")[1] ?? "";
+    return q ? "?" + q : "";
+  })();
+
   /* Quadro: qual coluna está aberta, e o link pra abrir cada uma. */
   const colunaAberta = STATUS_QUADRO.includes(busca.col as Status) ? busca.col : undefined;
   const linksExpandir = Object.fromEntries(
@@ -311,6 +325,7 @@ export default async function ConteudoPage({
           <ConteudoQuadro
             posts={posts}
             contagens={Object.fromEntries(contagens)}
+            sufixo={sufixo}
             expandida={colunaAberta}
             linksExpandir={linksExpandir}
             linkRecolher={link({ col: undefined })}
@@ -323,6 +338,7 @@ export default async function ConteudoPage({
             posts={posts}
             semData={semDataTodos.slice(inicioSemData, inicioSemData + SEM_DATA_POR_PAGINA)}
             semDataPaginacao={semDataPaginacao}
+            sufixo={sufixo}
             hoje={hoje}
             perfilFiltro={perfilFiltro}
           />
@@ -333,6 +349,7 @@ export default async function ConteudoPage({
             ordem={ordem}
             links={linksDeOrdem}
             paginacao={paginacao}
+            sufixo={sufixo}
             termo={termo || undefined}
           />
         )}

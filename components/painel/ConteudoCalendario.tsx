@@ -32,6 +32,7 @@ export default function ConteudoCalendario({
   semDataPaginacao,
   hoje,
   perfilFiltro,
+  sufixo,
 }: {
   mes: string;
   semana: string;
@@ -43,6 +44,8 @@ export default function ConteudoCalendario({
   semDataPaginacao?: Paginacao;
   hoje: string;
   perfilFiltro?: string;
+  /** Query do recorte atual, pendurada no link do post pro voltar preservar. */
+  sufixo: string;
 }) {
   const naSemana = janela === "semana";
   const celulas = naSemana ? gradeDaSemana(semana) : gradeDoMes(mes).flat();
@@ -134,7 +137,7 @@ export default function ConteudoCalendario({
                 return (
                   <Link
                     key={p.id}
-                    href={"/painel/conteudo/" + p.id}
+                    href={"/painel/conteudo/" + p.id + sufixo}
                     className="conteudo-cal-post"
                     title={tituloDe(p) + " · " + (perfil?.rotulo ?? p.perfil)}
                     style={{ borderLeftColor: perfil?.cor ?? "var(--ink-soft)" }}
@@ -180,7 +183,11 @@ export default function ConteudoCalendario({
                   <span className="chip conteudo-pagina-morta">‹</span>
                 )}
                 <span className="conteudo-paginacao-conta">
-                  {semDataPaginacao.primeiro} a {semDataPaginacao.ultimo}
+                  Página {semDataPaginacao.pagina} de {semDataPaginacao.paginas}{" "}
+                  <span className="conteudo-paginacao-detalhe">
+                    ({semDataPaginacao.ultimo - semDataPaginacao.primeiro + 1} de{" "}
+                    {semDataPaginacao.total})
+                  </span>
                 </span>
                 {semDataPaginacao.proxima ? (
                   <a href={semDataPaginacao.proxima} className="chip">
@@ -200,7 +207,7 @@ export default function ConteudoCalendario({
               return (
                 <li key={p.id}>
                   <Link
-                    href={"/painel/conteudo/" + p.id}
+                    href={"/painel/conteudo/" + p.id + sufixo}
                     className="conteudo-semdata-item"
                     style={{ borderLeftColor: perfil?.cor ?? "var(--ink-soft)" }}
                   >

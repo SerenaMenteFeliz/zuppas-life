@@ -50,12 +50,15 @@ const LIMITE_COLUNA = 12;
 export default function ConteudoQuadro({
   posts,
   contagens,
+  sufixo,
   expandida,
   linksExpandir,
   linkRecolher,
 }: {
   posts: PostResumo[];
   contagens: Record<string, Contagem>;
+  /* Query do recorte atual, pendurada no link do post pro voltar preservar. */
+  sufixo: string;
   /** Coluna que está mostrando tudo, quando alguém pediu. Vive na URL. */
   expandida?: string;
   /** Href por status que expande aquela coluna. Objeto e não função: função não
@@ -91,7 +94,12 @@ export default function ConteudoQuadro({
 
             <div className="conteudo-coluna-corpo">
               {visiveis.map((post) => (
-                <Card key={post.id} post={post} contagem={contagens[post.id]} />
+                <Card
+                  key={post.id}
+                  post={post}
+                  contagem={contagens[post.id]}
+                  sufixo={sufixo}
+                />
               ))}
               {doStatus.length === 0 && <p className="conteudo-coluna-vazia">Nada aqui</p>}
 
@@ -137,12 +145,20 @@ export default function ConteudoQuadro({
    continua sendo um link de verdade pra que teclado, clique do meio e "abrir
    em nova aba" continuem funcionando, que é o que um `onClick` sozinho
    quebraria. O dropdown para o clique antes que ele vire navegação. */
-function Card({ post, contagem }: { post: PostResumo; contagem?: Contagem }) {
+function Card({
+  post,
+  contagem,
+  sufixo,
+}: {
+  post: PostResumo;
+  contagem?: Contagem;
+  sufixo: string;
+}) {
   const [pendente, iniciar] = useTransition();
   const router = useRouter();
   const perfil = perfilPorId(post.perfil);
   const data = dataDoPost(post);
-  const href = "/painel/conteudo/" + post.id;
+  const href = "/painel/conteudo/" + post.id + sufixo;
 
   return (
     <article

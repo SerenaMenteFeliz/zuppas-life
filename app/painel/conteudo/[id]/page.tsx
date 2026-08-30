@@ -71,12 +71,30 @@ const GRUPOS_METRICA: {
 
 const CAMPOS_METRICA = GRUPOS_METRICA.flatMap((g) => g.campos);
 
+/* Parâmetros que descrevem o RECORTE da lista, e só eles. O link de voltar
+   remonta a lista exatamente como ela estava; `id` e afins não entram.
+
+   Existe porque o "‹ Conteúdo" era fixo em `/painel/conteudo` (Yan, 30/08:
+   filtrar pela Ge, abrir um post e voltar devolvia a lista sem filtro). Filtro
+   que se perde ao abrir um item ensina a não filtrar. */
+const DA_LISTA = ["v", "perfil", "mes", "semana", "janela", "ord", "q", "pag", "sd", "col"];
+
 export default async function PostPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const busca = await searchParams;
+
+  const qs = new URLSearchParams();
+  for (const chave of DA_LISTA) {
+    const v = busca[chave];
+    if (typeof v === "string" && v !== "") qs.set(chave, v);
+  }
+  const voltarPara = "/painel/conteudo" + (qs.size ? "?" + qs.toString() : "");
 
   const bruto = await carregarPost(id);
   if (!bruto) notFound();
@@ -109,7 +127,7 @@ export default async function PostPage({
   const metricaDeHoje = metricas.find((m) => m.coletado_em === hoje);
 
   return (
-    <PostShell post={post}>
+    <PostShell post={post} voltarPara={voltarPara}>
         <DadosPost post={post} mostrarLocal={temLocal} />
 
         <div className="glass-card mb-6 p-5">

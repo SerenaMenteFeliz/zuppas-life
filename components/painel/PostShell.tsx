@@ -60,9 +60,13 @@ function juntar(reportes: Record<string, Reporte>): Reporte {
 export default function PostShell({
   post,
   children,
+  voltarPara = "/painel/conteudo",
 }: {
   post: Post;
   children: React.ReactNode;
+  /* Pra onde o "‹ Conteúdo" leva, já com o recorte da lista de onde a pessoa
+     veio (perfil, busca, visão, página). Ver `DA_LISTA` na página do post. */
+  voltarPara?: string;
 }) {
   const [titulo, setTitulo] = useState(post.titulo);
   const [status, setStatus] = useState<Status>(post.status as Status);
@@ -112,7 +116,7 @@ export default function PostShell({
 
           <div className="painel-topo-acoes">
             <IndicadorSalvo estado={estado} hora={hora} />
-            <Link href="/painel/conteudo" className="conteudo-botao-claro">
+            <Link href={voltarPara} className="conteudo-botao-claro">
               ‹ Conteúdo
             </Link>
           </div>

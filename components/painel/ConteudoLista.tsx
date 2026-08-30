@@ -76,6 +76,7 @@ export default function ConteudoLista({
   links,
   paginacao,
   termo,
+  sufixo,
 }: {
   posts: PostResumo[];
   contagens: Record<string, Contagem>;
@@ -84,6 +85,8 @@ export default function ConteudoLista({
   paginacao?: Paginacao;
   /** O que foi buscado, só pra explicar a lista vazia. */
   termo?: string;
+  /** Query do recorte atual, pendurada no link do post pro voltar preservar. */
+  sufixo: string;
 }) {
   const router = useRouter();
 
@@ -143,7 +146,7 @@ export default function ConteudoLista({
             const perfil = perfilPorId(p.perfil);
             const c = contagens[p.id];
             const data = dataDoPost(p);
-            const href = "/painel/conteudo/" + p.id;
+            const href = "/painel/conteudo/" + p.id + sufixo;
             return (
               <tr
                 key={p.id}
@@ -193,8 +196,15 @@ export default function ConteudoLista({
           <span className="chip conteudo-pagina-morta">‹ Anterior</span>
         )}
 
+        {/* Duas informações, e cada uma responde uma pergunta diferente: em que
+            página estou (e quantas existem) e o que estou vendo agora. Só o
+            intervalo obrigava a pessoa a dividir de cabeça pra saber se faltava
+            muito. */}
         <span className="conteudo-paginacao-conta">
-          {paginacao.primeiro} a {paginacao.ultimo} de {paginacao.total}
+          Página {paginacao.pagina} de {paginacao.paginas}{" "}
+          <span className="conteudo-paginacao-detalhe">
+            ({paginacao.ultimo - paginacao.primeiro + 1} de {paginacao.total})
+          </span>
         </span>
 
         {paginacao.proxima ? (

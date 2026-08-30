@@ -815,10 +815,21 @@ body {
   --raio-md: 10px;
   --raio-lg: 14px;
 
-  /* Espessura das barras de rolagem próprias. Vive aqui porque o alinhamento
-     das colunas do quadro depende de o CSS saber esse número (ver
-     `.conteudo-coluna-corpo`). */
-  --barra: 6px;
+  /* As barras de rolagem próprias, em DOIS números, e a diferença entre eles é
+     o que faz o alinhamento fechar:
+
+     - `--barra` é o TRILHO, o espaço que a barra reserva no layout. Vale
+       `--esp-3`, o mesmo respiro interno das colunas, pra que o conteúdo fique
+       à mesma distância das duas bordas.
+     - `--barra-fio` é o que se VÊ, um fio centrado dentro do trilho.
+
+     O fio é centrado por uma borda transparente no thumb (ver o bloco das
+     colunas), então ele não encosta nem no card nem na borda: sobram
+     `(12 - 4) / 2 = 4px` de cada lado. Card colado na barra foi reclamação
+     real do Yan em 30/08, e era consequência de trilho e fio serem o mesmo
+     número. */
+  --barra: 0.75rem;
+  --barra-fio: 4px;
 }
 
 .painel-bg {
@@ -1856,9 +1867,13 @@ textarea {
   background: transparent;
 }
 
-.conteudo-quadro::-webkit-scrollbar-thumb {
+.conteudo-quadro-scrollbar-thumb {
+  border: calc((var(--barra) - var(--barra-fio)) / 2) solid transparent;
   border-radius: 9999px;
-  background: var(--line);
+  /* Sem isto a cor pinta por baixo da borda transparente e o fio volta a ter a
+     largura do trilho inteiro. */
+  background-clip: padding-box;
+  background-color: var(--line);
 }
 
 .conteudo-quadro::-webkit-scrollbar-button {
@@ -1955,13 +1970,17 @@ textarea {
   background: transparent;
 }
 
-.conteudo-coluna-corpo::-webkit-scrollbar-thumb {
+.conteudo-coluna-corpo-scrollbar-thumb {
+  border: calc((var(--barra) - var(--barra-fio)) / 2) solid transparent;
   border-radius: 9999px;
-  background: var(--line);
+  /* Sem isto a cor pinta por baixo da borda transparente e o fio volta a ter a
+     largura do trilho inteiro. */
+  background-clip: padding-box;
+  background-color: var(--line);
 }
 
 .conteudo-coluna-corpo:hover::-webkit-scrollbar-thumb {
-  background: var(--ink-soft);
+  background-color: var(--ink-soft);
 }
 
 /* As setas das pontas. `display: none` some com elas; sem isto o Chrome no
@@ -2648,9 +2667,13 @@ textarea {
   background: transparent;
 }
 
-.conteudo-lista-caixa::-webkit-scrollbar-thumb {
+.conteudo-lista-caixa-scrollbar-thumb {
+  border: calc((var(--barra) - var(--barra-fio)) / 2) solid transparent;
   border-radius: 9999px;
-  background: var(--line);
+  /* Sem isto a cor pinta por baixo da borda transparente e o fio volta a ter a
+     largura do trilho inteiro. */
+  background-clip: padding-box;
+  background-color: var(--line);
 }
 
 .conteudo-lista-caixa::-webkit-scrollbar-button {
@@ -2696,6 +2719,12 @@ textarea {
 
 .conteudo-paginacao-conta {
   font-size: var(--txt-xs);
+  color: var(--ink);
+}
+
+/* O que está na tela agora, em tom de apoio: a página é a informação principal
+   do rodapé, o intervalo é o detalhe que explica ela. */
+.conteudo-paginacao-detalhe {
   color: var(--ink-soft);
 }
 
