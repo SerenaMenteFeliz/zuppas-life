@@ -8,7 +8,9 @@ import {
   rotuloDaSemana,
   rotuloDoMes,
 } from "@/lib/conteudo-calendario";
-import { dataDoPost, perfilPorId, tituloDe, type Post } from "@/lib/conteudo-tipos";
+import type { Paginacao } from "@/components/painel/ConteudoLista";
+import { dataDoPost, perfilPorId, tituloDe, type PostResumo } from "@/lib/conteudo-tipos";
+import { diasEntre } from "@/lib/datas";
 
 /* Calendário: "o que já saiu e o que vai sair", numa olhada.
 
@@ -26,20 +28,26 @@ export default function ConteudoCalendario({
   semana,
   janela,
   posts,
+  semData,
+  semDataPaginacao,
   hoje,
   perfilFiltro,
 }: {
   mes: string;
   semana: string;
   janela: "mes" | "semana";
-  posts: Post[];
+  posts: PostResumo[];
+  /** Os sem data que cabem nesta página, já ordenados do mais velho pro mais
+      novo pela página. Chegam prontos porque quem monta URL desta tela é ela. */
+  semData: PostResumo[];
+  semDataPaginacao?: Paginacao;
   hoje: string;
   perfilFiltro?: string;
 }) {
   const naSemana = janela === "semana";
   const celulas = naSemana ? gradeDaSemana(semana) : gradeDoMes(mes).flat();
 
-  const porDia = new Map<string, Post[]>();
+  const porDia = new Map<string, PostResumo[]>();
   for (const p of posts) {
     const d = dataDoPost(p);
     if (!d) continue;
@@ -47,8 +55,6 @@ export default function ConteudoCalendario({
     lista.push(p);
     porDia.set(d, lista);
   }
-
-  const semData = posts.filter((p) => !dataDoPost(p));
 
   const query = (mudanca: { mes?: string; semana?: string; janela?: "mes" | "semana" }) => {
     const qs = new URLSearchParams({ v: "calendario" });
@@ -146,29 +152,74 @@ export default function ConteudoCalendario({
         })}
       </div>
 
-      {/* Ideia sem data marcada não some do calendário: fica numa faixa embaixo.
+      {/* Ideia sem data marcada não some do calendário: fica num card embaixo.
           Sumir daria a impressão de calendário vazio quando na verdade tem
-          trabalho parado esperando alguém marcar dia. */}
-      {semData.length > 0 && (
-        <div className="mt-5">
-          <p className="mb-2 text-[0.68rem] uppercase tracking-widest" style={{ color: "var(--ink-soft)" }}>
-            Sem data marcada ({semData.length})
-          </p>
-          <div className="flex flex-wrap gap-2">
+          trabalho parado esperando alguém marcar dia.
+
+          Era uma nuvem de chips soltos até 30/08/2026, e ela tinha dois
+          problemas que crescem juntos: não terminava nunca (todo item sem data
+          entrava ali, pra sempre) e não dizia NADA sobre qual olhar primeiro.
+
+          Agora é card com página, do mais velho pro mais novo, com a idade à
+          mostra. A ordem é o que faz a faixa valer: uma ideia parada há 40 dias
+          e uma de ontem são coisas diferentes, e sem a idade as duas liam
+          igual. Sem esse critério, paginar só esconderia melhor. */}
+      {semDataPaginacao && semDataPaginacao.total > 0 && (
+        <div className="glass-card conteudo-semdata">
+          <header className="conteudo-semdata-topo">
+            <p className="conteudo-semdata-titulo">
+              Sem data marcada <span>({semDataPaginacao.total})</span>
+            </p>
+            {semDataPaginacao.paginas > 1 && (
+              <nav className="conteudo-semdata-nav" aria-label="Páginas dos posts sem data">
+                {semDataPaginacao.anterior ? (
+                  <a href={semDataPaginacao.anterior} className="chip">
+                    ‹
+                  </a>
+                ) : (
+                  <span className="chip conteudo-pagina-morta">‹</span>
+                )}
+                <span className="conteudo-paginacao-conta">
+                  {semDataPaginacao.primeiro} a {semDataPaginacao.ultimo}
+                </span>
+                {semDataPaginacao.proxima ? (
+                  <a href={semDataPaginacao.proxima} className="chip">
+                    ›
+                  </a>
+                ) : (
+                  <span className="chip conteudo-pagina-morta">›</span>
+                )}
+              </nav>
+            )}
+          </header>
+
+          <ul className="conteudo-semdata-lista">
             {semData.map((p) => {
               const perfil = perfilPorId(p.perfil);
+              const dias = diasEntre(p.criado_em.slice(0, 10), hoje);
               return (
-                <Link
-                  key={p.id}
-                  href={"/painel/conteudo/" + p.id}
-                  className="conteudo-cal-post"
-                  style={{ borderLeftColor: perfil?.cor ?? "var(--ink-soft)" }}
-                >
-                  {tituloDe(p)}
-                </Link>
+                <li key={p.id}>
+                  <Link
+                    href={"/painel/conteudo/" + p.id}
+                    className="conteudo-semdata-item"
+                    style={{ borderLeftColor: perfil?.cor ?? "var(--ink-soft)" }}
+                  >
+                    <span className="conteudo-semdata-nome">{tituloDe(p)}</span>
+                    {/* Só a partir de uma semana: "parada há 1 dia" é ruído em
+                        cima de ideia que nasceu ontem. */}
+                    {dias >= 7 && (
+                      <span
+                        className="conteudo-semdata-idade"
+                        style={dias >= 30 ? { color: "var(--terracotta)" } : undefined}
+                      >
+                        há {dias} dias
+                      </span>
+                    )}
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import "server-only";
-import type { Fala, Metrica, Post } from "@/lib/conteudo-tipos";
+import { montarContagemDeFalas } from "@/lib/conteudo-tipos";
+import type { Fala, Metrica, Post, PostResumo } from "@/lib/conteudo-tipos";
 
 /* Camada de dados do painel de conteúdo — ÚNICO ponto do app que fala com as
    tabelas `conteudo_*`.
@@ -44,13 +45,23 @@ const SEM_CHAVE = "SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY não estão setadas ne
    pra ninguém — 23 leads reais perdidos. Roteiro que a Ge escreve e some sem
    avisar é o mesmo erro com outra roupa. */
 async function ler<T>(path: string): Promise<T[]> {
+  return (await lerOuNulo<T>(path)) ?? [];
+}
+
+/* Igual a `ler`, mas distingue "deu erro" de "não tem linha".
+
+   Existe pro caminho da contagem de falas (ver `contarFalas`), que precisa
+   saber se a visão do banco RESPONDEU vazia ou se ela não existe ainda. Com
+   `ler`, os dois casos chegam como `[]` e o app trataria banco sem visão como
+   banco sem roteiro, escondendo a contagem de todo mundo em silêncio. */
+async function lerOuNulo<T>(path: string): Promise<T[] | null> {
   const cfg = rest();
-  if (!cfg) return [];
+  if (!cfg) return null;
   const resp = await fetch(cfg.url + "/" + path, {
     headers: headers(cfg.key),
     cache: "no-store",
   });
-  if (!resp.ok) return [];
+  if (!resp.ok) return null;
   return resp.json();
 }
 
@@ -148,13 +159,20 @@ export async function suportaLocal(): Promise<boolean> {
 const COLUNAS_FALA =
   "id,post_id,ordem,texto,funcao,enquadramento,cenario,acao,broll,texto_tela,observacao,gravada";
 
-export async function listarPosts(): Promise<Post[]> {
+/* Só o que quadro, calendário e lista desenham. Ver `PostResumo` em
+   lib/conteudo-tipos.ts pro porquê e pelos números. Não passa por
+   `colunasPost()` porque `local` não está aqui: além de economizar a sondagem
+   por carregamento, tira esta consulta da dependência da migration 0002. */
+const COLUNAS_LISTA =
+  "id,titulo,perfil,formato,pilar,status,data_planejada,data_publicada,criado_em";
+
+export async function listarPosts(): Promise<PostResumo[]> {
   /* Ordenação: com data primeiro, mais recente no topo. `nullslast` põe ideia
      sem data no fim em vez de encabeçar a lista — ideia solta costuma ser a
      coisa mais numerosa e a menos urgente. */
-  return ler<Post>(
+  return ler<PostResumo>(
     "conteudo_posts?select=" +
-      (await colunasPost()) +
+      COLUNAS_LISTA +
       "&order=data_planejada.desc.nullslast,criado_em.desc",
   );
 }
@@ -184,11 +202,47 @@ export async function carregarMetricas(postId: string): Promise<Metrica[]> {
 
 /** Quantas falas já foram marcadas como gravadas, por post. Alimenta o quadro
     e a lista, pra dar progresso de gravação sem precisar abrir o post. */
+/* ── Contagem de falas por post ───────────────────────────────────────────────
+
+   Alimenta o "12/12 falas" do card e a ordenação por roteiro na Lista.
+
+   Caminho bom: a visão `conteudo_falas_contagem` (sql/0003), que agrega no
+   banco e devolve uma linha por post. Caminho velho: baixar a tabela inteira e
+   contar aqui, o que em 30/08/2026 eram 600 linhas e 41,6 KB POR carregamento
+   da tela, crescendo com o tamanho dos roteiros.
+
+   O fallback existe porque a migration é rodada à mão pelo Yan: entre o deploy
+   e o SQL Editor há uma janela em que a visão não existe, e nessa janela a tela
+   precisa continuar certa (só cara). Mesma decisão da sondagem de `local` na
+   0002, logo acima.
+
+   A sondagem só se repete de minuto em minuto enquanto der errado. Quando a
+   visão passar a existir, o primeiro acerto liga o caminho bom pra sempre, sem
+   redeploy. */
+let temContagem: boolean | null = null;
+let sondadoContagemEm = 0;
+
 export async function contarFalas(): Promise<Map<string, { total: number; gravadas: number }>> {
+  const mapa = new Map<string, { total: number; gravadas: number }>();
+
+  if (temContagem !== false || Date.now() - sondadoContagemEm > 60_000) {
+    const linhas = await lerOuNulo<unknown>(
+      "conteudo_falas_contagem?select=post_id,total,gravadas",
+    );
+    /* A validação do formato é `montarContagemDeFalas`, que mora em
+       conteudo-tipos.ts pra caber no `npm run verificar` (ver lá o porquê). */
+    const pronto = linhas === null ? null : montarContagemDeFalas(linhas);
+    if (pronto) {
+      temContagem = true;
+      return pronto;
+    }
+    temContagem = false;
+    sondadoContagemEm = Date.now();
+  }
+
   const linhas = await ler<{ post_id: string; gravada: boolean }>(
     "conteudo_falas?select=post_id,gravada",
   );
-  const mapa = new Map<string, { total: number; gravadas: number }>();
   for (const l of linhas) {
     const atual = mapa.get(l.post_id) ?? { total: 0, gravadas: 0 };
     atual.total += 1;

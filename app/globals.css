@@ -1762,19 +1762,92 @@ textarea {
   padding-bottom: 0.75rem;
 }
 
+/* O quadro para na altura da janela e cada coluna rola por dentro
+   (30/08/2026).
+
+   O problema que isto resolve: a coluna mais cheia (Postado, com 33 cards em
+   30/08 e crescendo ~16 por mês) esticava a PÁGINA inteira, e as outras quatro
+   viravam um rodapé de vazio do tamanho dela. Rolar até o 20º Postado tirava
+   Ideia e Roteiro da tela, ou seja, o quadro perdia exatamente a comparação
+   entre etapas que ele existe pra fazer.
+
+   A conta da altura: janela inteira menos a faixa de topo (que é sticky e fica
+   por cima), menos a margem de 1,5rem embaixo dela, menos um respiro de 1,5rem
+   no pé. `dvh` e não `vh` porque no celular a barra do navegador entra e sai, e
+   `vh` deixaria o fim da coluna atrás dela.
+
+   `overflow-y: hidden` no quadro é o par obrigatório do `max-height`: sem ele o
+   container ganharia barra vertical PRÓPRIA além da de cada coluna, e a pessoa
+   teria duas rolagens verticais empilhadas fazendo coisas diferentes.
+
+   Só a partir de 1024px, e o número tem dois motivos. Abaixo de 761px a
+   sidebar vira barra horizontal no topo e come uma altura que esta conta não
+   conhece. Entre 761 e 1024 a faixa de topo pode quebrar em duas linhas (são
+   seis controles nela desde a busca), e aí o teto ficaria uma linha alto
+   demais. Nessa faixa fica valendo o comportamento antigo, que é a página
+   rolar, e o `3rem` de folga no fim da conta absorve uma quebra eventual.
+
+   Vale lembrar que errar essa conta pra mais não esconde nada: o
+   `.painel-main` continua rolando, então o pé do quadro é alcançável de
+   qualquer jeito. O que se perde é o alinhamento com o fim da janela. */
+@media (min-width: 1024px) {
+  .conteudo-quadro {
+    max-height: calc(100dvh - var(--painel-topo-altura) - 3rem);
+    overflow-y: hidden;
+  }
+}
+
 .conteudo-coluna {
+  display: flex;
   min-width: 0;
+  /* `min-height: 0` porque a coluna é item de grid: sem isso ela usa o tamanho
+     do conteúdo como mínimo, ignora o teto do quadro e a rolagem interna nunca
+     acontece. É a mesma armadilha do `min-width: 0` em filho de flex. */
+  min-height: 0;
+  flex-direction: column;
   padding: 0.75rem;
   background: var(--glass);
   border: 1px solid var(--glass-border);
   border-radius: 14px;
 }
 
+/* Cabeçalho e ajuda ficam fora da área que rola, então o pill de status e a
+   contagem não saem da vista enquanto se percorre a coluna. Sem `sticky`: o
+   que rola é só o corpo, então eles simplesmente não se movem. */
 .conteudo-coluna-topo {
   display: flex;
+  flex: none;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.conteudo-coluna-corpo {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  /* Reserva a calha da barra sempre: sem isso, a coluna que passa a rolar
+     encolhe 15px e os cards dela ficam mais estreitos que os das vizinhas. */
+  scrollbar-gutter: stable;
+  /* A rolagem da coluna não vira rolagem da página ao chegar no fim. */
+  overscroll-behavior-y: contain;
+}
+
+/* "Mostrar os N restantes" / "Mostrar menos": linha de texto, não botão. É
+   navegação dentro da coluna, e um botão cheio ali competiria com os cards. */
+.conteudo-coluna-mais {
+  padding: 0.4rem 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: center;
+}
+
+.conteudo-coluna-mais:hover {
+  text-decoration: underline;
 }
 
 /* Pill do título da coluna do quadro. Herda tudo de `.painel-badge` e só troca
@@ -1920,6 +1993,82 @@ textarea {
 .conteudo-cal-post-feito {
   text-decoration: line-through;
   opacity: 0.65;
+}
+
+/* ── Sem data marcada ─────────────────────────────────────────────────────────
+
+   Era uma nuvem de chips embaixo do calendário, sem fim e sem ordem. Virou
+   card com página em 30/08/2026 (ver o comentário no ConteudoCalendario).
+
+   Lista vertical e não grade: a informação que importa depois do título é a
+   IDADE, e ela precisa de uma coluna própria alinhada à direita pra dar pra
+   varrer de cima a baixo procurando o número grande. Em chips lado a lado, a
+   idade viraria mais um pedaço de texto no meio da frase. */
+.conteudo-semdata {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.conteudo-semdata-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.conteudo-semdata-titulo {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.conteudo-semdata-titulo span {
+  color: var(--ink);
+}
+
+.conteudo-semdata-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.conteudo-semdata-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.conteudo-semdata-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border-left: 3px solid var(--ink-soft);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg);
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+
+.conteudo-semdata-item:hover {
+  background: var(--accent-wash);
+}
+
+.conteudo-semdata-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conteudo-semdata-idade {
+  flex: none;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
 }
 
 /* ── Formulário e roteiro ── */
@@ -2256,6 +2405,74 @@ textarea {
   padding: 1.5rem;
   font-size: 0.85rem;
   color: var(--ink-soft);
+}
+
+/* Rodapé de páginas da Lista (30/08/2026). Centralizado e discreto: é saída de
+   emergência de quem chegou ao fim, não um controle que se usa o tempo todo. */
+.conteudo-paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.conteudo-paginacao-conta {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+/* Extremo da paginação: continua ocupando o mesmo lugar, sem virar link.
+   Sumir faria os outros dois controles pularem de posição a cada página, que é
+   o jeito mais fácil de fazer alguém clicar no botão errado. */
+.conteudo-pagina-morta {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Busca por título ─────────────────────────────────────────────────────── */
+
+.conteudo-busca {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.conteudo-busca-campo {
+  width: 190px;
+  max-width: 100%;
+  padding: 0.4rem 1.7rem 0.4rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  background: var(--surface);
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+
+.conteudo-busca-campo::placeholder {
+  color: var(--ink-soft);
+}
+
+.conteudo-busca-campo:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Dentro do campo, à direita: fora dele viraria um terceiro controle na faixa
+   de topo, disputando espaço com o filtro de perfil. */
+.conteudo-busca-limpar {
+  position: absolute;
+  right: 0.55rem;
+  display: flex;
+  align-items: center;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+
+.conteudo-busca-limpar:hover {
+  color: var(--ink);
 }
 
 .conteudo-ordenar {

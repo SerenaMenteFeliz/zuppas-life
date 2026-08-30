@@ -1,7 +1,8 @@
 import BotaoCriar from "@/components/painel/BotaoCriar";
+import BuscaConteudo from "@/components/painel/BuscaConteudo";
 import ConteudoQuadro from "@/components/painel/ConteudoQuadro";
 import ConteudoCalendario from "@/components/painel/ConteudoCalendario";
-import ConteudoLista, { type Ordem } from "@/components/painel/ConteudoLista";
+import ConteudoLista, { type Ordem, type Paginacao } from "@/components/painel/ConteudoLista";
 import FiltroPerfil from "@/components/painel/FiltroPerfil";
 import LinkVisao from "@/components/painel/LinkVisao";
 import PainelTopo from "@/components/painel/PainelTopo";
@@ -10,9 +11,11 @@ import { mesValido, semanaValida } from "@/lib/conteudo-calendario";
 import {
   PERFIS,
   STATUS_INFO,
+  STATUS_QUADRO,
   dataDoPost,
   perfilPorId,
-  type Post,
+  tituloDe,
+  type PostResumo,
   type Status,
 } from "@/lib/conteudo-tipos";
 import { hojeISO } from "@/lib/datas";
@@ -38,7 +41,26 @@ type Busca = {
   semana?: string;
   janela?: string;
   ord?: string;
+  /** Termo de busca por título. */
+  q?: string;
+  /** Página da Lista. */
+  pag?: string;
+  /** Página do card "sem data marcada" do calendário. */
+  sd?: string;
+  /** Coluna do quadro que está mostrando todos os cards. */
+  col?: string;
 };
+
+/** Linhas por página na Lista.
+
+    25 porque é o que cabe numa tela de notebook sem rolar até o fim, e porque a
+    Lista existe pra comparar: página que exige rolagem longa já perdeu a
+    comparação que ela promete. */
+const POR_PAGINA = 25;
+
+/** Itens por página no card de "sem data marcada". Menor que a Lista porque ali
+    o card é um aviso dentro do calendário, não a peça principal da tela. */
+const SEM_DATA_POR_PAGINA = 8;
 
 const VISOES = [
   { id: "quadro", rotulo: "Quadro" },
@@ -57,8 +79,21 @@ export default async function ConteudoPage({
 
   const ordem = ordemValida(busca.ord);
 
+  const termo = (busca.q ?? "").trim();
+
   const [todos, contagens] = await Promise.all([listarPosts(), contarFalas()]);
-  const filtrados = perfilFiltro ? todos.filter((p) => p.perfil === perfilFiltro) : todos;
+
+  /* Perfil e busca são o MESMO tipo de coisa (recorte da lista) e por isso
+     valem nas três visões, não só na Lista. Buscar no quadro e ver as colunas
+     encolherem é o que responde "em que etapa está aquele post que eu lembro
+     pelo nome", que é uma pergunta real. O campo fica sempre visível no topo,
+     então nunca há filtro escondido agindo. */
+  const filtrados = todos.filter((p) => {
+    if (perfilFiltro && p.perfil !== perfilFiltro) return false;
+    if (termo && !casa(tituloDe(p), termo)) return false;
+    return true;
+  });
+
   /* Ordenar só faz sentido na Lista, que é a visão de comparar. O quadro ordena
      por status e o calendário por data, por definição — reordenar ali seria
      ignorado e a URL mentiria sobre o que está vendo. */
@@ -84,6 +119,9 @@ export default async function ConteudoPage({
      primeiro, e a semana é o zoom que se pede. */
   const janela = busca.janela === "semana" ? "semana" : "mes";
 
+  /* `undefined` numa chave da mudança APAGA o parâmetro (é o que o filtro de
+     "todos os perfis" usa). Por isso o objeto é montado com spread e a leitura
+     é sempre do resultado, nunca de `busca` direto. */
   const link = (mudanca: Partial<Busca>) => {
     const atual: Busca = {
       v: visao,
@@ -92,8 +130,20 @@ export default async function ConteudoPage({
       semana: busca.semana,
       janela: busca.janela,
       ord: busca.ord,
+      q: termo || undefined,
+      pag: busca.pag,
+      sd: busca.sd,
+      col: busca.col,
       ...mudanca,
     };
+    /* Trocar de ordem, de perfil ou de busca volta pra primeira página: a
+       página 3 de uma lista é a página 3 DAQUELA lista, e mantê-la depois de
+       reordenar cai num pedaço aleatório do meio. Mesma coisa pro card de sem
+       data quando o recorte muda. */
+    if ("ord" in mudanca || "perfil" in mudanca || "q" in mudanca) {
+      atual.pag = undefined;
+      atual.sd = undefined;
+    }
     const qs = new URLSearchParams();
     if (atual.v) qs.set("v", atual.v);
     if (atual.perfil) qs.set("perfil", atual.perfil);
@@ -101,8 +151,55 @@ export default async function ConteudoPage({
     if (atual.semana) qs.set("semana", atual.semana);
     if (atual.janela) qs.set("janela", atual.janela);
     if (atual.ord) qs.set("ord", atual.ord);
+    if (atual.q) qs.set("q", atual.q);
+    if (atual.pag) qs.set("pag", atual.pag);
+    if (atual.sd) qs.set("sd", atual.sd);
+    if (atual.col) qs.set("col", atual.col);
     return "/painel/conteudo?" + qs.toString();
   };
+
+  /* ── Lista: a página que está na tela ─────────────────────────────────────
+     A fatia é feita AQUI, no servidor, e só ela atravessa pro componente de
+     cliente: 25 linhas viram 25 linhas de HTML, não 250. */
+  const pagina = paginaValida(busca.pag, posts.length, POR_PAGINA);
+  const inicio = (pagina - 1) * POR_PAGINA;
+  const daPagina = posts.slice(inicio, inicio + POR_PAGINA);
+  const paginacao: Paginacao = {
+    pagina,
+    paginas: Math.max(1, Math.ceil(posts.length / POR_PAGINA)),
+    primeiro: posts.length === 0 ? 0 : inicio + 1,
+    ultimo: Math.min(inicio + POR_PAGINA, posts.length),
+    total: posts.length,
+    anterior: pagina > 1 ? link({ pag: String(pagina - 1) }) : undefined,
+    proxima: inicio + POR_PAGINA < posts.length ? link({ pag: String(pagina + 1) }) : undefined,
+  };
+
+  /* ── Calendário: os sem data, do mais velho pro mais novo ─────────────────
+     A ordem é o ponto, não a paginação: o card existe pra mostrar o que está
+     parado, e parado só significa alguma coisa com idade à vista. */
+  const semDataTodos = [...filtrados]
+    .filter((p) => !dataDoPost(p))
+    .sort((a, b) => a.criado_em.localeCompare(b.criado_em));
+  const paginaSemData = paginaValida(busca.sd, semDataTodos.length, SEM_DATA_POR_PAGINA);
+  const inicioSemData = (paginaSemData - 1) * SEM_DATA_POR_PAGINA;
+  const semDataPaginacao: Paginacao = {
+    pagina: paginaSemData,
+    paginas: Math.max(1, Math.ceil(semDataTodos.length / SEM_DATA_POR_PAGINA)),
+    primeiro: semDataTodos.length === 0 ? 0 : inicioSemData + 1,
+    ultimo: Math.min(inicioSemData + SEM_DATA_POR_PAGINA, semDataTodos.length),
+    total: semDataTodos.length,
+    anterior: paginaSemData > 1 ? link({ sd: String(paginaSemData - 1) }) : undefined,
+    proxima:
+      inicioSemData + SEM_DATA_POR_PAGINA < semDataTodos.length
+        ? link({ sd: String(paginaSemData + 1) })
+        : undefined,
+  };
+
+  /* Quadro: qual coluna está aberta, e o link pra abrir cada uma. */
+  const colunaAberta = STATUS_QUADRO.includes(busca.col as Status) ? busca.col : undefined;
+  const linksExpandir = Object.fromEntries(
+    STATUS_QUADRO.map((s) => [s, link({ col: s })]),
+  ) as Record<string, string>;
 
   /* Um href por coluna, montado aqui. Ver o comentário no ConteudoLista sobre
      por que não vai a função.
@@ -155,6 +252,19 @@ export default async function ConteudoPage({
                 })),
               ]}
             />
+
+            <BuscaConteudo
+              termo={termo || undefined}
+              preservar={{
+                v: visao,
+                perfil: perfilFiltro,
+                mes: busca.mes,
+                semana: busca.semana,
+                janela: busca.janela,
+                ord: busca.ord,
+              }}
+              hrefLimpar={link({ q: undefined })}
+            />
           </>
         }
         acoes={
@@ -181,23 +291,46 @@ export default async function ConteudoPage({
           </p>
         )}
 
+        {/* Buscou e não sobrou nada: o quadro e o calendário ficariam vazios
+            sem explicar por quê, e "vazio" ali lê como "não tem trabalho", não
+            como "sua busca não achou". A Lista diz isso sozinha, na própria
+            tabela. */}
+        {termo && filtrados.length === 0 && visao !== "lista" && (
+          <p className="conteudo-primeiro-passo">
+            Nenhum post com <strong>{termo}</strong> no título.{" "}
+            <a href={link({ q: undefined })} className="conteudo-ordenar">
+              Limpar a busca
+            </a>
+          </p>
+        )}
+
         {visao === "quadro" ? (
-          <ConteudoQuadro posts={posts} contagens={Object.fromEntries(contagens)} />
+          <ConteudoQuadro
+            posts={posts}
+            contagens={Object.fromEntries(contagens)}
+            expandida={colunaAberta}
+            linksExpandir={linksExpandir}
+            linkRecolher={link({ col: undefined })}
+          />
         ) : visao === "calendario" ? (
           <ConteudoCalendario
             mes={mes}
             semana={semana}
             janela={janela}
             posts={posts}
+            semData={semDataTodos.slice(inicioSemData, inicioSemData + SEM_DATA_POR_PAGINA)}
+            semDataPaginacao={semDataPaginacao}
             hoje={hoje}
             perfilFiltro={perfilFiltro}
           />
         ) : (
           <ConteudoLista
-            posts={posts}
+            posts={daPagina}
             contagens={Object.fromEntries(contagens)}
             ordem={ordem}
             links={linksDeOrdem}
+            paginacao={paginacao}
+            termo={termo || undefined}
           />
         )}
       </div>
@@ -211,6 +344,34 @@ function ordemValida(bruto: string | undefined): Ordem {
   return ORDENS.includes(bruto as Ordem) ? (bruto as Ordem) : "data";
 }
 
+/** Página pedida na URL, presa dentro do que existe.
+
+    Presa e não rejeitada: `?pag=99` numa lista de 3 páginas mostra a 3, não uma
+    tela vazia. URL de página envelhece sozinha (alguém apaga posts, alguém
+    filtra) e tela vazia por número velho parece defeito. */
+function paginaValida(bruto: string | undefined, total: number, porPagina: number): number {
+  const paginas = Math.max(1, Math.ceil(total / porPagina));
+  const n = Number(bruto);
+  if (!Number.isInteger(n) || n < 1) return 1;
+  return Math.min(n, paginas);
+}
+
+/** Comparação de busca: sem caixa e sem acento.
+
+    Sem acento porque ninguém digita "gratidão" com til na pressa, e uma busca
+    que exige o acento certo é uma busca que falha calada. `NFD` separa a letra
+    do acento e o `replace` tira só os acentos, preservando o resto. */
+function normalizar(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function casa(titulo: string, termo: string): boolean {
+  return normalizar(titulo).includes(normalizar(termo));
+}
+
 /* Ordenação da Lista.
 
    Campo vazio vai SEMPRE pro fim, em qualquer coluna. Sem isso, ordenar por
@@ -221,11 +382,11 @@ function ordemValida(bruto: string | undefined): Ordem {
    ordem que uma pessoa espera, e a comparação binária de string põe qualquer
    acento depois do Z. */
 function ordenar(
-  posts: Post[],
+  posts: PostResumo[],
   contagens: Map<string, { total: number; gravadas: number }>,
   ordem: Ordem,
-): Post[] {
-  const texto = (p: Post): string => {
+): PostResumo[] {
+  const texto = (p: PostResumo): string => {
     if (ordem === "titulo") return p.titulo?.trim() ?? "";
     if (ordem === "perfil") return perfilPorId(p.perfil)?.dono ?? p.perfil;
     if (ordem === "formato") return p.formato ?? "";

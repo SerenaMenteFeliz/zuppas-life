@@ -218,12 +218,82 @@ export type Post = {
   atualizado_em: string;
 };
 
+/* O post como as TRÊS VISÕES da lista o enxergam (30/08/2026).
+
+   Quadro, calendário e lista renderizam nove campos; a linha inteira tem
+   dezenove, e os dez que sobram são os textões (legenda, hashtags, observação,
+   referência). Medido em produção: a linha inteira dos 46 posts são 44 KB por
+   carregamento, e estes nove campos são 12,5 KB. Os 31 KB de diferença
+   atravessavam o Atlântico do banco pra função e da função pro navegador pra
+   não serem lidos por ninguém.
+
+   É um `Pick` e não um tipo escrito à mão de propósito: assim, campo que mudar
+   de forma em `Post` muda aqui junto, e adicionar campo à visão é adicionar o
+   nome em dois lugares (aqui e no `COLUNAS_LISTA` de lib/conteudo.ts) em vez de
+   descobrir na tela que ele veio `undefined`.
+
+   A tela de detalhe continua carregando o `Post` inteiro, que é onde os textões
+   de fato aparecem. */
+export type PostResumo = Pick<
+  Post,
+  | "id"
+  | "titulo"
+  | "perfil"
+  | "formato"
+  | "pilar"
+  | "status"
+  | "data_planejada"
+  | "data_publicada"
+  | "criado_em"
+>;
+
 /* Post recém-criado nasce sem título de propósito (21/08/2026): "Criar" é um
    clique só, e o campo abre vazio e focado na tela de detalhe pra escrever
    direto. Como o banco guarda string vazia e não NULL, quem exibe título
    precisa passar por aqui, senão o quadro mostra um card sem nada clicável. */
 export function tituloDe(p: { titulo: string }): string {
   return p.titulo.trim() === "" ? "Sem título" : p.titulo;
+}
+
+/* ── Contagem de falas por post ───────────────────────────────────────────────
+
+   Mora aqui, e não em lib/conteudo.ts, por um motivo prático: conteudo.ts é
+   `server-only` e faz rede, então nada dele entra em `npm run verificar`. Esta
+   função é pura, e é justamente ela que decide se a resposta do banco é
+   confiável — a parte que, se estiver errada, escreve "undefined/undefined" no
+   rodapé de todo card sem ninguém notar no code review.
+
+   Devolve `null` quando a resposta não tem a forma esperada, e quem chama cai
+   no caminho antigo (baixar as falas e contar em memória). Lento e certo é
+   melhor que rápido e errado.
+
+   `Number(...)` e não checagem de `typeof number` porque `count(*)` no Postgres
+   é `bigint`, e bigint pode chegar como string no JSON dependendo de como a
+   visão for escrita. As duas formas são aceitáveis; o que não é aceitável é
+   campo ausente ou texto que não vira número. */
+export type ContagemDeFalas = { total: number; gravadas: number };
+
+export function montarContagemDeFalas(
+  linhas: unknown,
+): Map<string, ContagemDeFalas> | null {
+  if (!Array.isArray(linhas)) return null;
+
+  const mapa = new Map<string, ContagemDeFalas>();
+  for (const linha of linhas) {
+    if (typeof linha !== "object" || linha === null) return null;
+    const l = linha as Record<string, unknown>;
+    const total = Number(l.total);
+    const gravadas = Number(l.gravadas);
+    if (typeof l.post_id !== "string" || l.post_id === "") return null;
+    if (!Number.isFinite(total) || !Number.isFinite(gravadas)) return null;
+    /* `null` vira 0 no `Number()`, e um total zerado num post que tem roteiro
+       seria um zero mentiroso na tela. Só que "post sem nenhuma fala" também é
+       zero legítimo, e a visão nem devolve linha pra ele. Então zero aqui só
+       aparece se alguém escrever a visão errado, e isso é falha de formato. */
+    if (l.total === null || l.gravadas === null) return null;
+    mapa.set(l.post_id, { total, gravadas });
+  }
+  return mapa;
 }
 
 export type Metrica = {
@@ -243,6 +313,8 @@ export type Metrica = {
     previsão. Um post publicado fora do dia planejado tem que aparecer no dia
     em que saiu, senão o calendário vira registro do que a gente pretendia em
     vez do que aconteceu. */
-export function dataDoPost(post: Post): string | null {
+export function dataDoPost(
+  post: Pick<Post, "data_publicada" | "data_planejada">,
+): string | null {
   return post.data_publicada ?? post.data_planejada;
 }

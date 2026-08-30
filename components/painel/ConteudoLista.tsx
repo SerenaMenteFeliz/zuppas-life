@@ -6,7 +6,7 @@ import {
   dataDoPost,
   perfilPorId,
   tituloDe,
-  type Post,
+  type PostResumo,
   type Status,
 } from "@/lib/conteudo-tipos";
 
@@ -55,28 +55,50 @@ const COLUNAS: { id: Ordem; rotulo: string }[] = [
    passar uma derruba a rota inteira com 500 — foi o que aconteceu no primeiro
    deploy do FiltroPerfil, em 21/08/2026. A regra de montar URL continua morando
    só na página; o que cruza é texto. */
+/** O recorte que está na tela, pra desenhar o rodapé de páginas.
+
+    Os hrefs chegam prontos porque quem sabe montar URL desta tela é a página
+    (ver o comentário acima sobre função não atravessar a fronteira). */
+export type Paginacao = {
+  pagina: number;
+  paginas: number;
+  primeiro: number;
+  ultimo: number;
+  total: number;
+  anterior?: string;
+  proxima?: string;
+};
+
 export default function ConteudoLista({
   posts,
   contagens,
   ordem,
   links,
+  paginacao,
+  termo,
 }: {
-  posts: Post[];
+  posts: PostResumo[];
   contagens: Record<string, Contagem>;
   ordem: Ordem;
   links: Record<Ordem, string>;
+  paginacao?: Paginacao;
+  /** O que foi buscado, só pra explicar a lista vazia. */
+  termo?: string;
 }) {
   const router = useRouter();
 
   if (posts.length === 0) {
     return (
       <div className="glass-card conteudo-lista-vazia">
-        Nenhum post nesta lista ainda.
+        {termo
+          ? "Nenhum post com “" + termo + "” no título."
+          : "Nenhum post nesta lista ainda."}
       </div>
     );
   }
 
   return (
+    <>
     <div className="glass-card overflow-x-auto p-1">
       <table className="painel-tabela">
         <thead>
@@ -132,5 +154,36 @@ export default function ConteudoLista({
         </tbody>
       </table>
     </div>
+
+    {/* Rodapé de páginas (30/08/2026). Aparece só quando há mais de uma: numa
+        lista de meia página, um paginador é ruído dizendo "1 de 1".
+
+        Diz o intervalo e o total, não só o número da página. "26 a 50 de 137"
+        responde sozinho onde a pessoa está; "página 2" exige que ela saiba
+        quantos cabem por página pra significar alguma coisa. */}
+    {paginacao && paginacao.paginas > 1 && (
+      <nav className="conteudo-paginacao" aria-label="Páginas da lista">
+        {paginacao.anterior ? (
+          <a href={paginacao.anterior} className="chip">
+            ‹ Anterior
+          </a>
+        ) : (
+          <span className="chip conteudo-pagina-morta">‹ Anterior</span>
+        )}
+
+        <span className="conteudo-paginacao-conta">
+          {paginacao.primeiro} a {paginacao.ultimo} de {paginacao.total}
+        </span>
+
+        {paginacao.proxima ? (
+          <a href={paginacao.proxima} className="chip">
+            Próxima ›
+          </a>
+        ) : (
+          <span className="chip conteudo-pagina-morta">Próxima ›</span>
+        )}
+      </nav>
+    )}
+    </>
   );
 }
