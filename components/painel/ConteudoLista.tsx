@@ -99,18 +99,40 @@ export default function ConteudoLista({
 
   return (
     <>
-    <div className="glass-card overflow-x-auto p-1">
-      <table className="painel-tabela">
+    {/* A caixa rola nos dois eixos e para na altura da janela (30/08/2026):
+        antes a tabela esticava a página e o cabeçalho de ordenação sumia
+        justamente quando a lista ficava longa o bastante pra alguém querer
+        reordenar. Agora ele fica grudado no topo da caixa. */}
+    <div className="glass-card conteudo-lista-caixa">
+      <table className="painel-tabela conteudo-lista-tabela">
         <thead>
           <tr>
+            {/* `aria-sort` tem que dizer a direção de verdade: data e roteiro
+                descem (mais recente / mais perto de sair primeiro) e o resto
+                sobe. Estava "ascending" em todas, o que faz o leitor de tela
+                anunciar o contrário do que a lista mostra. */}
             {COLUNAS.map((c) => (
-              <th key={c.id} aria-sort={ordem === c.id ? "ascending" : "none"}>
+              <th
+                key={c.id}
+                aria-sort={
+                  ordem !== c.id
+                    ? "none"
+                    : c.id === "data" || c.id === "roteiro"
+                      ? "descending"
+                      : "ascending"
+                }
+              >
                 <a
                   href={links[c.id]}
                   className={"conteudo-ordenar" + (ordem === c.id ? " conteudo-ordenar-ativa" : "")}
                 >
                   {c.rotulo}
-                  {ordem === c.id && <span aria-hidden> ↑</span>}
+                  {/* A seta aponta pro mesmo lado que o `aria-sort` diz.
+                      Estava sempre pra cima, inclusive na coluna Data, que
+                      ordena do mais recente pro mais antigo. */}
+                  {ordem === c.id && (
+                    <span aria-hidden>{c.id === "data" || c.id === "roteiro" ? " ↓" : " ↑"}</span>
+                  )}
                 </a>
               </th>
             ))}

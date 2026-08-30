@@ -1810,6 +1810,31 @@ textarea {
   }
 }
 
+/* A barra horizontal do quadro segue a mesma linguagem das verticais das
+   colunas: fio fino, sem setas. Ela só aparece quando as cinco colunas não
+   cabem na largura. */
+.conteudo-quadro {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.conteudo-quadro::-webkit-scrollbar {
+  height: 6px;
+}
+
+.conteudo-quadro::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conteudo-quadro::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--line);
+}
+
+.conteudo-quadro::-webkit-scrollbar-button {
+  display: none;
+}
+
 .conteudo-coluna {
   display: flex;
   min-width: 0;
@@ -1842,11 +1867,63 @@ textarea {
   flex-direction: column;
   gap: 0.5rem;
   overflow-y: auto;
-  /* Reserva a calha da barra sempre: sem isso, a coluna que passa a rolar
-     encolhe 15px e os cards dela ficam mais estreitos que os das vizinhas. */
-  scrollbar-gutter: stable;
+  /* O truque do espaçamento (30/08/2026, 2ª volta).
+
+     Antes era `scrollbar-gutter: stable`, que reserva uma calha do tamanho da
+     barra do sistema DENTRO da área de rolagem. Resultado no Windows: os cards
+     da coluna que rola ficavam mais estreitos e deslocados pra esquerda em
+     relação aos das colunas que não rolam, e a barra encostava neles. Era o
+     desencontro que o Yan descreveu como agoniante.
+
+     Agora a área de rolagem sangra pra dentro do padding da própria coluna
+     (`padding-right` positivo cancelado por `margin-right` negativo do mesmo
+     tamanho): o card mantém a largura das outras colunas e a barra, fininha,
+     mora no respiro que já existia entre o card e a borda. */
+  padding-right: 0.45rem;
+  margin-right: -0.45rem;
+  /* Respiro depois do último card, pra ele não terminar colado na borda de
+     baixo quando a coluna está rolada até o fim. */
+  padding-bottom: 0.15rem;
   /* A rolagem da coluna não vira rolagem da página ao chegar no fim. */
   overscroll-behavior-y: contain;
+}
+
+/* ── Barra de rolagem das colunas ─────────────────────────────────────────────
+
+   A barra padrão do Windows tem 17px e desenha setas nas pontas: dentro de uma
+   coluna de 230px ela é a coisa mais pesada da tela, e as setas leem como
+   controle clicável de alguma coisa. Aqui vira um fio de 6px que aparece sobre
+   o fundo da coluna.
+
+   As duas sintaxes existem porque são motores diferentes, não redundância:
+   `scrollbar-width`/`scrollbar-color` é o padrão (Firefox e navegadores
+   recentes) e `::-webkit-scrollbar` é o que o Chrome ainda obedece. */
+.conteudo-coluna-corpo {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.conteudo-coluna-corpo::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conteudo-coluna-corpo::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conteudo-coluna-corpo::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--line);
+}
+
+.conteudo-coluna-corpo:hover::-webkit-scrollbar-thumb {
+  background: var(--ink-soft);
+}
+
+/* As setas das pontas. `display: none` some com elas; sem isto o Chrome no
+   Windows desenha dois quadrados nas extremidades da barra de 6px. */
+.conteudo-coluna-corpo::-webkit-scrollbar-button {
+  display: none;
 }
 
 /* "Mostrar os N restantes" / "Mostrar menos": linha de texto, não botão. É
@@ -2418,6 +2495,79 @@ textarea {
   padding: 1.5rem;
   font-size: 0.85rem;
   color: var(--ink-soft);
+}
+
+/* ── A Lista: altura de janela, cabeçalho grudado e linha mais densa ─────────
+
+   Mesma conta de altura do quadro (janela menos topo, menos a margem dele,
+   menos o `padding-bottom` do `.painel-main`), com 3rem a mais descontados pro
+   rodapé de páginas, que fica FORA da caixa e precisa caber embaixo dela.
+
+   Também só a partir de 1024px, pelos mesmos dois motivos do quadro: abaixo de
+   761px a sidebar vira barra no topo, e entre 761 e 1024 a faixa de controles
+   pode quebrar em duas linhas. */
+/* Sem padding interno (saiu o `p-1` de 4px em 30/08): com o cabeçalho grudado,
+   aquele respiro virava uma fresta por onde as linhas apareciam ACIMA do
+   cabeçalho enquanto a lista rolava. A margem que ele dava agora vem do padding
+   das próprias células. */
+.conteudo-lista-caixa {
+  overflow-x: auto;
+}
+
+@media (min-width: 1024px) {
+  .conteudo-lista-caixa {
+    max-height: calc(100dvh - var(--painel-topo-altura) - 1.5rem - 4rem - 3rem);
+    overflow-y: auto;
+  }
+}
+
+.conteudo-lista-caixa {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.conteudo-lista-caixa::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.conteudo-lista-caixa::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conteudo-lista-caixa::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--line);
+}
+
+.conteudo-lista-caixa::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Densidade só desta tabela, e não de `.painel-tabela` inteira: Registros e
+   Inteligência têm poucas linhas e o corpo maior lá é confortável. Aqui a
+   pergunta é quantas linhas cabem numa olhada, então a linha aperta.
+
+   Medido no monitor do Yan: com 0,6rem de padding e corpo 0,85rem, a linha
+   dava ~36px e cabiam 15 numa tela; com 0,4rem e 0,78rem ela dá ~28px e cabem
+   20. É uma linha a cada quatro que antes exigia rolar. */
+.conteudo-lista-tabela {
+  font-size: 0.78rem;
+}
+
+.conteudo-lista-tabela th {
+  /* Grudado no topo da caixa que rola. `background` opaco é obrigatório: sem
+     ele as linhas passam por baixo e ficam legíveis através do cabeçalho. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.64rem;
+  background: var(--surface);
+}
+
+.conteudo-lista-tabela td {
+  padding: 0.4rem 0.6rem;
 }
 
 /* Rodapé de páginas da Lista (30/08/2026). Centralizado e discreto: é saída de
