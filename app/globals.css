@@ -1771,28 +1771,41 @@ textarea {
    Ideia e Roteiro da tela, ou seja, o quadro perdia exatamente a comparação
    entre etapas que ele existe pra fazer.
 
-   A conta da altura: janela inteira menos a faixa de topo (que é sticky e fica
-   por cima), menos a margem de 1,5rem embaixo dela, menos um respiro de 1,5rem
-   no pé. `dvh` e não `vh` porque no celular a barra do navegador entra e sai, e
-   `vh` deixaria o fim da coluna atrás dela.
+   **A conta da altura, e ela é literal** (corrigida em 30/08/2026 depois do
+   primeiro corte sair errado): dentro do `.painel-main` moram, em coluna, a
+   faixa de topo (`--painel-topo-altura`), a margem de 1,5rem embaixo dela, o
+   quadro, e o `padding-bottom: 4rem` do próprio `.painel-main`. Pra página não
+   rolar, o quadro precisa ser a janela MENOS esses três. A primeira versão
+   subtraía 3rem em vez de 9,25rem, e sobrava página rolando.
 
-   `overflow-y: hidden` no quadro é o par obrigatório do `max-height`: sem ele o
-   container ganharia barra vertical PRÓPRIA além da de cada coluna, e a pessoa
-   teria duas rolagens verticais empilhadas fazendo coisas diferentes.
+   `height` e não `max-height`: é o `grid-auto-rows` abaixo que depende disso.
 
-   Só a partir de 1024px, e o número tem dois motivos. Abaixo de 761px a
-   sidebar vira barra horizontal no topo e come uma altura que esta conta não
-   conhece. Entre 761 e 1024 a faixa de topo pode quebrar em duas linhas (são
-   seis controles nela desde a busca), e aí o teto ficaria uma linha alto
-   demais. Nessa faixa fica valendo o comportamento antigo, que é a página
-   rolar, e o `3rem` de folga no fim da conta absorve uma quebra eventual.
+   `dvh` e não `vh` porque no celular a barra do navegador entra e sai, e `vh`
+   deixaria o fim da coluna atrás dela.
 
-   Vale lembrar que errar essa conta pra mais não esconde nada: o
-   `.painel-main` continua rolando, então o pé do quadro é alcançável de
-   qualquer jeito. O que se perde é o alinhamento com o fim da janela. */
+   Só a partir de 1024px. Abaixo de 761px a sidebar vira barra horizontal no
+   topo e come uma altura que esta conta não conhece; entre 761 e 1024 a faixa
+   de topo pode quebrar em duas linhas (são seis controles nela desde a busca).
+   Nessas duas faixas vale o comportamento antigo, que é a página rolar. */
 @media (min-width: 1024px) {
   .conteudo-quadro {
-    max-height: calc(100dvh - var(--painel-topo-altura) - 3rem);
+    height: calc(100dvh - var(--painel-topo-altura) - 1.5rem - 4rem);
+    /* **A linha que faltava, e sem ela o quadro fica exatamente como o print de
+       30/08**: card cortado no meio e coluna que não rola.
+
+       Motivo: `grid-auto-flow: column` cria UMA linha implícita, e linha
+       implícita tem tamanho `auto`, ou seja, a altura do conteúdo mais alto.
+       A coluna de 33 cards media uns 4000px e as outras esticavam junto, muito
+       além do teto do container. As colunas não rolavam por dentro porque não
+       tinham teto nenhum pra respeitar: quem cortava era o `overflow` do
+       quadro, e corte não é rolagem.
+
+       `minmax(0, 1fr)` obriga a linha a caber na altura do container. O `0` de
+       mínimo é o que permite ela ENCOLHER abaixo do conteúdo, que é a mesma
+       armadilha do `min-height: 0` em item de flex. */
+    grid-auto-rows: minmax(0, 1fr);
+    /* Par obrigatório da altura fixa: sem ele o quadro ganharia barra vertical
+       própria além da de cada coluna, e seriam duas rolagens empilhadas. */
     overflow-y: hidden;
   }
 }
@@ -2442,12 +2455,32 @@ textarea {
 .conteudo-busca-campo {
   width: 190px;
   max-width: 100%;
-  padding: 0.4rem 1.7rem 0.4rem 0.7rem;
+  /* O padding da direita reserva a área do botão de limpar (1,45rem de alvo
+     mais 0,35rem de folga), pra que o texto longo pare antes dele em vez de
+     passar por baixo. */
+  padding: 0.4rem 2.1rem 0.4rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: 9999px;
   background: var(--surface);
   font-size: 0.8rem;
   color: var(--ink);
+}
+
+/* O botão de limpar nativo do `type="search"`.
+
+   O Chrome desenha um "×" cinza próprio dentro do campo quando há texto, e ele
+   apareceu ao lado do nosso (Yan, 30/08/2026: "eu tinha conseguido ver um na
+   direita dele também"). Não dá pra estilizar, não segue o tema e não some por
+   conta. Escondido nos dois motores; o `type` continua `search` porque é o que
+   diz ao leitor de tela e ao teclado do celular o que aquele campo é. */
+.conteudo-busca-campo::-webkit-search-cancel-button,
+.conteudo-busca-campo::-webkit-search-decoration {
+  appearance: none;
+  display: none;
+}
+
+.conteudo-busca-campo::-ms-clear {
+  display: none;
 }
 
 .conteudo-busca-campo::placeholder {
@@ -2460,19 +2493,39 @@ textarea {
 }
 
 /* Dentro do campo, à direita: fora dele viraria um terceiro controle na faixa
-   de topo, disputando espaço com o filtro de perfil. */
+   de topo, disputando espaço com o filtro de perfil.
+
+   Alvo redondo de 1,45rem centrado verticalmente por `top: 50%` mais
+   `translateY(-50%)`, e não por `align-items` do pai: o pai é a caixa inteira
+   do formulário, então centralizar por ele dependeria da altura do campo, que
+   muda com o tamanho da fonte do navegador. Assim o botão fica no meio do
+   campo em qualquer altura.
+
+   O ícone é SVG e não o caractere "×" justamente pra centralizar: glifo de
+   fonte carrega a própria caixa e sempre sai alguns pixels torto. */
 .conteudo-busca-limpar {
   position: absolute;
-  right: 0.55rem;
+  top: 50%;
+  right: 0.32rem;
   display: flex;
+  width: 1.45rem;
+  height: 1.45rem;
   align-items: center;
-  font-size: 1rem;
-  line-height: 1;
+  justify-content: center;
+  border-radius: 9999px;
   color: var(--ink-soft);
+  transform: translateY(-50%);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .conteudo-busca-limpar:hover {
   color: var(--ink);
+  background: var(--accent-wash);
+}
+
+.conteudo-busca-limpar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .conteudo-ordenar {

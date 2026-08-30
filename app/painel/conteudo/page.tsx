@@ -294,17 +294,20 @@ export default async function ConteudoPage({
         {/* Buscou e não sobrou nada: o quadro e o calendário ficariam vazios
             sem explicar por quê, e "vazio" ali lê como "não tem trabalho", não
             como "sua busca não achou". A Lista diz isso sozinha, na própria
-            tabela. */}
-        {termo && filtrados.length === 0 && visao !== "lista" && (
+            tabela.
+
+            A visão sai do ar junto (30/08/2026): cinco colunas dizendo "Nada
+            aqui" embaixo de "nenhum post encontrado" é a mesma informação três
+            vezes, e o quadro tem altura fixa, então ele empurraria a mensagem
+            pra fora e devolveria rolagem à página. */}
+        {termo && filtrados.length === 0 && visao !== "lista" ? (
           <p className="conteudo-primeiro-passo">
             Nenhum post com <strong>{termo}</strong> no título.{" "}
             <a href={link({ q: undefined })} className="conteudo-ordenar">
               Limpar a busca
             </a>
           </p>
-        )}
-
-        {visao === "quadro" ? (
+        ) : visao === "quadro" ? (
           <ConteudoQuadro
             posts={posts}
             contagens={Object.fromEntries(contagens)}

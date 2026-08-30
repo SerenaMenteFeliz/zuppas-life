@@ -79,6 +79,18 @@ export function Mais({ className }: Props) {
   );
 }
 
+/* Fechar / limpar. Duas diagonais e nada mais: em 12px, qualquer detalhe a
+   mais vira borrão. Usado no botão de limpar a busca (30/08/2026), que antes
+   era o caractere "×" de texto e ficava desalinhado por natureza, porque
+   glifo de fonte não centraliza numa caixa de botão. */
+export function Fechar({ className }: Props) {
+  return (
+    <svg {...base(className ?? "h-3 w-3")} strokeWidth={2.2}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
 export function Lixeira({ className }: Props) {
   return (
     <svg {...base(className ?? "h-4 w-4")}>

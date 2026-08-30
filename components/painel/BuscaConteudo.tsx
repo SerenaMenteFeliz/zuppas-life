@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fechar } from "@/components/icones";
 
 /* Busca por título na aba de Conteúdo (30/08/2026).
 
@@ -39,10 +40,17 @@ export default function BuscaConteudo({
       />
 
       {/* Limpar é link e não botão de reset: reset devolveria o campo ao valor
-          que veio do servidor (o próprio termo), não à lista sem filtro. */}
+          que veio do servidor (o próprio termo), não à lista sem filtro.
+
+          Era o caractere "×" solto até 30/08/2026, e o Yan apontou dois
+          problemas de uma vez: ele nunca centraliza (glifo de fonte tem a
+          própria caixa, que não é a do botão) e apareciam DOIS xis, porque
+          `type="search"` desenha o botão de limpar nativo do navegador por
+          cima. O nativo agora está escondido no CSS e sobra este, que é um
+          alvo redondo com ícone desenhado. */}
       {termo && (
         <Link href={hrefLimpar} className="conteudo-busca-limpar" aria-label="Limpar busca">
-          ×
+          <Fechar />
         </Link>
       )}
     </form>
