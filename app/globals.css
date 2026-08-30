@@ -2026,9 +2026,18 @@ textarea {
   background: var(--accent-wash);
 }
 
+/* `center` e não `flex-start` (30/08/2026, apontado pelo Yan): o botão de mover
+   tem 22px e a linha do título tem ~17px, então alinhar os dois pelo TOPO
+   deixava a seta ~2,5px abaixo do meio óptico do texto. Lia como se ela
+   estivesse alinhada pela altura das minúsculas em vez da altura das
+   maiúsculas.
+
+   Com os centros alinhados a conta some: não há número mágico pra manter, e
+   mudar corpo de fonte ou tamanho do botão continua alinhado sozinho. Só vale
+   porque o título agora é sempre de uma linha. */
 .conteudo-card-topo {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--esp-1);
 }
 
@@ -2048,15 +2057,31 @@ textarea {
   white-space: nowrap;
 }
 
-.conteudo-card-titulo:hover {
+/* O título acende junto com o card, e não por conta própria (30/08/2026).
+
+   Antes eram dois gatilhos independentes na mesma peça: passar o mouse no card
+   pintava o fundo, passar em cima do TEXTO pintava o título. Atravessar o card
+   acendia um, depois o outro, e lia como dois destaques disputando a mesma
+   área.
+
+   Agora o card inteiro é o alvo (ele já era: o clique nele abre o post), então
+   um gesto acende uma coisa só, composta de fundo mais título. */
+.conteudo-card:hover .conteudo-card-titulo {
   color: var(--accent);
 }
 
+/* `display: flex` no invólucro, e é isso que faz o alinhamento fechar de
+   verdade (medido em 30/08: o botão continuava 2px baixo mesmo com o pai
+   centralizando).
+
+   O invólucro é um `<span>`, então o dropdown dentro dele vivia num contexto
+   de linha: a caixa ganhava 4px de "strut" da linha embaixo do botão, ficava
+   com 26px em vez de 22, e o pai centralizava a CAIXA, não o botão. Virando
+   flex, não há linha, a caixa passa a ter exatamente a altura do botão, e aí
+   centro do botão e centro do título caem no mesmo pixel. */
 .conteudo-card-mover {
+  display: flex;
   flex: none;
-  /* Sobe 1px pra alinhar o centro óptico da seta com a linha do título, que
-     tem `line-height` maior que a caixa do botão. */
-  margin-top: -1px;
 }
 
 .conteudo-card-meta {
