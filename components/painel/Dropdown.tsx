@@ -55,6 +55,7 @@ export default function Dropdown({
   className = "",
   largura,
   compacto = false,
+  icone,
 }: {
   valor: string;
   opcoes: OpcaoDropdown[];
@@ -74,6 +75,9 @@ export default function Dropdown({
      O controle vira só o gesto de mover, e o nome continua no `aria-label`,
      que é por onde o leitor de tela lê. */
   compacto?: boolean;
+  /* Substitui a seta no modo compacto. O filtro de coluna da Lista usa um funil:
+     seta ali leria como ordenação, que é o outro gesto do mesmo cabeçalho. */
+  icone?: React.ReactNode;
 }) {
   const [aberto, setAberto] = useState(false);
   const [marcado, setMarcado] = useState(0);
@@ -217,18 +221,20 @@ export default function Dropdown({
           <span aria-hidden className="conteudo-ponto" style={{ background: escolhida.cor }} />
         )}
         {!compacto && <span className="pn-drop-texto">{escolhida?.rotulo ?? vazio}</span>}
-        <svg
-          aria-hidden
-          className="pn-drop-seta"
-          viewBox="0 0 10 6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.4}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M1 1l4 4 4-4" />
-        </svg>
+        {icone ?? (
+          <svg
+            aria-hidden
+            className="pn-drop-seta"
+            viewBox="0 0 10 6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M1 1l4 4 4-4" />
+          </svg>
+        )}
       </button>
 
       {aberto &&

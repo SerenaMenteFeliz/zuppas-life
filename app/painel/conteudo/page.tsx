@@ -2,14 +2,22 @@ import BotaoCriar from "@/components/painel/BotaoCriar";
 import BuscaConteudo from "@/components/painel/BuscaConteudo";
 import ConteudoQuadro from "@/components/painel/ConteudoQuadro";
 import ConteudoCalendario from "@/components/painel/ConteudoCalendario";
-import ConteudoLista, { type Ordem, type Paginacao } from "@/components/painel/ConteudoLista";
+import ConteudoLista, {
+  type Direcao,
+  type FiltroColuna,
+  type Ordem,
+  type Paginacao,
+} from "@/components/painel/ConteudoLista";
 import FiltroPerfil from "@/components/painel/FiltroPerfil";
 import LinkVisao from "@/components/painel/LinkVisao";
 import PainelTopo from "@/components/painel/PainelTopo";
 import { contarFalas, listarPosts } from "@/lib/conteudo";
 import { mesValido, semanaValida } from "@/lib/conteudo-calendario";
 import {
+  FORMATOS,
   PERFIS,
+  PILARES,
+  STATUS,
   STATUS_INFO,
   STATUS_QUADRO,
   dataDoPost,
@@ -49,6 +57,14 @@ type Busca = {
   sd?: string;
   /** Coluna do quadro que está mostrando todos os cards. */
   col?: string;
+  /** Direção da ordenação da Lista: `asc` ou `desc`. */
+  dir?: string;
+  /* Filtros por coluna da Lista. `perfil` já existia como filtro da faixa de
+     topo e continua sendo o mesmo parâmetro: dois lugares mexendo no mesmo
+     recorte, e não dois recortes concorrentes. */
+  formato?: string;
+  pilar?: string;
+  status?: string;
 };
 
 /** Linhas por página na Lista.
@@ -82,9 +98,21 @@ export default async function ConteudoPage({
   const visao = VISOES.some((v) => v.id === busca.v) ? busca.v! : "quadro";
   const perfilFiltro = PERFIS.some((p) => p.id === busca.perfil) ? busca.perfil : undefined;
 
-  const ordem = ordemValida(busca.ord);
-
   const termo = (busca.q ?? "").trim();
+  const direcao: Direcao = busca.dir === "asc" ? "asc" : "desc";
+  /* Sem `ord` na URL a lista fica no padrão (data, mais recente primeiro) e
+     NENHUMA coluna aparece ordenada. É o terceiro estado do cabeçalho, e ele
+     precisa existir: sem ele não há como desfazer uma ordenação a não ser
+     adivinhando qual era a de fábrica. */
+  const ordenacaoAtiva = ORDENS.includes(busca.ord as Ordem) ? (busca.ord as Ordem) : null;
+
+  const filtroFormato = FORMATOS.includes(busca.formato as (typeof FORMATOS)[number])
+    ? busca.formato
+    : undefined;
+  const filtroPilar = PILARES.includes(busca.pilar as (typeof PILARES)[number])
+    ? busca.pilar
+    : undefined;
+  const filtroStatus = STATUS.includes(busca.status as Status) ? busca.status : undefined;
 
   const [todos, contagens] = await Promise.all([listarPosts(), contarFalas()]);
 
@@ -95,6 +123,9 @@ export default async function ConteudoPage({
      então nunca há filtro escondido agindo. */
   const filtrados = todos.filter((p) => {
     if (perfilFiltro && p.perfil !== perfilFiltro) return false;
+    if (filtroFormato && p.formato !== filtroFormato) return false;
+    if (filtroPilar && p.pilar !== filtroPilar) return false;
+    if (filtroStatus && p.status !== filtroStatus) return false;
     if (termo && !casa(tituloDe(p), termo)) return false;
     return true;
   });
@@ -102,7 +133,8 @@ export default async function ConteudoPage({
   /* Ordenar só faz sentido na Lista, que é a visão de comparar. O quadro ordena
      por status e o calendário por data, por definição — reordenar ali seria
      ignorado e a URL mentiria sobre o que está vendo. */
-  const posts = visao === "lista" ? ordenar(filtrados, contagens, ordem) : filtrados;
+  const posts =
+    visao === "lista" ? ordenar(filtrados, contagens, ordenacaoAtiva, direcao) : filtrados;
 
   /* Quem vai ser o dono do post novo.
 
@@ -136,6 +168,10 @@ export default async function ConteudoPage({
       janela: busca.janela,
       ord: busca.ord,
       q: termo || undefined,
+      dir: busca.dir,
+      formato: busca.formato,
+      pilar: busca.pilar,
+      status: busca.status,
       pag: busca.pag,
       sd: busca.sd,
       col: busca.col,
@@ -145,7 +181,14 @@ export default async function ConteudoPage({
        página 3 de uma lista é a página 3 DAQUELA lista, e mantê-la depois de
        reordenar cai num pedaço aleatório do meio. Mesma coisa pro card de sem
        data quando o recorte muda. */
-    if ("ord" in mudanca || "perfil" in mudanca || "q" in mudanca) {
+    if (
+      "ord" in mudanca ||
+      "perfil" in mudanca ||
+      "q" in mudanca ||
+      "formato" in mudanca ||
+      "pilar" in mudanca ||
+      "status" in mudanca
+    ) {
       atual.pag = undefined;
       atual.sd = undefined;
     }
@@ -156,7 +199,13 @@ export default async function ConteudoPage({
     if (atual.semana) qs.set("semana", atual.semana);
     if (atual.janela) qs.set("janela", atual.janela);
     if (atual.ord) qs.set("ord", atual.ord);
+    /* Direção só faz sentido junto de uma coluna ordenada; sozinha na URL ela
+       seria estado morto. */
+    if (atual.ord && atual.dir) qs.set("dir", atual.dir);
     if (atual.q) qs.set("q", atual.q);
+    if (atual.formato) qs.set("formato", atual.formato);
+    if (atual.pilar) qs.set("pilar", atual.pilar);
+    if (atual.status) qs.set("status", atual.status);
     if (atual.pag) qs.set("pag", atual.pag);
     if (atual.sd) qs.set("sd", atual.sd);
     if (atual.col) qs.set("col", atual.col);
@@ -222,9 +271,65 @@ export default async function ConteudoPage({
      então chamar `link()` acima da declaração dele derruba a rota inteira com
      "Cannot access 'link' before initialization". Foi o que aconteceu na
      primeira versão disto, em 22/08/2026. */
+  /* Cada cabeçalho aponta pro PRÓXIMO estado dele, e o ciclo é
+     nenhum → crescente → decrescente → nenhum.
+
+     Voltar ao "nenhum" é o que devolve a lista ao padrão sem exigir que a
+     pessoa lembre qual era. Clicar numa coluna diferente começa o ciclo dela do
+     início, e não herda a direção da anterior: "crescente" em Título e em Data
+     querem dizer coisas diferentes, e herdar faria a lista mudar duas vezes num
+     clique só. */
   const linksDeOrdem = Object.fromEntries(
-    ORDENS.map((o) => [o, link({ ord: o })]),
+    ORDENS.map((o) => {
+      if (ordenacaoAtiva !== o) return [o, link({ ord: o, dir: "asc" })];
+      if (direcao === "asc") return [o, link({ ord: o, dir: "desc" })];
+      return [o, link({ ord: undefined, dir: undefined })];
+    }),
   ) as Record<Ordem, string>;
+
+  /* Filtros por coluna. Só as colunas de vocabulário fechado entram: Título tem
+     a busca da faixa de topo, e Data e Roteiro são contínuos, onde uma lista de
+     valores não ajudaria (o filtro útil ali seria faixa, que é outra peça). */
+  const filtrosDeColuna: Partial<Record<Ordem, FiltroColuna>> = {
+    perfil: {
+      ativo: perfilFiltro,
+      opcoes: [
+        { valor: "", rotulo: "Todos os perfis", href: link({ perfil: undefined }) },
+        ...PERFIS.map((x) => ({
+          valor: x.id,
+          rotulo: x.dono,
+          cor: x.cor,
+          href: link({ perfil: x.id }),
+        })),
+      ],
+    },
+    formato: {
+      ativo: filtroFormato,
+      opcoes: [
+        { valor: "", rotulo: "Todos os formatos", href: link({ formato: undefined }) },
+        ...FORMATOS.map((f) => ({ valor: f, rotulo: f, href: link({ formato: f }) })),
+      ],
+    },
+    pilar: {
+      ativo: filtroPilar,
+      opcoes: [
+        { valor: "", rotulo: "Todos os pilares", href: link({ pilar: undefined }) },
+        ...PILARES.map((f) => ({ valor: f, rotulo: f, href: link({ pilar: f }) })),
+      ],
+    },
+    status: {
+      ativo: filtroStatus,
+      opcoes: [
+        { valor: "", rotulo: "Todos os status", href: link({ status: undefined }) },
+        ...STATUS.map((x) => ({
+          valor: x,
+          rotulo: STATUS_INFO[x].rotulo,
+          cor: STATUS_INFO[x].cor,
+          href: link({ status: x }),
+        })),
+      ],
+    },
+  };
 
   return (
     <>
@@ -346,7 +451,9 @@ export default async function ConteudoPage({
           <ConteudoLista
             posts={daPagina}
             contagens={Object.fromEntries(contagens)}
-            ordem={ordem}
+            ordem={ordenacaoAtiva}
+            direcao={direcao}
+            filtros={filtrosDeColuna}
             links={linksDeOrdem}
             paginacao={paginacao}
             sufixo={sufixo}
@@ -359,10 +466,6 @@ export default async function ConteudoPage({
 }
 
 const ORDENS: Ordem[] = ["titulo", "perfil", "formato", "pilar", "status", "data", "roteiro"];
-
-function ordemValida(bruto: string | undefined): Ordem {
-  return ORDENS.includes(bruto as Ordem) ? (bruto as Ordem) : "data";
-}
 
 /** Página pedida na URL, presa dentro do que existe.
 
@@ -394,9 +497,14 @@ function casa(titulo: string, termo: string): boolean {
 
 /* Ordenação da Lista.
 
-   Campo vazio vai SEMPRE pro fim, em qualquer coluna. Sem isso, ordenar por
-   "pilar" encabeçaria a lista com tudo que ninguém classificou, que é o oposto
-   de comparar: o que interessa numa comparação é o que está preenchido.
+   Sem coluna escolhida, o padrão: data, mais recente primeiro. É a ordem em que
+   a lista abre e a que ela volta quando alguém desfaz a ordenação.
+
+   Campo vazio vai SEMPRE pro fim, nas duas direções. Sem isso, ordenar por
+   "pilar" em crescente encabeçaria a lista com tudo que ninguém classificou,
+   que é o oposto de comparar: o que interessa numa comparação é o que está
+   preenchido. Inverter a direção não pode trazer o vazio pra cima, porque
+   "vazio" não é um valor menor, é ausência de valor.
 
    `localeCompare` com locale pt-BR porque "Ação" e "Agendado" precisam sair na
    ordem que uma pessoa espera, e a comparação binária de string põe qualquer
@@ -404,29 +512,36 @@ function casa(titulo: string, termo: string): boolean {
 function ordenar(
   posts: PostResumo[],
   contagens: Map<string, { total: number; gravadas: number }>,
-  ordem: Ordem,
+  ordem: Ordem | null,
+  direcao: Direcao,
 ): PostResumo[] {
+  const coluna = ordem ?? "data";
+  /* O padrão é decrescente por data. Quando não há coluna escolhida, a direção
+     da URL não vale: ela descreve uma ordenação que não está acontecendo. */
+  const desc = ordem === null ? true : direcao === "desc";
+
   const texto = (p: PostResumo): string => {
-    if (ordem === "titulo") return p.titulo?.trim() ?? "";
-    if (ordem === "perfil") return perfilPorId(p.perfil)?.dono ?? p.perfil;
-    if (ordem === "formato") return p.formato ?? "";
-    if (ordem === "pilar") return p.pilar ?? "";
-    if (ordem === "status") return STATUS_INFO[p.status as Status]?.rotulo ?? p.status;
-    if (ordem === "data") return dataDoPost(p) ?? "";
+    if (coluna === "titulo") return p.titulo?.trim() ?? "";
+    if (coluna === "perfil") return perfilPorId(p.perfil)?.dono ?? p.perfil;
+    if (coluna === "formato") return p.formato ?? "";
+    if (coluna === "pilar") return p.pilar ?? "";
+    if (coluna === "status") return STATUS_INFO[p.status as Status]?.rotulo ?? p.status;
+    if (coluna === "data") return dataDoPost(p) ?? "";
     return "";
   };
 
   return [...posts].sort((a, b) => {
-    if (ordem === "roteiro") {
+    if (coluna === "roteiro") {
       /* Roteiro ordena por QUANTO FALTA gravar, não pelo total: a pergunta que
          a coluna responde é "o que está mais perto de sair". Post sem roteiro
-         nenhum não tem resposta e vai pro fim. */
+         nenhum não tem resposta e vai pro fim nas duas direções. */
       const ca = contagens.get(a.id);
       const cb = contagens.get(b.id);
       if (!ca && !cb) return 0;
       if (!ca) return 1;
       if (!cb) return -1;
-      return cb.gravadas / cb.total - ca.gravadas / ca.total;
+      const dif = ca.gravadas / ca.total - cb.gravadas / cb.total;
+      return desc ? -dif : dif;
     }
 
     const ta = texto(a);
@@ -434,7 +549,7 @@ function ordenar(
     if (ta === "" && tb === "") return 0;
     if (ta === "") return 1;
     if (tb === "") return -1;
-    /* Data desce (mais recente primeiro); o resto sobe (A→Z). */
-    return ordem === "data" ? tb.localeCompare(ta) : ta.localeCompare(tb, "pt-BR");
+    const dif = ta.localeCompare(tb, "pt-BR");
+    return desc ? -dif : dif;
   });
 }

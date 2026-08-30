@@ -92,18 +92,22 @@ export default function ConteudoCalendario({
           <p className="text-sm" style={{ fontFamily: "var(--font-display)" }}>
             {naSemana ? rotuloDaSemana(semana) : rotuloDoMes(mes)}
           </p>
+          {/* Semana à esquerda do Mês (Yan, 30/08/2026): a ordem do seletor lê
+              do recorte menor pro maior, como um zoom saindo. O PADRÃO continua
+              sendo o mês, que é o que responde "como está o mês" na abertura;
+              ordem de exibição e valor inicial são decisões separadas. */}
           <nav className="conteudo-visoes">
-            <Link
-              href={query({ janela: "mes" })}
-              className={"conteudo-visao" + (naSemana ? "" : " conteudo-visao-ativa")}
-            >
-              Mês
-            </Link>
             <Link
               href={query({ janela: "semana" })}
               className={"conteudo-visao" + (naSemana ? " conteudo-visao-ativa" : "")}
             >
               Semana
+            </Link>
+            <Link
+              href={query({ janela: "mes" })}
+              className={"conteudo-visao" + (naSemana ? "" : " conteudo-visao-ativa")}
+            >
+              Mês
             </Link>
           </nav>
         </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { mudarStatusAcao } from "@/app/painel/conteudo/acoes";
+import Dica from "@/components/painel/Dica";
 import Dropdown from "@/components/painel/Dropdown";
 import {
   STATUS_INFO,
@@ -81,6 +82,10 @@ export default function ConteudoQuadro({
                 pela cor, não relendo a palavra. A cor vem do próprio status
                 (ver STATUS_INFO) e sobe pela variável, pra pill e contagem
                 lerem a mesma. */}
+            {/* A explicação da etapa saiu da linha fixa embaixo do título e
+                virou dica sob o ícone (30/08/2026). Cinco linhas de ajuda
+                permanentes ensinavam na primeira semana e viravam ruído depois,
+                gastando altura em cinco colunas que já têm pouca. */}
             <header className="conteudo-coluna-topo">
               <span
                 className="painel-badge conteudo-coluna-pill"
@@ -88,9 +93,9 @@ export default function ConteudoQuadro({
               >
                 {STATUS_INFO[status].rotulo}
               </span>
+              <Dica texto={STATUS_INFO[status].ajuda} rotulo={STATUS_INFO[status].rotulo} />
               <span className="conteudo-coluna-contagem">{doStatus.length}</span>
             </header>
-            <p className="conteudo-coluna-ajuda">{STATUS_INFO[status].ajuda}</p>
 
             <div className="conteudo-coluna-corpo">
               {visiveis.map((post) => (

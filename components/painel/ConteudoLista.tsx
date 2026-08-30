@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Dropdown from "@/components/painel/Dropdown";
+import { Filtro } from "@/components/icones";
 import {
   STATUS_INFO,
   dataDoPost,
@@ -40,6 +42,15 @@ export type Ordem =
 
 type Contagem = { total: number; gravadas: number };
 
+export type Direcao = "asc" | "desc";
+
+/** Filtro de uma coluna: o valor ligado agora e as opções, cada uma já com a
+    URL pronta. Href e não função pelo mesmo motivo da ordenação (ver abaixo). */
+export type FiltroColuna = {
+  ativo?: string;
+  opcoes: { valor: string; rotulo: string; href: string; cor?: string }[];
+};
+
 const COLUNAS: { id: Ordem; rotulo: string }[] = [
   { id: "titulo", rotulo: "Título" },
   { id: "perfil", rotulo: "Perfil" },
@@ -73,6 +84,8 @@ export default function ConteudoLista({
   posts,
   contagens,
   ordem,
+  direcao,
+  filtros,
   links,
   paginacao,
   termo,
@@ -80,7 +93,11 @@ export default function ConteudoLista({
 }: {
   posts: PostResumo[];
   contagens: Record<string, Contagem>;
-  ordem: Ordem;
+  /** Coluna ordenada agora, ou `null` no estado padrão. */
+  ordem: Ordem | null;
+  direcao: Direcao;
+  filtros: Partial<Record<Ordem, FiltroColuna>>;
+  /** Href do PRÓXIMO estado de cada coluna no ciclo de ordenação. */
   links: Record<Ordem, string>;
   paginacao?: Paginacao;
   /** O que foi buscado, só pra explicar a lista vazia. */
@@ -110,35 +127,45 @@ export default function ConteudoLista({
       <table className="painel-tabela conteudo-lista-tabela">
         <thead>
           <tr>
-            {/* `aria-sort` tem que dizer a direção de verdade: data e roteiro
-                descem (mais recente / mais perto de sair primeiro) e o resto
-                sobe. Estava "ascending" em todas, o que faz o leitor de tela
-                anunciar o contrário do que a lista mostra. */}
-            {COLUNAS.map((c) => (
-              <th
-                key={c.id}
-                aria-sort={
-                  ordem !== c.id
-                    ? "none"
-                    : c.id === "data" || c.id === "roteiro"
-                      ? "descending"
-                      : "ascending"
-                }
-              >
-                <a
-                  href={links[c.id]}
-                  className={"conteudo-ordenar" + (ordem === c.id ? " conteudo-ordenar-ativa" : "")}
+            {COLUNAS.map((c) => {
+              const ativa = ordem === c.id;
+              const filtro = filtros[c.id];
+              return (
+                <th
+                  key={c.id}
+                  aria-sort={!ativa ? "none" : direcao === "asc" ? "ascending" : "descending"}
                 >
-                  {c.rotulo}
-                  {/* A seta aponta pro mesmo lado que o `aria-sort` diz.
-                      Estava sempre pra cima, inclusive na coluna Data, que
-                      ordena do mais recente pro mais antigo. */}
-                  {ordem === c.id && (
-                    <span aria-hidden>{c.id === "data" || c.id === "roteiro" ? " ↓" : " ↑"}</span>
-                  )}
-                </a>
-              </th>
-            ))}
+                  <div className="conteudo-th">
+                    {/* Clicar no rótulo anda o ciclo da coluna. O `title` diz o
+                        que o próximo clique faz, porque uma seta sozinha não
+                        anuncia que existe um terceiro estado. */}
+                    <a
+                      href={links[c.id]}
+                      className={"conteudo-ordenar" + (ativa ? " conteudo-ordenar-ativa" : "")}
+                      title={
+                        !ativa
+                          ? "Ordenar por " + c.rotulo
+                          : direcao === "asc"
+                            ? "Inverter a ordem"
+                            : "Voltar à ordem padrão"
+                      }
+                    >
+                      {c.rotulo}
+                      {ativa && <span aria-hidden> {direcao === "asc" ? "↑" : "↓"}</span>}
+                    </a>
+
+                    {/* O filtro fica ao lado, e não dentro do mesmo alvo do
+                        rótulo: são dois gestos diferentes no mesmo cabeçalho, e
+                        juntá-los faria um clique fazer as duas coisas. O funil
+                        acende quando há filtro ligado, pra dar pra ver de
+                        relance qual coluna está recortando a lista. */}
+                    {filtro && (
+                      <FiltroDeColuna coluna={c.rotulo} filtro={filtro} />
+                    )}
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -217,5 +244,37 @@ export default function ConteudoLista({
       </nav>
     )}
     </>
+  );
+}
+
+/* O funil de uma coluna. Reaproveita o `Dropdown` do painel (teclado, portal e
+   fechamento já resolvidos lá) e navega no lugar de guardar estado: o recorte
+   vive na URL como todo o resto desta tela. */
+function FiltroDeColuna({ coluna, filtro }: { coluna: string; filtro: FiltroColuna }) {
+  const router = useRouter();
+  const porValor = new Map(filtro.opcoes.map((o) => [o.valor, o.href]));
+  const ligado = filtro.ativo !== undefined && filtro.ativo !== "";
+
+  return (
+    <span
+      className={"conteudo-th-filtro" + (ligado ? " conteudo-th-filtro-ligado" : "")}
+      /* A linha do cabeçalho inteira não navega, mas o `<a>` do rótulo está ao
+         lado: sem parar o clique aqui, abrir o filtro poderia disparar a
+         ordenação por acidente de propagação. */
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Dropdown
+        compacto
+        icone={<Filtro className="h-3 w-3" />}
+        largura={220}
+        rotuloAcessivel={"Filtrar por " + coluna}
+        valor={filtro.ativo ?? ""}
+        opcoes={filtro.opcoes.map((o) => ({ valor: o.valor, rotulo: o.rotulo, cor: o.cor }))}
+        aoEscolher={(v) => {
+          const href = porValor.get(v);
+          if (href) router.push(href);
+        }}
+      />
+    </span>
   );
 }

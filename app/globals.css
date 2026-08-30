@@ -834,7 +834,7 @@ body {
   /* Altura do esmaecido no fim da coluna do quadro. É também o espaço morto
      reservado lá dentro, pra que o degradê caia sobre vazio no fim da rolagem
      (ver `.conteudo-coluna-corpo`). */
-  --fade-coluna: 1.5rem;
+  --fade-coluna: 1rem;
 }
 
 .painel-bg {
@@ -1902,12 +1902,17 @@ textarea {
 /* Cabeçalho e ajuda ficam fora da área que rola, então o pill de status e a
    contagem não saem da vista enquanto se percorre a coluna. Sem `sticky`: o
    que rola é só o corpo, então eles simplesmente não se movem. */
+/* Três peças: a pill, o ícone de dica colado nela, e a contagem empurrada pro
+   canto. `center` e não `baseline` porque o ícone não tem linha de base. */
 .conteudo-coluna-topo {
   display: flex;
   flex: none;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
+  align-items: center;
+  gap: var(--esp-1);
+}
+
+.conteudo-coluna-topo .conteudo-coluna-contagem {
+  margin-left: auto;
 }
 
 .conteudo-coluna-corpo {
@@ -1919,24 +1924,86 @@ textarea {
   overflow-y: auto;
   /* A rolagem da coluna não vira rolagem da página ao chegar no fim. */
   overscroll-behavior-y: contain;
-  /* Espaço morto no fim, do tamanho exato do esmaecido abaixo. É o que faz o
-     gradiente cair sobre vazio quando a coluna está rolada até o fim, em vez de
-     esmaecer o último card e mentir que ainda tem coisa embaixo. */
-  padding-bottom: var(--fade-coluna);
+  /* Espaço morto nas DUAS pontas, do tamanho exato do esmaecido. É o que faz o
+     gradiente cair sobre vazio quando a coluna está no começo ou no fim, em vez
+     de esmaecer o primeiro/último card e mentir que há mais conteúdo.
+
+     E é o que permite o esmaecido de cima ser fixo em vez de acender conforme a
+     rolagem: com o padding, "no topo" já significa "há vazio embaixo do
+     gradiente", então nada precisa ser calculado.
+
+     Tentei antes com `animation-timeline: scroll()` acendendo o de cima só ao
+     rolar. Medido no navegador em 30/08: `--fade-cima` ficava cravado no valor
+     final em qualquer posição da rolagem, ou seja, o de cima estava sempre
+     aceso e o custo de complexidade não comprava nada. */
+  padding-block: var(--fade-coluna);
   /* O esmaecido em si. Máscara e não gradiente pintado por cima: a coluna tem
      fundo de vidro (translúcido), então um degradê de cor sólida por cima nunca
      casaria com o que está atrás dele. A máscara apaga o próprio conteúdo, sem
      precisar acertar cor nenhuma. */
   -webkit-mask-image: linear-gradient(
     to bottom,
+    transparent 0,
+    #000 var(--fade-coluna),
     #000 calc(100% - var(--fade-coluna)),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
+    transparent 0,
+    #000 var(--fade-coluna),
     #000 calc(100% - var(--fade-coluna)),
     transparent 100%
   );
+}
+
+/* ── Dica sob demanda (ver Dica.tsx) ─────────────────────────────────────────
+
+   O alvo é pequeno de propósito: ele não pode competir com a pill de status,
+   que é a informação da coluna. Fica em tom de apoio e só ganha cor quando
+   alguém chega nele. */
+.painel-dica-alvo {
+  display: flex;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  opacity: 0.55;
+  cursor: help;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.painel-dica-alvo svg {
+  width: 100%;
+  height: 100%;
+}
+
+.painel-dica-alvo:hover,
+.painel-dica-alvo:focus-visible {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.painel-dica-alvo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 9999px;
+}
+
+/* Cartão escuro e não claro: ele flutua por cima de cards brancos, e um cartão
+   branco sobre branco precisaria de sombra pesada pra se separar do fundo. */
+.painel-dica {
+  z-index: 60;
+  max-width: 210px;
+  padding: var(--esp-2) 0.6rem;
+  border-radius: var(--raio-sm);
+  background: var(--surface-dark);
+  color: var(--surface-dark-foreground);
+  font-size: var(--txt-xs);
+  line-height: 1.4;
+  box-shadow: 0 10px 24px -12px var(--shadow-tint);
 }
 
 /* ── Barra escondida, e por quê (30/08/2026, decisão do Yan) ──────────────────
@@ -1994,12 +2061,9 @@ textarea {
   color: var(--ink-soft);
 }
 
-.conteudo-coluna-ajuda {
-  margin: 0.15rem 0 var(--esp-3);
-  font-size: var(--txt-xs);
-  line-height: 1.35;
-  color: var(--ink-soft);
-}
+/* Sem margem: o respiro entre o cabeçalho e o primeiro card agora é o próprio
+   `padding-block` do corpo, que existe pro esmaecido. Somar os dois deixaria um
+   vão grande demais no topo de cinco colunas. */
 
 .conteudo-coluna-vazia {
   padding: var(--esp-2) 0;
@@ -2815,6 +2879,34 @@ textarea {
 .conteudo-busca-limpar:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* Cabeçalho de coluna da Lista: rótulo (que ordena) e funil (que filtra), lado
+   a lado. São dois gestos diferentes, então são dois alvos diferentes. */
+.conteudo-th {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+}
+
+/* O funil só aparece de verdade quando o cabeçalho é apontado ou quando há
+   filtro ligado: sete funis acesos numa linha viram mais ruído que ferramenta.
+   `visibility` e não `display` pra que ele não mude a largura da coluna ao
+   aparecer, o que faria a tabela pular sob o mouse. */
+.conteudo-th-filtro {
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.painel-tabela th:hover .conteudo-th-filtro,
+.conteudo-th-filtro:focus-within,
+.conteudo-th-filtro-ligado {
+  opacity: 1;
+}
+
+.conteudo-th-filtro-ligado .pn-drop-botao-compacto {
+  color: var(--accent);
 }
 
 .conteudo-ordenar {
