@@ -1728,6 +1728,15 @@ textarea {
   border-bottom: 1px solid var(--line);
 }
 
+/* O bloco de identidade estica e o botão de fechar fica no canto. Sem isto o
+   primeiro filho se dimensiona pelo conteúdo e o × nasce colado no nome, no
+   meio do cabeçalho, o que faz o alvo de fechar mudar de lugar conforme o
+   tamanho do nome de cada pessoa. Medido: 378px de folga sobrando à direita. */
+.pn-ficha-topo > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .pn-ficha-nome {
   margin: 0;
   font-family: var(--font-display);
@@ -1932,6 +1941,13 @@ textarea {
   gap: 0.5rem;
   padding: 0.9rem 1.4rem 1.1rem;
   border-top: 1px solid var(--line);
+}
+
+/* Apagar vai pra ponta esquerda, longe do botão que se aperta sem pensar. É a
+   mesma razão de o "Cancelar" ser o sólido no popup de confirmação: o caminho
+   fácil não pode ser o que destrói. */
+.pn-ficha-rodape .conteudo-botao-perigo {
+  margin-right: auto;
 }
 
 /* Na confirmação o rodapé vira uma faixa só, e ela precisa da largura inteira:

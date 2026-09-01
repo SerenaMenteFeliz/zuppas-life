@@ -132,7 +132,7 @@ export default function ListaContatos({ pessoas }: { pessoas: Pessoa[] }) {
                 ))}
               </div>
 
-              <div className="w-[92px] text-right">
+              <div className="w-[104px] text-right">
                 <p className="text-[0.72rem]" style={{ color: "var(--ink)" }}>
                   {p.gastoCentavos > 0 ? dinheiro(p.gastoCentavos) : "nunca comprou"}
                 </p>
