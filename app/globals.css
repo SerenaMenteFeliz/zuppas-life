@@ -1996,6 +1996,14 @@ textarea {
   border-radius: 9999px;
 }
 
+/* Gatilho da dica pendurada num controle que já existe (ver `DicaEm`). Só
+   precisa ser uma caixa medível pelo `getBoundingClientRect`, sem aparência
+   própria: quem se vê é o controle lá dentro. */
+.painel-dica-em {
+  display: inline-flex;
+  min-width: 0;
+}
+
 /* Cartão escuro e não claro: ele flutua por cima de cards brancos, e um cartão
    branco sobre branco precisaria de sombra pesada pra se separar do fundo.
 

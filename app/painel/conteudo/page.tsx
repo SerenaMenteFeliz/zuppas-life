@@ -125,17 +125,36 @@ export default async function ConteudoPage({
      lib/conteudo.ts, sem chamador. */
   const todos = await listarPosts();
 
-  /* Perfil e busca são o MESMO tipo de coisa (recorte da lista) e por isso
-     valem nas três visões, não só na Lista. Buscar no quadro e ver as colunas
-     encolherem é o que responde "em que etapa está aquele post que eu lembro
-     pelo nome", que é uma pergunta real. O campo fica sempre visível no topo,
-     então nunca há filtro escondido agindo. */
+  /* ── O que recorta o quê, e por quê (revisto em 01/09/2026) ───────────────
+
+     A regra é uma só: **filtro só age onde o controle dele aparece na tela.**
+
+     Perfil e busca ficam na faixa de topo, que está nas três visões, então
+     valem nas três. Buscar no quadro e ver as colunas encolherem é o que
+     responde "em que etapa está aquele post que eu lembro pelo nome", e o campo
+     à vista deixa claro por que a tela encolheu.
+
+     Formato, pilar e status só têm controle no cabeçalho da tabela da Lista.
+     Até hoje eles recortavam as três visões assim mesmo: filtrar por "Imagem"
+     na Lista e trocar pro Quadro devolvia um quadro cortado sem nada na tela
+     dizendo isso. O caso pior era o status, que esvazia quatro das cinco
+     colunas e faz o quadro parecer vazio em vez de filtrado (achado do Yan).
+
+     Eles CONTINUAM na URL fora da Lista, só não agem: voltar pra Lista devolve
+     o recorte de onde a pessoa parou, do mesmo jeito que o calendário guarda a
+     posição do mês enquanto se olha a semana.
+
+     Isso só ficou visível hoje porque, até de manhã, navegar no calendário
+     apagava esses parâmetros por acidente. Corrigir aquele bug expôs este. */
+  const naLista = visao === "lista";
   const filtrados = todos.filter((p) => {
     if (perfilFiltro && p.perfil !== perfilFiltro) return false;
-    if (filtroFormato && p.formato !== filtroFormato) return false;
-    if (filtroPilar && p.pilar !== filtroPilar) return false;
-    if (filtroStatus && p.status !== filtroStatus) return false;
     if (termo && !casa(tituloDe(p), termo)) return false;
+    if (naLista) {
+      if (filtroFormato && p.formato !== filtroFormato) return false;
+      if (filtroPilar && p.pilar !== filtroPilar) return false;
+      if (filtroStatus && p.status !== filtroStatus) return false;
+    }
     return true;
   });
 
@@ -407,6 +426,19 @@ export default async function ConteudoPage({
               ]}
             />
 
+            {/* O que o formulário de busca reenvia junto do termo. É a TERCEIRA
+                cópia da regra de recorte desta tela, e a que ainda estava
+                incompleta (01/09/2026): faltavam `dir`, `formato`, `pilar`,
+                `status` e `col`, então buscar apagava a direção da ordenação e
+                os filtros por coluna, do mesmo jeito que navegar no calendário
+                apagava. Mesmo defeito, outro lugar.
+
+                `q` e `pag` ficam de fora de propósito: o termo vem do próprio
+                campo, e busca nova começa na página 1. `sd` também, pelo mesmo
+                motivo do `pag`.
+
+                Os valores saem das variáveis já validadas, não de `busca.*`
+                cru: parâmetro inventado na URL não volta pro formulário. */}
             <BuscaConteudo
               termo={termo || undefined}
               preservar={{
@@ -415,7 +447,12 @@ export default async function ConteudoPage({
                 mes: busca.mes,
                 semana: busca.semana,
                 janela: busca.janela,
-                ord: busca.ord,
+                ord: ordenacaoAtiva ?? undefined,
+                dir: ordenacaoAtiva ? direcao : undefined,
+                formato: filtroFormato,
+                pilar: filtroPilar,
+                status: filtroStatus,
+                col: colunaAberta,
               }}
               hrefLimpar={link({ q: undefined })}
             />

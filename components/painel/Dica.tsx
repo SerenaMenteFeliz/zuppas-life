@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { estiloDoPopover, usePopover } from "@/components/painel/usePopover";
 
@@ -26,7 +26,6 @@ import { estiloDoPopover, usePopover } from "@/components/painel/usePopover";
 export default function Dica({ texto, rotulo }: { texto: string; rotulo: string }) {
   const [aberta, setAberta] = useState(false);
   const alvo = useRef<HTMLButtonElement>(null);
-  const pos = usePopover(alvo, aberta, 210);
   const id = useId();
 
   return (
@@ -52,19 +51,77 @@ export default function Dica({ texto, rotulo }: { texto: string; rotulo: string 
         </svg>
       </button>
 
-      {aberta &&
-        pos &&
-        createPortal(
-          <div
-            id={id}
-            role="tooltip"
-            className="theme-painel painel-dica"
-            style={estiloDoPopover(pos, true)}
-          >
-            {texto}
-          </div>,
-          document.body,
-        )}
+      <Cartao id={id} texto={texto} alvo={alvo} aberta={aberta} />
     </>
+  );
+}
+
+/* A mesma dica, mas pendurada num controle que JÁ existe, em vez de num ícone
+   próprio (01/09/2026).
+
+   O caso que pediu isto é o cabeçalho de ordenação da Lista: o texto ali não
+   explica um termo, explica o que o PRÓXIMO CLIQUE faz ("inverter a ordem",
+   "voltar à ordem padrão"). Quem precisa disso já está com o ponteiro em cima
+   do link, então um ícone ao lado não acrescenta nada e seis deles numa linha
+   de cabeçalho é justamente o ruído que a `Dica` foi criada pra tirar da tela.
+
+   Era o último `title` nativo da aba que não estava só repetindo texto cortado,
+   ou seja, o único que ainda mostrava a caixinha preta do navegador pra dizer
+   algo que a tela não dizia.
+
+   `onFocus`/`onBlur` no `<span>` funcionam porque o React usa `focusin` e
+   `focusout`, que sobem: focar o link lá dentro abre a dica. Com os eventos
+   nativos `focus`/`blur`, que não sobem, o teclado não veria nada. */
+export function DicaEm({ texto, children }: { texto: string; children: ReactNode }) {
+  const [aberta, setAberta] = useState(false);
+  const alvo = useRef<HTMLSpanElement>(null);
+  const id = useId();
+
+  return (
+    <span
+      ref={alvo}
+      className="painel-dica-em"
+      onPointerEnter={() => setAberta(true)}
+      onPointerLeave={() => setAberta(false)}
+      onFocus={() => setAberta(true)}
+      onBlur={() => setAberta(false)}
+    >
+      {children}
+      {/* `aria-hidden` de propósito: quem chega por leitor de tela lê o
+          `aria-label` do próprio controle, que diz a mesma coisa. Sem isso o
+          texto seria anunciado duas vezes. */}
+      <Cartao id={id} texto={texto} alvo={alvo} aberta={aberta} escondidoDoLeitor />
+    </span>
+  );
+}
+
+/* O cartão em si, um lugar só pras duas formas de gatilho. */
+function Cartao({
+  id,
+  texto,
+  alvo,
+  aberta,
+  escondidoDoLeitor = false,
+}: {
+  id: string;
+  texto: string;
+  alvo: RefObject<HTMLElement | null>;
+  aberta: boolean;
+  escondidoDoLeitor?: boolean;
+}) {
+  const pos = usePopover(alvo, aberta, 210);
+  if (!aberta || !pos) return null;
+
+  return createPortal(
+    <div
+      id={id}
+      role="tooltip"
+      aria-hidden={escondidoDoLeitor || undefined}
+      className="theme-painel painel-dica"
+      style={estiloDoPopover(pos, true)}
+    >
+      {texto}
+    </div>,
+    document.body,
   );
 }

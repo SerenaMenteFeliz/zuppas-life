@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   aprenderCenas,
   atualizarPost,
+  carregarPost,
   criarPost,
   excluirMetrica,
   excluirPost,
@@ -50,6 +51,27 @@ function numero(fd: FormData, campo: string): number | null {
 function vazioNulo(v: string | null | undefined): string | null {
   const t = (v ?? "").trim();
   return t === "" ? null : t;
+}
+
+/** Carimba `data_publicada` quando um post vira "postado", **sem sobrescrever
+    data que já existe** (01/09/2026).
+
+    O bug que isto conserta: as duas actions carimbavam `hojeISO()` toda vez que
+    o status virava "postado", olhando só pra gravação atual. Bastava um post
+    publicado em 20/08 voltar pra "Agendado" por engano e ser devolvido pro
+    quadro: a data em que ele de fato saiu virava hoje, e não havia como
+    recuperar. Mover card de coluna é o gesto mais frequente da tela, então
+    "por engano" não é hipótese remota.
+
+    `salvarDadosAcao` já dizia a regra certa por escrito ("se a pessoa preencheu
+    à mão, a mão manda"), mas só checava o que vinha no mesmo salvamento, e o
+    autosave manda só o campo mexido. A regra estava certa e a checagem, curta.
+
+    Custa um GET a mais, e só quando um post entra em "postado". */
+async function carimbarPublicacao(id: string, campos: Record<string, unknown>) {
+  if (campos.status !== "postado" || "data_publicada" in campos) return;
+  const atual = await carregarPost(id);
+  if (!atual?.data_publicada) campos.data_publicada = hojeISO();
 }
 
 /* "Criar" é um clique só e nada mais (Yan, 21/08/2026). Antes era escrever o
@@ -145,11 +167,8 @@ export async function salvarDadosAcao(
   /* Carimba a data de publicação sozinho quando o status vira "postado" e
      ninguém preencheu a data. Sem isso o calendário perde o post exatamente no
      momento em que ele passa a ser o dado mais importante, que é o que de fato
-     saiu. Se a pessoa preencheu à mão, a mão manda — por isso só entra quando
-     a própria gravação não traz `data_publicada`. */
-  if (campos.status === "postado" && !("data_publicada" in campos)) {
-    campos.data_publicada = hojeISO();
-  }
+     saiu. Se a pessoa preencheu à mão, a mão manda (ver `carimbarPublicacao`). */
+  await carimbarPublicacao(id, campos);
 
   const atual = await atualizarPost(id, campos);
 
@@ -178,9 +197,7 @@ export async function mudarStatusAcao(id: string, novo: string) {
   if (!id) return;
   const status = statusVivo(novo);
   const campos: Record<string, unknown> = { status };
-  if (status === "postado") {
-    campos.data_publicada = hojeISO();
-  }
+  await carimbarPublicacao(id, campos);
   await atualizarPost(id, campos);
   revalidatePath("/painel/conteudo");
   revalidatePath("/painel/conteudo/" + id);

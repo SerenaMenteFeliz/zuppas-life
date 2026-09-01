@@ -18,13 +18,21 @@ import {
 
 /** Quantos cards uma coluna mostra antes de oferecer "mostrar todos".
 
-    Não é altura de tela (a coluna rola sozinha desde 30/08), é custo de DOM:
-    cada card carrega um `Dropdown` de cliente com estado e listeners próprios.
-    Com 33 postados isso já é 33 dropdowns montados pra ver os três primeiros;
-    na cadência de agosto, dezembro passaria de 90 numa coluna só.
+    12 porque é mais do que cabe na tela de uma vez: quem só olha nunca esbarra
+    no limite, e quem procura algo antigo tem o link embaixo.
 
-    12 porque é mais do que cabe na tela de uma vez, então quem só olha nunca
-    esbarra no limite, e quem procura algo antigo tem o link embaixo. */
+    **A justificativa antiga estava errada, e a correção fica registrada**
+    (01/09/2026). Ela dizia que o limite existia por custo de DOM, porque "cada
+    card carrega um Dropdown com estado e listeners próprios". Fui conferir no
+    `Dropdown.tsx`: os dois `useEffect` dele e o `useLayoutEffect` do
+    `usePopover` começam com `if (!aberto) return`, e a lista de opções só é
+    renderizada quando abre. Card fechado não põe nenhum listener no documento e
+    não monta lista nenhuma; o que sobra é um botão e meia dúzia de hooks
+    ociosos, que é barato mesmo em 60 cards.
+
+    Ou seja: o número 12 continua bom, mas é decisão de LEITURA, não contorno de
+    performance. Se um dia fizer sentido mostrar 30, o caminho é medir a tela,
+    não temer o custo. */
 const LIMITE_COLUNA = 12;
 
 /* Quadro por status, a visão que responde "onde cada coisa travou".

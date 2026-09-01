@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { DicaEm } from "@/components/painel/Dica";
 import Dropdown from "@/components/painel/Dropdown";
 import { Filtro } from "@/components/icones";
 import {
@@ -160,23 +161,46 @@ export default function ConteudoLista({
                   aria-sort={!ativa ? "none" : direcao === "asc" ? "ascending" : "descending"}
                 >
                   <div className="conteudo-th">
-                    {/* Clicar no rótulo anda o ciclo da coluna. O `title` diz o
-                        que o próximo clique faz, porque uma seta sozinha não
-                        anuncia que existe um terceiro estado. */}
-                    <a
-                      href={links[c.id]}
-                      className={"conteudo-ordenar" + (ativa ? " conteudo-ordenar-ativa" : "")}
-                      title={
+                    {/* Clicar no rótulo anda o ciclo da coluna, e o que o
+                        PRÓXIMO clique faz vira `aria-label` sempre e dica
+                        visível só na coluna ativa (01/09/2026).
+
+                        Era um `title` nativo em todas as seis, e ele tinha dois
+                        problemas ao mesmo tempo: a caixinha preta do navegador
+                        no meio de uma tela com vocabulário próprio, e ruído em
+                        coluna onde não havia o que explicar ("Ordenar por
+                        Título" é o que um cabeçalho de tabela obviamente faz).
+
+                        Na coluna ATIVA a informação existe de verdade: a seta
+                        mostra a direção, mas não anuncia que um terceiro clique
+                        devolve a lista à ordem padrão. Sem isso não há como
+                        desfazer uma ordenação a não ser adivinhando qual era a
+                        de fábrica. */}
+                    <Rotulo
+                      ativa={ativa}
+                      dica={
                         !ativa
-                          ? "Ordenar por " + c.rotulo
+                          ? undefined
                           : direcao === "asc"
-                            ? "Inverter a ordem"
-                            : "Voltar à ordem padrão"
+                            ? "Clique de novo pra inverter a ordem"
+                            : "Clique de novo pra voltar à ordem padrão"
                       }
                     >
-                      {c.rotulo}
-                      {ativa && <span aria-hidden> {direcao === "asc" ? "↑" : "↓"}</span>}
-                    </a>
+                      <a
+                        href={links[c.id]}
+                        className={"conteudo-ordenar" + (ativa ? " conteudo-ordenar-ativa" : "")}
+                        aria-label={
+                          !ativa
+                            ? "Ordenar por " + c.rotulo
+                            : direcao === "asc"
+                              ? c.rotulo + ", crescente. Inverter a ordem"
+                              : c.rotulo + ", decrescente. Voltar à ordem padrão"
+                        }
+                      >
+                        {c.rotulo}
+                        {ativa && <span aria-hidden> {direcao === "asc" ? "↑" : "↓"}</span>}
+                      </a>
+                    </Rotulo>
 
                     {/* O filtro fica ao lado, e não dentro do mesmo alvo do
                         rótulo: são dois gestos diferentes no mesmo cabeçalho, e
@@ -287,6 +311,22 @@ export default function ConteudoLista({
     )}
     </>
   );
+}
+
+/* Envolve o link de ordenação com a dica quando há dica, e passa direto quando
+   não há. Existe pra que a condição fique num lugar só, em vez de duplicar o
+   `<a>` inteiro nos dois ramos de um ternário. */
+function Rotulo({
+  ativa,
+  dica,
+  children,
+}: {
+  ativa: boolean;
+  dica?: string;
+  children: React.ReactNode;
+}) {
+  if (!ativa || !dica) return <>{children}</>;
+  return <DicaEm texto={dica}>{children}</DicaEm>;
 }
 
 /* O funil de uma coluna. Reaproveita o `Dropdown` do painel (teclado, portal e
