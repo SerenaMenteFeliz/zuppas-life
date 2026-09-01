@@ -55,7 +55,12 @@ export default function Dica({ texto, rotulo }: { texto: string; rotulo: string 
       {aberta &&
         pos &&
         createPortal(
-          <div id={id} role="tooltip" className="painel-dica" style={estiloDoPopover(pos)}>
+          <div
+            id={id}
+            role="tooltip"
+            className="theme-painel painel-dica"
+            style={estiloDoPopover(pos, true)}
+          >
             {texto}
           </div>,
           document.body,

@@ -25,7 +25,25 @@ import { useLayoutEffect, useState, type RefObject } from "react";
    qualquer coisa rola. Sem os listeners, o painel ficaria parado enquanto a
    página anda embaixo dele. `capture: true` no scroll porque quem rola é o
    `.painel-main` e as colunas do quadro, não a janela: sem capturar, o evento
-   desses containers nunca chegaria aqui. */
+   desses containers nunca chegaria aqui.
+
+   ── Quem portala tem que levar `theme-painel` junto (01/09/2026) ──
+
+   O `<html>` do app inteiro é `.theme-casa` e o painel é `.theme-painel` num
+   div interno (app/painel/layout.tsx). Sair pro `document.body` é sair do
+   painel: o popover passa a ler as variáveis do tema da FAMÍLIA, e as da
+   escala de 30/08 (`--esp-*`, `--raio-*`, `--txt-*`), que só existem dentro do
+   `.theme-painel`, deixam de existir.
+
+   O sintoma não parece um bug de tema, parece descuido de CSS: `var()`
+   indefinido invalida a declaração inteira, então `padding: var(--esp-2) ...`
+   vira padding zero e `border-radius: var(--raio-sm)` vira canto reto. Foi
+   assim que a dica do quadro apareceu como um retângulo preto colado no texto,
+   e é o mesmo motivo de o dropdown estar com acento verde num painel roxo.
+
+   Por isso todo elemento portalado daqui carrega `theme-painel` na própria
+   className. A classe só declara variáveis, nada visual, então adicionar não
+   muda mais nada. */
 
 export type Posicao = {
   top: number;
@@ -94,14 +112,22 @@ export function usePopover(
   return pos;
 }
 
-/** Estilo pronto pro painel, já com a inversão quando ele abre pra cima. */
-export function estiloDoPopover(p: Posicao): React.CSSProperties {
+/** Estilo pronto pro painel, já com a inversão quando ele abre pra cima.
+
+    `larguraEhTeto` inverte o papel da largura desejada: em vez de piso
+    (dropdown nunca mais estreito que o botão que o abriu), ela vira teto. É o
+    que uma dica quer: "No ar, com link" não pode ocupar os mesmos 210px de uma
+    frase de duas linhas só porque o teto de quebra é 210. A posição continua
+    sendo calculada com a largura cheia, então uma dica encostada na borda
+    direita da tela segue cabendo. */
+export function estiloDoPopover(p: Posicao, larguraEhTeto = false): React.CSSProperties {
   return {
     position: "fixed",
     top: p.paraCima ? undefined : p.top,
     bottom: p.paraCima ? window.innerHeight - p.top : undefined,
     left: p.left,
-    minWidth: p.minWidth,
+    minWidth: larguraEhTeto ? undefined : p.minWidth,
+    maxWidth: larguraEhTeto ? p.minWidth : undefined,
     maxHeight: p.maxHeight,
   };
 }

@@ -246,7 +246,7 @@ export default function Dropdown({
           role="listbox"
           tabIndex={-1}
           aria-label={rotuloAcessivel}
-          className="pn-drop-lista"
+          className="theme-painel pn-drop-lista"
           style={estiloDoPopover(pos)}
         >
           {opcoes.map((o, i) => {

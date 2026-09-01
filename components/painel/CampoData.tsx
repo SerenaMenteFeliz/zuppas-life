@@ -163,7 +163,7 @@ export default function CampoData({
         createPortal(
         <div
           ref={painel}
-          className="pn-data-painel"
+          className="theme-painel pn-data-painel"
           role="dialog"
           aria-label={rotuloAcessivel}
           style={estiloDoPopover(pos)}

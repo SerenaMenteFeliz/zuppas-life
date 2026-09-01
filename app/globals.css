@@ -1993,17 +1993,27 @@ textarea {
 }
 
 /* Cartão escuro e não claro: ele flutua por cima de cards brancos, e um cartão
-   branco sobre branco precisaria de sombra pesada pra se separar do fundo. */
+   branco sobre branco precisaria de sombra pesada pra se separar do fundo.
+
+   O teto de largura chega por `style` inline (o 210 mora em Dica.tsx, que já
+   passa esse número pro usePopover pra posicionar). Estava repetido aqui como
+   `max-width`, e número de layout em dois lugares é o começo de dois números
+   diferentes.
+
+   `pointer-events: none` porque o cartão nasce 4px abaixo do ícone: sem isso,
+   ele intercepta o ponteiro, o `pointerleave` do ícone dispara, a dica fecha,
+   o ponteiro volta pro ícone e ela reabre. Dica não é clicável, então não
+   perde nada por ser atravessável. */
 .painel-dica {
   z-index: 60;
-  max-width: 210px;
   padding: var(--esp-2) 0.6rem;
   border-radius: var(--raio-sm);
   background: var(--surface-dark);
   color: var(--surface-dark-foreground);
   font-size: var(--txt-xs);
-  line-height: 1.4;
+  line-height: 1.45;
   box-shadow: 0 10px 24px -12px var(--shadow-tint);
+  pointer-events: none;
 }
 
 /* ── Barra escondida, e por quê (30/08/2026, decisão do Yan) ──────────────────
