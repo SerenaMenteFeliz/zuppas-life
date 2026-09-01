@@ -11,7 +11,7 @@ import ConteudoLista, {
 import FiltroPerfil from "@/components/painel/FiltroPerfil";
 import LinkVisao from "@/components/painel/LinkVisao";
 import PainelTopo from "@/components/painel/PainelTopo";
-import { contarFalas, listarPosts } from "@/lib/conteudo";
+import { listarPosts } from "@/lib/conteudo";
 import { mesValido, semanaValida } from "@/lib/conteudo-calendario";
 import {
   FORMATOS,
@@ -114,7 +114,11 @@ export default async function ConteudoPage({
     : undefined;
   const filtroStatus = STATUS.includes(busca.status as Status) ? busca.status : undefined;
 
-  const [todos, contagens] = await Promise.all([listarPosts(), contarFalas()]);
+  /* Uma consulta só desde 01/09/2026. A segunda era `contarFalas()`, que
+     alimentava o `12/18` do card do quadro e a coluna Roteiro da Lista; as duas
+     saíram, então a ida ao banco saiu junto. `contarFalas` continua em
+     lib/conteudo.ts, sem chamador. */
+  const todos = await listarPosts();
 
   /* Perfil e busca são o MESMO tipo de coisa (recorte da lista) e por isso
      valem nas três visões, não só na Lista. Buscar no quadro e ver as colunas
@@ -133,8 +137,7 @@ export default async function ConteudoPage({
   /* Ordenar só faz sentido na Lista, que é a visão de comparar. O quadro ordena
      por status e o calendário por data, por definição — reordenar ali seria
      ignorado e a URL mentiria sobre o que está vendo. */
-  const posts =
-    visao === "lista" ? ordenar(filtrados, contagens, ordenacaoAtiva, direcao) : filtrados;
+  const posts = visao === "lista" ? ordenar(filtrados, ordenacaoAtiva, direcao) : filtrados;
 
   /* Quem vai ser o dono do post novo.
 
@@ -288,8 +291,8 @@ export default async function ConteudoPage({
   ) as Record<Ordem, string>;
 
   /* Filtros por coluna. Só as colunas de vocabulário fechado entram: Título tem
-     a busca da faixa de topo, e Data e Roteiro são contínuos, onde uma lista de
-     valores não ajudaria (o filtro útil ali seria faixa, que é outra peça). */
+     a busca da faixa de topo, e Data é contínua, onde uma lista de valores não
+     ajudaria (o filtro útil ali seria faixa, que é outra peça). */
   const filtrosDeColuna: Partial<Record<Ordem, FiltroColuna>> = {
     perfil: {
       ativo: perfilFiltro,
@@ -429,7 +432,6 @@ export default async function ConteudoPage({
         ) : visao === "quadro" ? (
           <ConteudoQuadro
             posts={posts}
-            contagens={Object.fromEntries(contagens)}
             sufixo={sufixo}
             expandida={colunaAberta}
             linksExpandir={linksExpandir}
@@ -450,7 +452,6 @@ export default async function ConteudoPage({
         ) : (
           <ConteudoLista
             posts={daPagina}
-            contagens={Object.fromEntries(contagens)}
             ordem={ordenacaoAtiva}
             direcao={direcao}
             filtros={filtrosDeColuna}
@@ -465,7 +466,7 @@ export default async function ConteudoPage({
   );
 }
 
-const ORDENS: Ordem[] = ["titulo", "perfil", "formato", "pilar", "status", "data", "roteiro"];
+const ORDENS: Ordem[] = ["titulo", "perfil", "formato", "pilar", "status", "data"];
 
 /** Página pedida na URL, presa dentro do que existe.
 
@@ -509,12 +510,7 @@ function casa(titulo: string, termo: string): boolean {
    `localeCompare` com locale pt-BR porque "Ação" e "Agendado" precisam sair na
    ordem que uma pessoa espera, e a comparação binária de string põe qualquer
    acento depois do Z. */
-function ordenar(
-  posts: PostResumo[],
-  contagens: Map<string, { total: number; gravadas: number }>,
-  ordem: Ordem | null,
-  direcao: Direcao,
-): PostResumo[] {
+function ordenar(posts: PostResumo[], ordem: Ordem | null, direcao: Direcao): PostResumo[] {
   const coluna = ordem ?? "data";
   /* O padrão é decrescente por data. Quando não há coluna escolhida, a direção
      da URL não vale: ela descreve uma ordenação que não está acontecendo. */
@@ -531,19 +527,6 @@ function ordenar(
   };
 
   return [...posts].sort((a, b) => {
-    if (coluna === "roteiro") {
-      /* Roteiro ordena por QUANTO FALTA gravar, não pelo total: a pergunta que
-         a coluna responde é "o que está mais perto de sair". Post sem roteiro
-         nenhum não tem resposta e vai pro fim nas duas direções. */
-      const ca = contagens.get(a.id);
-      const cb = contagens.get(b.id);
-      if (!ca && !cb) return 0;
-      if (!ca) return 1;
-      if (!cb) return -1;
-      const dif = ca.gravadas / ca.total - cb.gravadas / cb.total;
-      return desc ? -dif : dif;
-    }
-
     const ta = texto(a);
     const tb = texto(b);
     if (ta === "" && tb === "") return 0;

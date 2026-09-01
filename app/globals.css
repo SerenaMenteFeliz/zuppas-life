@@ -2052,14 +2052,19 @@ textarea {
   text-decoration: underline;
 }
 
-/* Pill do título da coluna do quadro. Herda tudo de `.painel-badge` e só troca
-   as cores, que chegam por `--cor` vindo do status (ver STATUS_INFO).
+/* A pill de status. Herda tudo de `.painel-badge` e só troca as cores, que
+   chegam por `--cor` vindo do status (ver STATUS_INFO).
 
    Fundo com 12% da cor e texto na cor cheia: a pill precisa se diferenciar das
    outras cinco sem competir com os cards que estão embaixo dela. Uma fileira de
    seis pills sólidas viraria a coisa mais forte da tela, e o que importa ali é
-   o conteúdo, não o rótulo da coluna. */
-.conteudo-coluna-pill {
+   o conteúdo, não o rótulo da coluna.
+
+   Chamava `.conteudo-coluna-pill` até 01/09/2026, quando a Lista passou a usar
+   a mesma peça: status é a mesma informação nas duas visões, e ela estava com
+   duas formas (pill colorida no quadro, texto cru na tabela). O nome antigo
+   dizia "coluna do quadro", que deixou de ser o único lugar. */
+.conteudo-status-pill {
   color: var(--cor, var(--ink));
   background: color-mix(in srgb, var(--cor, var(--ink)) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--cor, var(--ink)) 28%, transparent);
@@ -2187,10 +2192,6 @@ textarea {
   flex: none;
   align-items: center;
   gap: var(--esp-1);
-}
-
-.conteudo-card-sep {
-  opacity: 0.5;
 }
 
 /* ── Calendário ── */
@@ -2758,7 +2759,18 @@ textarea {
    Medido no monitor do Yan: com 0,6rem de padding e corpo 0,85rem, a linha
    dava ~36px e cabiam 15 numa tela; com 0,4rem e 0,78rem ela dá ~28px e cabem
    20. É uma linha a cada quatro que antes exigia rolar. */
+/* `table-layout: fixed` e as larguras em `<col>` (ver COLUNAS em
+   ConteudoLista.tsx). Com o padrão `auto`, o navegador mede o conteúdo pra
+   decidir a largura de cada coluna, e a Lista troca o conteúdo o tempo todo:
+   ordenar por Pilar traz outras 25 linhas, o valor mais largo muda, e a grade
+   inteira anda de lugar. Numa visão que existe pra comparar, a grade tem que
+   ficar parada enquanto o conteúdo dela troca (Yan, 01/09/2026).
+
+   Efeito colateral bem-vindo: `fixed` deixa o navegador desenhar a tabela sem
+   medir todas as linhas antes, então a lista longa pinta em um passo só. */
 .conteudo-lista-tabela {
+  table-layout: fixed;
+  width: 100%;
   font-size: var(--txt-sm);
 }
 
@@ -2773,8 +2785,15 @@ textarea {
   background: var(--surface);
 }
 
+/* Largura fixa exige que alguém corte, e é sempre o título: é a única coluna de
+   texto livre e a única sem largura declarada, então fica com a sobra da tabela
+   e vira reticências quando não cabe (o texto inteiro está no `title`). As
+   outras cinco são vocabulário fechado e cabem por construção. */
 .conteudo-lista-tabela td {
   padding: 0.4rem 0.6rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* Rodapé de páginas da Lista (30/08/2026). Centralizado e discreto: é saída de

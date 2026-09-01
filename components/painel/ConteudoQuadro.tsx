@@ -16,8 +16,6 @@ import {
   type Status,
 } from "@/lib/conteudo-tipos";
 
-type Contagem = { total: number; gravadas: number };
-
 /** Quantos cards uma coluna mostra antes de oferecer "mostrar todos".
 
     Não é altura de tela (a coluna rola sozinha desde 30/08), é custo de DOM:
@@ -50,14 +48,12 @@ const LIMITE_COLUNA = 12;
    janela. */
 export default function ConteudoQuadro({
   posts,
-  contagens,
   sufixo,
   expandida,
   linksExpandir,
   linkRecolher,
 }: {
   posts: PostResumo[];
-  contagens: Record<string, Contagem>;
   /* Query do recorte atual, pendurada no link do post pro voltar preservar. */
   sufixo: string;
   /** Coluna que está mostrando tudo, quando alguém pediu. Vive na URL. */
@@ -88,7 +84,7 @@ export default function ConteudoQuadro({
                 gastando altura em cinco colunas que já têm pouca. */}
             <header className="conteudo-coluna-topo">
               <span
-                className="painel-badge conteudo-coluna-pill"
+                className="painel-badge conteudo-status-pill"
                 style={{ ["--cor" as string]: STATUS_INFO[status].cor }}
               >
                 {STATUS_INFO[status].rotulo}
@@ -99,12 +95,7 @@ export default function ConteudoQuadro({
 
             <div className="conteudo-coluna-corpo">
               {visiveis.map((post) => (
-                <Card
-                  key={post.id}
-                  post={post}
-                  contagem={contagens[post.id]}
-                  sufixo={sufixo}
-                />
+                <Card key={post.id} post={post} sufixo={sufixo} />
               ))}
               {doStatus.length === 0 && <p className="conteudo-coluna-vazia">Nada aqui</p>}
 
@@ -146,19 +137,18 @@ export default function ConteudoQuadro({
 
    Sobrou ~52px por card, quase o dobro de cards por tela.
 
+   **A contagem de falas saiu do card (01/09/2026, decisão do Yan)**. Ela vinha
+   como `12/18` ao lado da data, com a legenda escondida num `title` nativo que
+   ninguém abre. Pela mesma régua do resto: o card é a capa, e "quanto do
+   roteiro já foi gravado" não é uma pergunta que se faz olhando o quadro, é
+   uma que se faz dentro do post. Como a Lista também deixou de mostrar isso,
+   a página parou de consultar `contarFalas()` de uma vez.
+
    **O card inteiro clica** e abre o post, igual à linha da Lista. O título
    continua sendo um link de verdade pra que teclado, clique do meio e "abrir
    em nova aba" continuem funcionando, que é o que um `onClick` sozinho
    quebraria. O dropdown para o clique antes que ele vire navegação. */
-function Card({
-  post,
-  contagem,
-  sufixo,
-}: {
-  post: PostResumo;
-  contagem?: Contagem;
-  sufixo: string;
-}) {
+function Card({ post, sufixo }: { post: PostResumo; sufixo: string }) {
   const [pendente, iniciar] = useTransition();
   const router = useRouter();
   const perfil = perfilPorId(post.perfil);
@@ -217,14 +207,6 @@ function Card({
 
         <span className="conteudo-card-quando">
           {data ? data.slice(8, 10) + "/" + data.slice(5, 7) : "sem data"}
-          {contagem && contagem.total > 0 && (
-            <>
-              <span className="conteudo-card-sep">·</span>
-              <span title="falas gravadas do roteiro">
-                {contagem.gravadas}/{contagem.total}
-              </span>
-            </>
-          )}
         </span>
       </div>
     </article>

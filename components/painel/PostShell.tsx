@@ -103,11 +103,11 @@ export default function PostShell({
             >
               {tituloDe({ titulo })}
             </h1>
-            {/* Mesma pill colorida das colunas do quadro: a etapa se reconhece
-                pela cor nos dois lugares, e ela muda ao vivo junto com o
+            {/* Mesma pill colorida do quadro e da Lista: a etapa se reconhece
+                pela cor nos três lugares, e ela muda ao vivo junto com o
                 dropdown de status logo abaixo. */}
             <span
-              className="painel-badge conteudo-coluna-pill"
+              className="painel-badge conteudo-status-pill"
               style={{ ["--cor" as string]: st.cor }}
             >
               {st.rotulo}

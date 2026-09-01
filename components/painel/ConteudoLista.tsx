@@ -29,18 +29,19 @@ import {
 
    Ordenar é em memória e não no banco de propósito: a lista inteira já vem pra
    montar quadro e calendário na mesma consulta, e uma segunda ida ao banco pra
-   reordenar 30 linhas custaria mais que a ordenação. */
+   reordenar 30 linhas custaria mais que a ordenação.
 
-export type Ordem =
-  | "titulo"
-  | "perfil"
-  | "formato"
-  | "pilar"
-  | "status"
-  | "data"
-  | "roteiro";
+   **A coluna Roteiro saiu em 01/09/2026** (decisão do Yan). Ela mostrava
+   `12/18` de falas gravadas e ordenava por quanto faltava gravar. Era a única
+   coluna que exigia uma segunda consulta ao banco (`contarFalas`) e a única que
+   respondia uma pergunta de dentro do post, não de comparação entre posts. Saiu
+   junto com a mesma contagem no card do quadro.
 
-type Contagem = { total: number; gravadas: number };
+   **A largura das colunas é fixa desde 01/09/2026**, ver `table-layout` no CSS:
+   com largura automática, cada reordenação remedia as 25 linhas visíveis e
+   move todas as colunas de lugar. */
+
+export type Ordem = "titulo" | "perfil" | "formato" | "pilar" | "status" | "data";
 
 export type Direcao = "asc" | "desc";
 
@@ -51,14 +52,26 @@ export type FiltroColuna = {
   opcoes: { valor: string; rotulo: string; href: string; cor?: string }[];
 };
 
-const COLUNAS: { id: Ordem; rotulo: string }[] = [
+/* A largura de cada coluna, em `<col>`, e por que ela é declarada aqui.
+
+   Com `table-layout: auto` (o padrão), o navegador mede o conteúdo pra decidir
+   a largura. Como a Lista pagina de 25 em 25 e reordena, cada clique num
+   cabeçalho troca as 25 linhas visíveis, o conteúdo mais largo muda, e TODAS as
+   colunas andam de lugar. É o que o Yan viu: ordenar mexia no tamanho das
+   colunas. Numa visão que existe pra comparar, a grade tem que ficar parada
+   enquanto o conteúdo dela troca.
+
+   Título fica em `auto` de propósito: é o único texto de tamanho livre, então
+   ele recebe a sobra da tabela e corta com reticências quando não cabe. Os
+   outros seis são vocabulário fechado, e a largura sai do maior valor possível
+   de cada um ("@geovana_zuppa", "Autoridade / Ensinamento", "Descartado"). */
+const COLUNAS: { id: Ordem; rotulo: string; largura?: string }[] = [
   { id: "titulo", rotulo: "Título" },
-  { id: "perfil", rotulo: "Perfil" },
-  { id: "formato", rotulo: "Formato" },
-  { id: "pilar", rotulo: "Pilar" },
-  { id: "status", rotulo: "Status" },
-  { id: "data", rotulo: "Data" },
-  { id: "roteiro", rotulo: "Roteiro" },
+  { id: "perfil", rotulo: "Perfil", largura: "8rem" },
+  { id: "formato", rotulo: "Formato", largura: "7.5rem" },
+  { id: "pilar", rotulo: "Pilar", largura: "13rem" },
+  { id: "status", rotulo: "Status", largura: "8.5rem" },
+  { id: "data", rotulo: "Data", largura: "7rem" },
 ];
 
 /* Os links chegam prontos, num objeto, em vez de este componente receber a
@@ -82,7 +95,6 @@ export type Paginacao = {
 
 export default function ConteudoLista({
   posts,
-  contagens,
   ordem,
   direcao,
   filtros,
@@ -92,7 +104,6 @@ export default function ConteudoLista({
   sufixo,
 }: {
   posts: PostResumo[];
-  contagens: Record<string, Contagem>;
   /** Coluna ordenada agora, ou `null` no estado padrão. */
   ordem: Ordem | null;
   direcao: Direcao;
@@ -125,6 +136,11 @@ export default function ConteudoLista({
         reordenar. Agora ele fica grudado no topo da caixa. */}
     <div className="glass-card conteudo-lista-caixa">
       <table className="painel-tabela conteudo-lista-tabela">
+        <colgroup>
+          {COLUNAS.map((c) => (
+            <col key={c.id} style={c.largura ? { width: c.largura } : undefined} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             {COLUNAS.map((c) => {
@@ -171,7 +187,7 @@ export default function ConteudoLista({
         <tbody>
           {posts.map((p) => {
             const perfil = perfilPorId(p.perfil);
-            const c = contagens[p.id];
+            const status = STATUS_INFO[p.status as Status];
             const data = dataDoPost(p);
             const href = "/painel/conteudo/" + p.id + sufixo;
             return (
@@ -184,7 +200,11 @@ export default function ConteudoLista({
                    tabulação: seria um segundo caminho pro mesmo lugar. */
               >
                 <td>
-                  <a href={href} className="conteudo-linha-titulo">
+                  {/* O título é a coluna elástica da tabela, então é ele que
+                      corta quando falta espaço. `title` nativo aqui pelo mesmo
+                      motivo do card do quadro: o texto inteiro já está na
+                      página, e o navegador o devolve de graça. */}
+                  <a href={href} className="conteudo-linha-titulo" title={tituloDe(p)}>
                     {tituloDe(p)}
                   </a>
                 </td>
@@ -197,9 +217,23 @@ export default function ConteudoLista({
                 </td>
                 <td>{p.formato ?? "·"}</td>
                 <td>{p.pilar ?? "·"}</td>
-                <td>{STATUS_INFO[p.status as Status]?.rotulo ?? p.status}</td>
+                {/* A mesma pill do cabeçalho do quadro (01/09/2026): status é a
+                    mesma informação nas duas visões e passa a ter a mesma
+                    forma. Sem a dica ⓘ aqui, que é ensino de esteira e já mora
+                    no quadro; repetir em toda linha seria 25 ícones. */}
+                <td>
+                  {status ? (
+                    <span
+                      className="painel-badge conteudo-status-pill"
+                      style={{ ["--cor" as string]: status.cor }}
+                    >
+                      {status.rotulo}
+                    </span>
+                  ) : (
+                    p.status
+                  )}
+                </td>
                 <td>{data ? data.split("-").reverse().join("/") : "·"}</td>
-                <td>{c ? c.gravadas + "/" + c.total : "·"}</td>
               </tr>
             );
           })}
