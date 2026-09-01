@@ -255,46 +255,10 @@ export function tituloDe(p: { titulo: string }): string {
   return p.titulo.trim() === "" ? "Sem título" : p.titulo;
 }
 
-/* ── Contagem de falas por post ───────────────────────────────────────────────
-
-   Mora aqui, e não em lib/conteudo.ts, por um motivo prático: conteudo.ts é
-   `server-only` e faz rede, então nada dele entra em `npm run verificar`. Esta
-   função é pura, e é justamente ela que decide se a resposta do banco é
-   confiável — a parte que, se estiver errada, escreve "undefined/undefined" no
-   rodapé de todo card sem ninguém notar no code review.
-
-   Devolve `null` quando a resposta não tem a forma esperada, e quem chama cai
-   no caminho antigo (baixar as falas e contar em memória). Lento e certo é
-   melhor que rápido e errado.
-
-   `Number(...)` e não checagem de `typeof number` porque `count(*)` no Postgres
-   é `bigint`, e bigint pode chegar como string no JSON dependendo de como a
-   visão for escrita. As duas formas são aceitáveis; o que não é aceitável é
-   campo ausente ou texto que não vira número. */
-export type ContagemDeFalas = { total: number; gravadas: number };
-
-export function montarContagemDeFalas(
-  linhas: unknown,
-): Map<string, ContagemDeFalas> | null {
-  if (!Array.isArray(linhas)) return null;
-
-  const mapa = new Map<string, ContagemDeFalas>();
-  for (const linha of linhas) {
-    if (typeof linha !== "object" || linha === null) return null;
-    const l = linha as Record<string, unknown>;
-    const total = Number(l.total);
-    const gravadas = Number(l.gravadas);
-    if (typeof l.post_id !== "string" || l.post_id === "") return null;
-    if (!Number.isFinite(total) || !Number.isFinite(gravadas)) return null;
-    /* `null` vira 0 no `Number()`, e um total zerado num post que tem roteiro
-       seria um zero mentiroso na tela. Só que "post sem nenhuma fala" também é
-       zero legítimo, e a visão nem devolve linha pra ele. Então zero aqui só
-       aparece se alguém escrever a visão errado, e isso é falha de formato. */
-    if (l.total === null || l.gravadas === null) return null;
-    mapa.set(l.post_id, { total, gravadas });
-  }
-  return mapa;
-}
+/* `montarContagemDeFalas` e o tipo `ContagemDeFalas` moravam aqui e foram
+   apagados em 01/09/2026, junto com o `contarFalas` de lib/conteudo.ts: ver o
+   porquê lá. Os 6 testes deles saíram do `npm run verificar` na mesma passada,
+   porque teste de código morto envelhece dizendo que alguma coisa está viva. */
 
 export type Metrica = {
   id: string;

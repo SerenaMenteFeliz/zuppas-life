@@ -1,8 +1,6 @@
 import Link from "next/link";
 import {
   DIAS_DA_SEMANA,
-  deslocarMes,
-  deslocarSemana,
   gradeDaSemana,
   gradeDoMes,
   rotuloDaSemana,
@@ -22,7 +20,13 @@ import { diasEntre } from "@/lib/datas";
    Sem componente de cliente: navegar é link com query string, não estado.
    Assim a URL é compartilhável e o botão voltar do navegador funciona, que é o
    que se espera de um calendário. Arrastar pra remarcar exigiria cliente e fica
-   pra depois da direção assentar. */
+   pra depois da direção assentar.
+
+   **Os links de navegação chegam prontos desde 01/09/2026.** Este arquivo tinha
+   um construtor de URL próprio, e ele envelheceu: nasceu em 21/08 conhecendo
+   cinco parâmetros, e os filtros por coluna e a busca vieram depois, então
+   avançar um mês apagava o recorte em silêncio. A regra de montar URL desta
+   tela mora num lugar só, que é a página (ver `linksCalendario` lá). */
 export default function ConteudoCalendario({
   mes,
   semana,
@@ -31,7 +35,7 @@ export default function ConteudoCalendario({
   semData,
   semDataPaginacao,
   hoje,
-  perfilFiltro,
+  links,
   sufixo,
 }: {
   mes: string;
@@ -43,7 +47,8 @@ export default function ConteudoCalendario({
   semData: PostResumo[];
   semDataPaginacao?: Paginacao;
   hoje: string;
-  perfilFiltro?: string;
+  /** Navegação do calendário, já com o recorte inteiro preservado. */
+  links: { anterior: string; proximo: string; janelaSemana: string; janelaMes: string };
   /** Query do recorte atual, pendurada no link do post pro voltar preservar. */
   sufixo: string;
 }) {
@@ -59,32 +64,10 @@ export default function ConteudoCalendario({
     porDia.set(d, lista);
   }
 
-  const query = (mudanca: { mes?: string; semana?: string; janela?: "mes" | "semana" }) => {
-    const qs = new URLSearchParams({ v: "calendario" });
-    const j = mudanca.janela ?? janela;
-    /* Cada janela carrega só a própria posição na URL. Trocar de janela e
-       voltar preserva onde a pessoa estava na outra, porque o parâmetro da
-       outra continua na URL sem ser usado. */
-    if (j === "semana") qs.set("semana", mudanca.semana ?? semana);
-    else qs.set("mes", mudanca.mes ?? mes);
-    if (j === "semana" && mes) qs.set("mes", mes);
-    if (j === "mes") qs.set("semana", semana);
-    qs.set("janela", j);
-    if (perfilFiltro) qs.set("perfil", perfilFiltro);
-    return "/painel/conteudo?" + qs.toString();
-  };
-
-  const anterior = naSemana
-    ? query({ semana: deslocarSemana(semana, -1) })
-    : query({ mes: deslocarMes(mes, -1) });
-  const proximo = naSemana
-    ? query({ semana: deslocarSemana(semana, 1) })
-    : query({ mes: deslocarMes(mes, 1) });
-
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Link href={anterior} className="chip">
+        <Link href={links.anterior} className="chip">
           ‹ Anterior
         </Link>
 
@@ -98,13 +81,13 @@ export default function ConteudoCalendario({
               ordem de exibição e valor inicial são decisões separadas. */}
           <nav className="conteudo-visoes">
             <Link
-              href={query({ janela: "semana" })}
+              href={links.janelaSemana}
               className={"conteudo-visao" + (naSemana ? " conteudo-visao-ativa" : "")}
             >
               Semana
             </Link>
             <Link
-              href={query({ janela: "mes" })}
+              href={links.janelaMes}
               className={"conteudo-visao" + (naSemana ? "" : " conteudo-visao-ativa")}
             >
               Mês
@@ -112,7 +95,7 @@ export default function ConteudoCalendario({
           </nav>
         </div>
 
-        <Link href={proximo} className="chip">
+        <Link href={links.proximo} className="chip">
           Próximo ›
         </Link>
       </div>

@@ -1,5 +1,4 @@
 import "server-only";
-import { montarContagemDeFalas } from "@/lib/conteudo-tipos";
 import type { Fala, Metrica, Post, PostResumo } from "@/lib/conteudo-tipos";
 
 /* Camada de dados do painel de conteúdo — ÚNICO ponto do app que fala com as
@@ -200,57 +199,17 @@ export async function carregarMetricas(postId: string): Promise<Metrica[]> {
   );
 }
 
-/** Quantas falas já foram marcadas como gravadas, por post. Alimenta o quadro
-    e a lista, pra dar progresso de gravação sem precisar abrir o post. */
-/* ── Contagem de falas por post ───────────────────────────────────────────────
+/* ── Contagem de falas por post: apagada em 01/09/2026 ────────────────────────
 
-   Alimenta o "12/12 falas" do card e a ordenação por roteiro na Lista.
+   Decisão do Yan. Ela existia pra desenhar o "12/18" no card do quadro e
+   ordenar a coluna Roteiro na Lista, e as duas saíram no mesmo dia. A tela do
+   post nunca precisou dela: lá as falas daquele post já estão carregadas e
+   contar é uma linha.
 
-   Caminho bom: a visão `conteudo_falas_contagem` (sql/0003), que agrega no
-   banco e devolve uma linha por post. Caminho velho: baixar a tabela inteira e
-   contar aqui, o que em 30/08/2026 eram 600 linhas e 41,6 KB POR carregamento
-   da tela, crescendo com o tamanho dos roteiros.
-
-   O fallback existe porque a migration é rodada à mão pelo Yan: entre o deploy
-   e o SQL Editor há uma janela em que a visão não existe, e nessa janela a tela
-   precisa continuar certa (só cara). Mesma decisão da sondagem de `local` na
-   0002, logo acima.
-
-   A sondagem só se repete de minuto em minuto enquanto der errado. Quando a
-   visão passar a existir, o primeiro acerto liga o caminho bom pra sempre, sem
-   redeploy. */
-let temContagem: boolean | null = null;
-let sondadoContagemEm = 0;
-
-export async function contarFalas(): Promise<Map<string, { total: number; gravadas: number }>> {
-  const mapa = new Map<string, { total: number; gravadas: number }>();
-
-  if (temContagem !== false || Date.now() - sondadoContagemEm > 60_000) {
-    const linhas = await lerOuNulo<unknown>(
-      "conteudo_falas_contagem?select=post_id,total,gravadas",
-    );
-    /* A validação do formato é `montarContagemDeFalas`, que mora em
-       conteudo-tipos.ts pra caber no `npm run verificar` (ver lá o porquê). */
-    const pronto = linhas === null ? null : montarContagemDeFalas(linhas);
-    if (pronto) {
-      temContagem = true;
-      return pronto;
-    }
-    temContagem = false;
-    sondadoContagemEm = Date.now();
-  }
-
-  const linhas = await ler<{ post_id: string; gravada: boolean }>(
-    "conteudo_falas?select=post_id,gravada",
-  );
-  for (const l of linhas) {
-    const atual = mapa.get(l.post_id) ?? { total: 0, gravadas: 0 };
-    atual.total += 1;
-    if (l.gravada) atual.gravadas += 1;
-    mapa.set(l.post_id, atual);
-  }
-  return mapa;
-}
+   A visão `conteudo_falas_contagem` e o índice continuam no banco, e o
+   `sql/0003` continua no repo como registro do que já foi rodado à mão. Visão
+   parada não custa nada, e se a contagem voltar em algum lugar o caminho de
+   volta é reverter um commit em vez de reescrever SQL. */
 
 /* ── Catálogo de cenas ────────────────────────────────────────────────────────
 

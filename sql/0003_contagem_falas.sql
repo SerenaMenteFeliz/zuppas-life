@@ -1,5 +1,14 @@
 -- 0003 — contagem de falas por post, feita no banco
 --
+-- ⚠️ SEM CONSUMIDOR DESDE 01/09/2026. O "12/18" saiu do card do quadro e a
+-- coluna Roteiro saiu da Lista (decisão do Yan), e `contarFalas()` foi apagada
+-- de lib/conteudo.ts. A visão e o índice CONTINUAM no banco de propósito: visão
+-- parada não custa nada, e deixá-la de pé faz o caminho de volta ser reverter
+-- um commit em vez de reabrir o SQL Editor. Não rode um `drop view` sem antes
+-- decidir que a contagem não volta.
+--
+-- O texto abaixo é o registro de por que ela foi criada, e continua valendo.
+--
 -- Por que existe (30/08/2026): o painel de Conteúdo mostra "12/12 falas" no
 -- rodapé de cada card, e pra isso baixava a tabela `conteudo_falas` INTEIRA a
 -- cada carregamento (`select=post_id,gravada`, sem filtro). Medido em produção

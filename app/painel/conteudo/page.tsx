@@ -12,7 +12,12 @@ import FiltroPerfil from "@/components/painel/FiltroPerfil";
 import LinkVisao from "@/components/painel/LinkVisao";
 import PainelTopo from "@/components/painel/PainelTopo";
 import { listarPosts } from "@/lib/conteudo";
-import { mesValido, semanaValida } from "@/lib/conteudo-calendario";
+import {
+  deslocarMes,
+  deslocarSemana,
+  mesValido,
+  semanaValida,
+} from "@/lib/conteudo-calendario";
 import {
   FORMATOS,
   PERFIS,
@@ -261,6 +266,33 @@ export default async function ConteudoPage({
     return q ? "?" + q : "";
   })();
 
+  /* ── Calendário: os quatro links de navegação ─────────────────────────────
+
+     Montados AQUI, com o mesmo `link()` do resto da tela, e não lá dentro
+     (01/09/2026). O calendário tinha um construtor de URL próprio, escrito em
+     21/08 quando os únicos parâmetros eram `v`, `mes`, `semana`, `janela` e
+     `perfil`. Os filtros por coluna e a busca nasceram depois, em 22 e 30/08,
+     e ninguém voltou lá: avançar um mês ou trocar de janela APAGAVA em
+     silêncio o `q`, o `formato`, o `pilar` e o `status`. Filtro que some sem
+     avisar é pior que filtro que não existe, porque a tela passa a mentir
+     sobre o recorte que está mostrando.
+
+     `mes` e `semana` vão explícitos nos dois links de janela pra que cada uma
+     guarde a própria posição: trocar pra Semana e voltar pro Mês devolve o mês
+     em que a pessoa estava, não o mês de hoje. */
+  const linksCalendario = {
+    anterior:
+      janela === "semana"
+        ? link({ semana: deslocarSemana(semana, -1), mes })
+        : link({ mes: deslocarMes(mes, -1), semana }),
+    proximo:
+      janela === "semana"
+        ? link({ semana: deslocarSemana(semana, 1), mes })
+        : link({ mes: deslocarMes(mes, 1), semana }),
+    janelaSemana: link({ janela: "semana", semana, mes }),
+    janelaMes: link({ janela: "mes", mes, semana }),
+  };
+
   /* Quadro: qual coluna está aberta, e o link pra abrir cada uma. */
   const colunaAberta = STATUS_QUADRO.includes(busca.col as Status) ? busca.col : undefined;
   const linksExpandir = Object.fromEntries(
@@ -447,7 +479,7 @@ export default async function ConteudoPage({
             semDataPaginacao={semDataPaginacao}
             sufixo={sufixo}
             hoje={hoje}
-            perfilFiltro={perfilFiltro}
+            links={linksCalendario}
           />
         ) : (
           <ConteudoLista

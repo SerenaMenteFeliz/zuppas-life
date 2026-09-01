@@ -38,11 +38,6 @@ try {
       "lib/dados.ts",
       "lib/texto.ts",
       "lib/conteudo-calendario.ts",
-      /* Vocabulário do painel de conteúdo. Entra aqui por causa de
-         `montarContagemDeFalas`, que valida a resposta da visão do banco: é o
-         único jeito de exercitar o caminho rápido da contagem sem que a visão
-         exista, porque o resto daquela função é rede. */
-      "lib/conteudo-tipos.ts",
       /* A decisão da cascata de IA (que modelo, que chave, em que ordem) mora
          em lib/ia/cascata.ts justamente pra caber aqui: ela é pura e não
          importa nada. Sai em `saida/ia/cascata.js` porque o `tsc` preserva a
@@ -110,10 +105,6 @@ try {
   );
   const { ordemDeTentativas, classificarFalha, proximoResetPacifico, lerChaves, extrairTexto } =
     await import(pathToFileURL(join(saida, "ia", "cascata.js")).href);
-  const { montarContagemDeFalas } = await import(
-    pathToFileURL(join(saida, "conteudo-tipos.js")).href
-  );
-
   const falhas = [];
   const ok = (nome, condicao, extra = "") => {
     console.log(`${condicao ? "  ok " : "FALHA"} ${nome}${extra ? ` :: ${extra}` : ""}`);
@@ -493,51 +484,8 @@ try {
     extrairTexto(ENVELOPE_REAL)
   );
 
-  /* ── Contagem de falas vinda da visão do banco (30/08/2026) ────────────────
-
-     A tela mostra "12/18 falas" no rodapé de cada card. Isso vinha de baixar a
-     tabela `conteudo_falas` inteira a cada carregamento (600 linhas, 41,6 KB
-     medidos em produção) e contar em memória; agora vem de uma visão que agrega
-     no banco (sql/0003) e devolve uma linha por post.
-
-     O caminho novo depende de uma migration rodada à mão, e o que ele
-     responder chega direto na tela. Por isso a validação de formato é função
-     pura e é testada aqui: resposta torta tem que CAIR NO CAMINHO VELHO, nunca
-     virar "undefined/undefined" no card. */
-  const contagemOk = montarContagemDeFalas([
-    { post_id: "p1", total: 18, gravadas: 12 },
-    { post_id: "p2", total: 3, gravadas: 0 },
-  ]);
-  ok(
-    "visão bem formada vira mapa por post",
-    contagemOk?.get("p1").total === 18 && contagemOk?.get("p1").gravadas === 12,
-    JSON.stringify(contagemOk && [...contagemOk])
-  );
-
-  ok(
-    "bigint que chega como string ainda conta",
-    montarContagemDeFalas([{ post_id: "p1", total: "18", gravadas: "12" }])?.get("p1").total === 18
-  );
-
-  ok(
-    "coluna com outro nome cai no caminho velho, não vira undefined",
-    montarContagemDeFalas([{ post_id: "p1", qtd: 18, gravadas: 12 }]) === null
-  );
-
-  ok(
-    "nulo no lugar do número cai no caminho velho",
-    montarContagemDeFalas([{ post_id: "p1", total: null, gravadas: 0 }]) === null
-  );
-
-  ok(
-    "erro do banco (não é lista) cai no caminho velho",
-    montarContagemDeFalas({ message: "relation does not exist" }) === null
-  );
-
-  ok(
-    "visão vazia é resposta legítima, não falha :: banco sem nenhuma fala",
-    montarContagemDeFalas([])?.size === 0
-  );
+  /* Os 6 testes da contagem de falas vinda da visão do banco saíram em
+     01/09/2026, junto com a função que eles testavam (ver lib/conteudo.ts). */
 
   console.log(
     falhas.length

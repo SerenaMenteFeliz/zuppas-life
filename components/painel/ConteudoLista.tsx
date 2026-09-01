@@ -63,13 +63,21 @@ export type FiltroColuna = {
 
    Título fica em `auto` de propósito: é o único texto de tamanho livre, então
    ele recebe a sobra da tabela e corta com reticências quando não cabe. Os
-   outros seis são vocabulário fechado, e a largura sai do maior valor possível
-   de cada um ("@geovana_zuppa", "Autoridade / Ensinamento", "Descartado"). */
+   outros cinco são vocabulário fechado, e a largura sai do maior valor possível
+   de cada um ("@geovana_zuppa", "Autoridade / Ensinamento", "Descartado").
+
+   **Pilar é a exceção deliberada**: o maior valor pede ~13rem e ela recebe 11,
+   ou seja, corta às vezes. O motivo é que ela é a coluna que menos informa: o
+   vault registra 23 de 30 posts em "Filosófico", então dar a ela o segundo
+   maior naco da tabela é gastar largura pra repetir a mesma palavra. A decisão
+   de aposentar ou reformular o campo é do Yan e está aberta desde 22/08; até lá
+   ele fica com a largura que o uso real dele merece, não com a que o rótulo
+   mais comprido pediria. */
 const COLUNAS: { id: Ordem; rotulo: string; largura?: string }[] = [
   { id: "titulo", rotulo: "Título" },
   { id: "perfil", rotulo: "Perfil", largura: "8rem" },
   { id: "formato", rotulo: "Formato", largura: "7.5rem" },
-  { id: "pilar", rotulo: "Pilar", largura: "13rem" },
+  { id: "pilar", rotulo: "Pilar", largura: "11rem" },
   { id: "status", rotulo: "Status", largura: "8.5rem" },
   { id: "data", rotulo: "Data", largura: "7rem" },
 ];
