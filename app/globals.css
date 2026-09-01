@@ -1685,6 +1685,262 @@ textarea {
   gap: 0.5rem;
 }
 
+/* ── Ficha de contato ──
+   Popup grande da aba Contatos (01/09/2026). Não reaproveita `.pn-confirma`
+   de propósito: aquela é uma caixa de 430px pra duas linhas de pergunta, e
+   esta é uma tela inteira que rola por dentro. Duas caixas diferentes com o
+   mesmo nome de classe já custou caro aqui uma vez (ver o comentário do
+   `pn-confirma-`, que nasceu de exatamente isso).
+
+   Altura em `min()` contra `vh`: a ficha cresce com o conteúdo até 88% da
+   tela e para. Quem tem uma linha do tempo de 40 eventos rola dentro do
+   corpo, com o cabeçalho e o rodapé parados, porque o botão de apagar não
+   pode fugir da vista no meio de uma rolagem longa. */
+.pn-ficha-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: color-mix(in srgb, #1a1420 62%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.pn-ficha {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 640px;
+  max-height: min(88vh, 900px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.28);
+}
+
+.pn-ficha-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem 1.4rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.pn-ficha-nome {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.pn-ficha-email {
+  margin: 0.15rem 0 0;
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.pn-ficha-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+
+.pn-ficha-chip {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.62rem;
+  color: var(--ink);
+  border-radius: 999px;
+}
+
+.pn-ficha-fechar {
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--raio-sm);
+}
+
+.pn-ficha-fechar:hover {
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.pn-ficha-corpo {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.1rem 1.4rem;
+}
+
+.pn-ficha-bloco + .pn-ficha-bloco {
+  margin-top: 1.35rem;
+}
+
+.pn-ficha-titulo {
+  margin: 0 0 0.6rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Duas colunas onde couber. `minmax(0, 1fr)` e não `1fr`: e-mail e produto não
+   quebram linha sozinhos, e um track `1fr` puro tem o min-content como piso,
+   o que estoura a largura da ficha inteira. */
+.pn-ficha-dados {
+  display: grid;
+  gap: 0.4rem 1.4rem;
+  margin: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 520px) {
+  .pn-ficha-dados {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pn-ficha-dado {
+  display: flex;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: var(--txt-xs);
+}
+
+.pn-ficha-dado dt {
+  flex: none;
+  color: var(--ink-soft);
+}
+
+.pn-ficha-dado dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.pn-ficha-vazio {
+  margin: 0;
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+}
+
+.pn-ficha-tempo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pn-ficha-tempo li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem;
+  font-size: var(--txt-xs);
+}
+
+.pn-ficha-ponto {
+  flex: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  transform: translateY(-1px);
+}
+
+.pn-ficha-quando {
+  flex: none;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.pn-ficha-rotulo {
+  color: var(--ink);
+}
+
+.pn-ficha-detalhe {
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.pn-ficha-campo {
+  display: block;
+  margin-bottom: 0.7rem;
+}
+
+.pn-ficha-campo span {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+}
+
+.pn-ficha-campo input {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  font-size: var(--txt-sm);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-sm);
+}
+
+.pn-ficha-campo input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.pn-ficha-aviso {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.7rem;
+  font-size: var(--txt-xs);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  background: var(--accent-wash, rgba(120, 110, 160, 0.1));
+  border-radius: var(--raio-sm);
+}
+
+.pn-ficha-erro {
+  margin: 1rem 0 0;
+  padding: 0.6rem 0.7rem;
+  font-size: var(--txt-xs);
+  line-height: 1.5;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--perigo) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--perigo) 35%, transparent);
+  border-radius: var(--raio-sm);
+}
+
+.pn-ficha-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1.4rem 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+/* Na confirmação o rodapé vira uma faixa só, e ela precisa da largura inteira:
+   o texto diz o que vai sumir, e é longo de propósito. */
+.pn-ficha-rodape .conteudo-confirma {
+  flex: 1 1 100%;
+  max-width: none;
+}
+
 /* ── Avisos (toast) ──
    Canto inferior direito: longe do que se está lendo e escrevendo, perto de
    onde a ação foi disparada. Erro fica até ser fechado; sucesso sai sozinho. */
