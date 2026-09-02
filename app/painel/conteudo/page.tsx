@@ -531,7 +531,7 @@ export default async function ConteudoPage({
             /* A saída de emergência da lista vazia por filtro. Vai tudo junto,
                busca inclusive: quem clica em "limpar" quer a lista inteira de
                volta, não um recorte um pouco menor. */
-            hrefLimparRecorte={link({
+            hrefLimparFiltros={link({
               perfil: undefined,
               q: undefined,
               formato: undefined,

@@ -111,7 +111,7 @@ export default function ConteudoLista({
   paginacao,
   termo,
   sufixo,
-  hrefLimparRecorte,
+  hrefLimparFiltros,
 }: {
   posts: PostResumo[];
   /** Coluna ordenada agora, ou `null` no estado padrão. */
@@ -125,21 +125,29 @@ export default function ConteudoLista({
   termo?: string;
   /** Query do recorte atual, pendurada no link do post pro voltar preservar. */
   sufixo: string;
-  /** Esta tela sem nenhum filtro nem busca. Serve pra sair de um recorte que
-      esvaziou a lista sem ter que desligar filtro por filtro. */
-  hrefLimparRecorte: string;
+  /** Esta tela sem nenhum filtro nem busca. Serve pra sair de um filtro que
+      esvaziou a lista sem ter que desligar um por um. */
+  hrefLimparFiltros: string;
 }) {
   const router = useRouter();
 
-  /* O que está recortando a lista agora, em texto e na ordem das colunas.
-     Vazio significa que a lista mostra tudo que existe. */
-  const cortes: string[] = [];
-  if (termo) cortes.push("título com “" + termo + "”");
+  /* O que está filtrando a lista agora, em texto e na ordem das colunas. Vazio
+     significa que a lista mostra tudo que existe.
+
+     A busca por título entra na conta junto com os filtros de coluna: são
+     controles diferentes, mas pra quem olha a tela vazia a pergunta é uma só
+     ("o que está cortando isto aqui?"), e responder metade dela seria pior que
+     não responder. */
+  const filtrosLigados: string[] = [];
+  if (termo) filtrosLigados.push("título com “" + termo + "”");
   for (const c of COLUNAS) {
     const f = filtros[c.id];
     if (!f?.ativo) continue;
-    cortes.push(c.rotulo + ": " + (f.opcoes.find((o) => o.valor === f.ativo)?.rotulo ?? f.ativo));
+    filtrosLigados.push(
+      c.rotulo + ": " + (f.opcoes.find((o) => o.valor === f.ativo)?.rotulo ?? f.ativo),
+    );
   }
+  const um = filtrosLigados.length === 1;
 
   /* Lista vazia SEM recorte é a base vazia mesmo: não há o que comparar, então
      fica só a frase e a página explica a esteira em cima.
@@ -155,7 +163,7 @@ export default function ConteudoLista({
      dele aparece"): **o controle tem que continuar aparecendo enquanto o filtro
      age**, inclusive quando o resultado dele é zero. Aliás sobretudo aí, que é
      quando a pessoa mais precisa desfazer. */
-  if (posts.length === 0 && cortes.length === 0) {
+  if (posts.length === 0 && filtrosLigados.length === 0) {
     return <div className="glass-card conteudo-lista-vazia">Nenhum post nesta lista ainda.</div>;
   }
 
@@ -246,9 +254,10 @@ export default function ConteudoLista({
           {posts.length === 0 && (
             <tr>
               <td colSpan={COLUNAS.length} className="conteudo-lista-vazia-linha">
-                Nenhum post com este recorte ({cortes.join(" · ")}).{" "}
-                <a href={hrefLimparRecorte} className="conteudo-lista-vazia-limpar">
-                  Limpar o recorte
+                Nenhum post com {um ? "este filtro" : "estes filtros"} (
+                {filtrosLigados.join(" · ")}).{" "}
+                <a href={hrefLimparFiltros} className="conteudo-lista-vazia-limpar">
+                  {um ? "Limpar o filtro" : "Limpar os filtros"}
                 </a>
               </td>
             </tr>
