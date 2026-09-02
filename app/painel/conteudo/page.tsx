@@ -2,6 +2,7 @@ import BotaoCriar from "@/components/painel/BotaoCriar";
 import BuscaConteudo from "@/components/painel/BuscaConteudo";
 import ConteudoQuadro from "@/components/painel/ConteudoQuadro";
 import ConteudoCalendario from "@/components/painel/ConteudoCalendario";
+import ConteudoCartoes from "@/components/painel/ConteudoCartoes";
 import ConteudoLista, {
   type Direcao,
   type FiltroColuna,
@@ -238,6 +239,19 @@ export default async function ConteudoPage({
     if (atual.col) qs.set("col", atual.col);
     return "/painel/conteudo?" + qs.toString();
   };
+
+  /* A saída de emergência de um recorte que esvaziou a tela. Vai tudo junto,
+     busca inclusive: quem clica em "limpar" quer a lista inteira de volta, não
+     um recorte um pouco menor. Calculada aqui porque a Lista e os cartões do
+     celular usam a mesma. */
+  const hrefLimparFiltros = link({
+    perfil: undefined,
+    q: undefined,
+    formato: undefined,
+    pilar: undefined,
+    status: undefined,
+  });
+  const temFiltro = Boolean(perfilFiltro || filtroFormato || filtroPilar || filtroStatus);
 
   /* ── Lista: a página que está na tela ─────────────────────────────────────
      A fatia é feita AQUI, no servidor, e só ela atravessa pro componente de
@@ -491,6 +505,11 @@ export default async function ConteudoPage({
             aqui" embaixo de "nenhum post encontrado" é a mesma informação três
             vezes, e o quadro tem altura fixa, então ele empurraria a mensagem
             pra fora e devolveria rolagem à página. */}
+        {/* As três visões são formas de monitor e saem de cena abaixo de 760px;
+            ver ConteudoCartoes pro porquê. O wrapper existe só pra que essa
+            troca seja uma regra de CSS e não um `if` que precisaria saber a
+            largura da tela no servidor, que ele não sabe. */}
+        <div className="conteudo-visoes-monitor">
         {termo && filtrados.length === 0 && visao !== "lista" ? (
           <p className="conteudo-primeiro-passo">
             Nenhum post com <strong>{termo}</strong> no título.{" "}
@@ -528,18 +547,20 @@ export default async function ConteudoPage({
             paginacao={paginacao}
             sufixo={sufixo}
             termo={termo || undefined}
-            /* A saída de emergência da lista vazia por filtro. Vai tudo junto,
-               busca inclusive: quem clica em "limpar" quer a lista inteira de
-               volta, não um recorte um pouco menor. */
-            hrefLimparFiltros={link({
-              perfil: undefined,
-              q: undefined,
-              formato: undefined,
-              pilar: undefined,
-              status: undefined,
-            })}
+            hrefLimparFiltros={hrefLimparFiltros}
           />
         )}
+        </div>
+
+        {/* A mesma consulta, a mesma ordem e o mesmo recorte, numa forma que
+            cabe no polegar. Só aparece abaixo de 760px. */}
+        <ConteudoCartoes
+          posts={posts}
+          sufixo={sufixo}
+          termo={termo || undefined}
+          hrefLimparFiltros={hrefLimparFiltros}
+          temFiltro={temFiltro}
+        />
       </div>
     </>
   );

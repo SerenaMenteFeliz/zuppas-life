@@ -4554,3 +4554,213 @@ textarea {
 .conteudo-botao-gravar:hover {
   background: var(--accent-wash-strong);
 }
+
+/* ── A aba de Conteúdo no celular ─────────────────────────────────────────────
+
+   Ver o comentário do ConteudoCartoes.tsx pro raciocínio. Aqui fica só a troca:
+   acima de 760px valem as três visões de monitor, abaixo vale a coluna de
+   cartões, e nunca as duas. */
+.conteudo-cartoes {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .conteudo-visoes-monitor {
+    display: none;
+  }
+
+  .conteudo-cartoes {
+    display: block;
+  }
+
+  /* O seletor de visão sai junto: abaixo daqui as três dão na mesma tela, e
+     três botões que não mudam nada são pior que nenhum. */
+  .conteudo-visoes {
+    display: none;
+  }
+}
+
+.conteudo-grupo + .conteudo-grupo {
+  margin-top: 1.4rem;
+}
+
+/* Cabeçalho normal, e NÃO grudado. Foi tentado grudado, pelo motivo óbvio (são
+   35 cartões em Postado, então a etiqueta da etapa sai da tela cedo), e não
+   funciona: quem rola aqui é a `.painel-main`, e a `.painel-topo` já está
+   grudada nela em `top: 0` com z-index maior. O cabeçalho da seção deslizava
+   pra DEBAIXO da barra de topo e sumia, ou seja, o efeito custava código e não
+   entregava nada.
+
+   Grudar embaixo dela exigiria saber a altura dela, que no celular varia com a
+   quebra dos controles. Não vale: a etiqueta some ao rolar, e a rolagem de
+   volta é barata. */
+.conteudo-grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0;
+}
+
+.conteudo-grupo-conta {
+  font-size: var(--txt-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.conteudo-cartao-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Dois alvos por cartão, lado a lado e separados: abrir o post e ir direto pro
+   roteiro. Juntos num só, um toque faria as duas coisas e a pessoa nunca
+   escolheria qual. */
+.conteudo-cartao {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-md);
+}
+
+.conteudo-cartao-abrir {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
+  /* Estica pra altura do cartão: assim o alvo é o cartão inteiro à esquerda do
+     botão, e não só as duas linhas de texto. */
+  align-self: stretch;
+  justify-content: center;
+}
+
+.conteudo-cartao-titulo {
+  overflow: hidden;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: var(--ink);
+  /* Duas linhas e corta. Uma linha só cortaria títulos parecidos no mesmo
+     ponto ("7 Lei (genero) dia 1" e "dia 2" viram o mesmo texto truncado); três
+     deixariam o cartão alto demais pra caber cinco na tela. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.conteudo-cartao-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+}
+
+/* `min-height` de 44px: medido em 39 sem ele, que é abaixo do alvo de toque
+   confortável, e este é um botão apertado com o celular na mão. */
+.conteudo-cartao-gravar {
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.75rem;
+  font-size: var(--txt-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 9999px;
+}
+
+/* ── O topo da aba no celular ─────────────────────────────────────────────────
+
+   No print de 02/09 a faixa de topo empilhava cinco linhas (rótulo, seletor de
+   visão, perfil, busca, "+ Criar") e comia mais de 200px antes do primeiro
+   post. Aqui ela vira duas: identidade e ação em cima, filtro e busca embaixo,
+   dividindo a linha. */
+@media (max-width: 760px) {
+  .painel-topo {
+    min-height: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .painel-topo-linha {
+    gap: 0.5rem;
+  }
+
+  .painel-topo-divisor {
+    display: none;
+  }
+
+  .painel-topo-controles {
+    display: flex;
+    width: 100%;
+    order: 3;
+    gap: 0.5rem;
+  }
+
+  /* Os dois dividem a linha em vez de o campo de busca ocupar sozinho a
+     largura toda e empurrar o perfil pra uma terceira linha. */
+  .painel-topo-controles > * {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .painel-topo-acoes {
+    gap: 0.5rem;
+  }
+}
+
+/* ── A faixa de navegação no celular ──────────────────────────────────────────
+
+   Media 80px no print, 20% da altura de um celular, pra mostrar seis destinos
+   dos quais a Ge e a Liz usam um. Não sai de cena (elas precisam de saber onde
+   estão e o Yan navega pelo mesmo aparelho), mas passa a caber em 52px. */
+@media (max-width: 760px) {
+  .painel-sidebar {
+    gap: 0.25rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .painel-nav-item {
+    gap: 0.4rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* ── A tela do post no celular ────────────────────────────────────────────────
+
+   Não é a tela onde se grava (isso é o modo gravação), mas é onde se corrige
+   uma frase, e o print de 02/09 mostrou ela impossível: a função da fala e o
+   resumo da cena dividiam a mesma linha em flex, então a cena ficava com uns
+   40px e o texto descia UMA PALAVRA POR LINHA, virando uma coluna vertical de
+   letras ao lado da fala.
+
+   Empilhados, cada um recebe a largura inteira. */
+@media (max-width: 700px) {
+  .conteudo-fala-linha {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .conteudo-fala-funcao {
+    align-self: flex-start;
+  }
+}
+
+/* Uma coluna: dois campos de formulário lado a lado num celular dão ~150px
+   cada, que não é largura pra escrever "olhando fixamente para a câmera". */
+@media (max-width: 640px) {
+  .conteudo-cena-campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
