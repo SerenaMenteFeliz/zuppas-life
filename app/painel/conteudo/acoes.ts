@@ -9,6 +9,7 @@ import {
   criarPost,
   excluirMetrica,
   excluirPost,
+  marcarFalaGravada,
   salvarMetrica,
   salvarRoteiro,
 } from "@/lib/conteudo";
@@ -258,6 +259,24 @@ export async function salvarRoteiroAcao(
   revalidatePath("/painel/conteudo/" + postId);
   revalidatePath("/painel/conteudo");
   return resultado;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Marcar uma fala como gravada, da tela de gravação.
+
+    Os dois ids são validados aqui e não na tela: eles entram num filtro do
+    PostgREST montado por concatenação, e action é porta pública (a requisição
+    pode ser forjada sem passar por tela nenhuma). Mesma regra da lista de
+    apagar do `salvarRoteiroAcao`.
+
+    Revalida a tela de gravação e a do post: as duas desenham o mesmo ✓, e a
+    contagem "12 falas · 12 gravadas" do editor sai daí. */
+export async function marcarFalaAcao(postId: string, falaId: string, gravada: boolean) {
+  if (!UUID.test(postId) || !UUID.test(falaId)) return;
+  await marcarFalaGravada(postId, falaId, gravada === true);
+  revalidatePath("/painel/conteudo/" + postId);
+  revalidatePath("/painel/conteudo/" + postId + "/gravar");
 }
 
 export async function salvarMetricaAcao(fd: FormData) {

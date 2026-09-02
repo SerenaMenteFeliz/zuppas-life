@@ -380,6 +380,30 @@ export type ResultadoRoteiro = {
   deOutraAba: Fala[];
 };
 
+/** Marca (ou desmarca) uma fala como gravada, e só isso.
+
+    Existe separado de `salvarRoteiro` porque a tela de gravação NÃO pode mandar
+    o roteiro inteiro. Quem grava está com o celular na mão marcando frases; se
+    esse gesto reescrevesse as N falas, uma correção de texto aberta noutra aba
+    (ou no notebook, que é o caso real: a Ge escreve no computador e grava pelo
+    celular) seria sobrescrita pela cópia que o celular carregou ao abrir a
+    tela. Um PATCH de uma coluna não tem como apagar trabalho que ele nem leu.
+
+    O `post_id` entra no filtro junto do `id` pelo mesmo motivo do DELETE do
+    roteiro: id de outra fala que chegasse aqui por engano não marca nada. */
+export async function marcarFalaGravada(
+  postId: string,
+  falaId: string,
+  gravada: boolean,
+): Promise<void> {
+  await escrever(
+    "conteudo_falas?post_id=eq." + postId + "&id=eq." + falaId,
+    "PATCH",
+    { gravada },
+    "return=minimal",
+  );
+}
+
 export async function salvarRoteiro(
   postId: string,
   falas: Fala[],

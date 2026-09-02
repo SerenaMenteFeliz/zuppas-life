@@ -4264,3 +4264,293 @@ textarea {
   border-radius: 8px;
   overflow-x: auto;
 }
+
+/* ── Modo gravação ────────────────────────────────────────────────────────────
+
+   O roteiro pra ler com a câmera ligada. O alvo não é "celular", é o QUADRADO
+   da tela dividida: ~390x400, porque a câmera fica na outra metade. Medido
+   nesse tamanho antes desta tela existir, na tela de edição do post: 151px de
+   moldura (38% da altura) e a primeira fala a 980px de rolagem.
+
+   Por isso a página não rola: a casca ocupa a altura da janela, o topo é curto
+   e fixo, e SÓ a lista de falas rola. Assim o que sai da tela ao rolar é
+   roteiro, nunca a barra de progresso nem a saída. */
+.gravar-casca {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.gravar-topo {
+  flex: none;
+  padding: 0.5rem 0.9rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.gravar-topo-linha {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Alvo de 40px pra um caractere de 8px: é a única saída da tela e vai ser
+   apertada com o celular na mão. O `‹` sozinho basta porque não há mais nada
+   pra onde ir daqui. */
+.gravar-voltar {
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: -0.6rem;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+
+.gravar-voltar:hover {
+  color: var(--accent);
+}
+
+.gravar-titulo {
+  overflow: hidden;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.gravar-progresso {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.15rem;
+}
+
+.gravar-barra {
+  display: block;
+  height: 4px;
+  flex: 1;
+  overflow: hidden;
+  background: var(--line);
+  border-radius: 9999px;
+}
+
+.gravar-barra-cheia {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 9999px;
+  transition: width 0.2s ease;
+}
+
+/* `tabular-nums` porque o número muda a cada fala marcada: sem largura fixa de
+   dígito, "9 de 12" e "10 de 12" empurram a barra de progresso de lugar. */
+.gravar-conta {
+  flex: none;
+  font-size: var(--txt-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+/* A única coisa que rola. `overscroll-behavior: contain` impede que chegar no
+   fim da lista puxe a página de trás (o "quique" que no celular parece que a
+   tela saiu do lugar). */
+.gravar-lista {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Respiro grande no fim, de propósito: sem ele a última fala só pode ser lida
+     colada na borda de baixo, que é a pior posição da tela pra ler em voz alta
+     olhando pra câmera, que está acima do aparelho. Com o respiro, QUALQUER
+     fala pode ser rolada até o meio da tela, inclusive a última. */
+  padding-bottom: 40vh;
+}
+
+.gravar-fala + .gravar-fala {
+  border-top: 1px solid var(--line);
+}
+
+/* A frase inteira é o botão. Um alvo do tamanho do card, porque o gesto é feito
+   entre uma tomada e outra, sem olhar com atenção. */
+.gravar-fala-toque {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gravar-fala-toque:active {
+  background: var(--accent-wash);
+}
+
+.gravar-fala-toque:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.gravar-fala-marca {
+  display: flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+}
+
+/* 1.125rem = 18px, contra os 14px da tela de edição. A fala vai ser lida a
+   um braço de distância, com o aparelho apoiado e a pessoa olhando pra câmera:
+   é leitura em condição pior que a de quem está sentado escrevendo. */
+.gravar-fala-texto {
+  min-width: 0;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* Gravada apaga, não risca. Risco em cima de 18px atrapalha a releitura, e
+   releitura acontece: refazer uma tomada já marcada é rotina. O ✓ verde e o
+   texto apagado dizem "essa saiu" sem estragar o texto. */
+/* O MESMO `--sage` do ✓ do editor. O verde é o que diz "essa saiu" nas duas
+   telas; um segundo verde faria a pessoa checar se querem dizer a mesma coisa. */
+.gravar-fala-ok .gravar-fala-marca {
+  color: var(--surface);
+  background: var(--sage);
+  border-color: var(--sage);
+}
+
+.gravar-fala-ok .gravar-fala-texto {
+  color: var(--ink-soft);
+}
+
+/* A cena fica fechada numa linha. Alinhada com o texto da fala (a mesma soma do
+   padding do botão, da marca e do gap), pra que as duas leiam como um bloco só
+   e não como duas colunas. */
+.gravar-cena {
+  margin: -0.55rem 0.9rem 0.75rem 3.35rem;
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+}
+
+/* Seta própria, porque a nativa não aparecia (conferido na tela em
+   02/09/2026): o marcador do `summary` fica fora da caixa de texto e o
+   `overflow: hidden` que corta a linha comprida cortava ele junto. `<details>`
+   sem afordância nenhuma é recurso escondido, e este guarda justamente o
+   enquadramento e o b-roll que a pessoa vai querer conferir antes da tomada.
+
+   Vai no `::before` e não num ícone: sendo conteúdo da própria linha, ele entra
+   no cálculo do `text-overflow` em vez de brigar com ele.
+
+   E é triângulo desenhado com borda, não o caractere ▸: com o caractere, a
+   fonte do painel não tinha o glifo e as duas setas saíram como quadradinho de
+   fonte faltando (visto na tela em 02/09/2026). Borda não depende de fonte
+   nenhuma, e a mesma peça gira 90° pra virar a seta de aberto. */
+.gravar-cena summary {
+  overflow: hidden;
+  padding: 0.3rem 0;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gravar-cena summary::-webkit-details-marker {
+  display: none;
+}
+
+.gravar-cena summary::before {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-right: 0.45rem;
+  vertical-align: 0.05em;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--accent);
+  transition: transform 0.15s ease;
+}
+
+.gravar-cena[open] summary::before {
+  transform: rotate(90deg);
+}
+
+/* Aberta, a mesma linha passa a quebrar em vez de cortar: é o texto inteiro no
+   lugar do resumo, sem repetir o resumo acima dele. */
+.gravar-cena[open] summary {
+  white-space: normal;
+}
+
+.gravar-cena-obs {
+  margin-top: 0.3rem;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--line);
+  line-height: 1.45;
+}
+
+.gravar-vazio {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 2rem;
+  font-size: var(--txt-sm);
+  color: var(--ink-soft);
+}
+
+/* No monitor a tela continua valendo (revisar o roteiro antes de mandar pra
+   gravação), mas linha de 18px atravessando 1400px é ilegível. A coluna para
+   onde a leitura para. */
+@media (min-width: 700px) {
+  .gravar-topo,
+  .gravar-lista {
+    width: 100%;
+    max-width: 640px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+}
+
+/* O atalho pro modo gravação, no topo do post. Contorno e não preenchido: ele
+   divide a faixa com o "‹ Conteúdo" e com o indicador de autosave, e dois
+   botões cheios ali brigariam pela mesma atenção. */
+.conteudo-botao-gravar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding: 0.4rem 0.85rem;
+  font-size: var(--txt-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease;
+}
+
+.conteudo-botao-gravar:hover {
+  background: var(--accent-wash-strong);
+}

@@ -127,7 +127,17 @@ export default async function PostPage({
   const metricaDeHoje = metricas.find((m) => m.coletado_em === hoje);
 
   return (
-    <PostShell post={post} voltarPara={voltarPara}>
+    /* O modo gravação só existe quando há o que ler: post sem fala nenhuma
+       abriria uma tela vazia oferecendo gravar um roteiro que não foi escrito. */
+    <PostShell
+      post={post}
+      voltarPara={voltarPara}
+      hrefGravar={
+        falas.length > 0
+          ? "/painel/conteudo/" + post.id + "/gravar" + (qs.size ? "?" + qs.toString() : "")
+          : undefined
+      }
+    >
         <DadosPost post={post} mostrarLocal={temLocal} />
 
         <div className="glass-card mb-6 p-5">

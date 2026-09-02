@@ -8,7 +8,7 @@ import CampoTexto from "@/components/painel/CampoTexto";
 import Dropdown from "@/components/painel/Dropdown";
 import { usePostShell } from "@/components/painel/PostShell";
 import RoteiroIA, { EVENTO_IA, type PropostaIA } from "@/components/painel/RoteiroIA";
-import { FUNCAO_INFO, FUNCOES_FALA, type Fala } from "@/lib/conteudo-tipos";
+import { FUNCAO_INFO, FUNCOES_FALA, resumoDaCena, type Fala } from "@/lib/conteudo-tipos";
 
 /* Editor do roteiro, o miolo do painel de conteúdo.
 
@@ -524,13 +524,6 @@ function SetaMini({ para }: { para: "cima" | "baixo" }) {
       <path d="M6 10V2M2.5 5.5L6 2l3.5 3.5" />
     </svg>
   );
-}
-
-function resumoDaCena(f: Fala): string {
-  const partes = [f.enquadramento, f.cenario, f.acao, f.broll, f.texto_tela].filter(
-    (p) => p && p.trim() !== "",
-  );
-  return partes.length === 0 ? "Cena não planejada" : partes.join(" · ");
 }
 
 /* B-roll como lista, guardada numa string separada por ponto e vírgula.

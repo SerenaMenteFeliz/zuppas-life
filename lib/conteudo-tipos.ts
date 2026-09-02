@@ -187,6 +187,27 @@ export type Fala = {
   gravada: boolean;
 };
 
+/** A cena de uma fala numa linha só, na ordem em que ela é lida: onde a câmera
+    está, onde a pessoa está, o que ela faz, o que entra por cima e o que aparece
+    escrito.
+
+    Mora aqui e não no editor porque a tela de gravação lê a MESMA cena, e duas
+    cópias dessa ordem dessincronizam na primeira vez que alguém mexer numa. */
+export function resumoDaCena(f: Fala): string {
+  const partes = [f.enquadramento, f.cenario, f.acao, f.broll, f.texto_tela].filter(
+    (p) => p && p.trim() !== "",
+  );
+  return partes.length === 0 ? "Cena não planejada" : partes.join(" · ");
+}
+
+/** Se há cena planejada de verdade. A tela de gravação não desenha a linha de
+    cena quando não há o que dizer: espaço vertical ali é o recurso escasso. */
+export function temCena(f: Fala): boolean {
+  return [f.enquadramento, f.cenario, f.acao, f.broll, f.texto_tela, f.observacao].some(
+    (p) => p && p.trim() !== "",
+  );
+}
+
 export type Post = {
   id: string;
   titulo: string;

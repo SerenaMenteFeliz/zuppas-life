@@ -61,12 +61,20 @@ export default function PostShell({
   post,
   children,
   voltarPara = "/painel/conteudo",
+  hrefGravar,
 }: {
   post: Post;
   children: React.ReactNode;
   /* Pra onde o "‹ Conteúdo" leva, já com o recorte da lista de onde a pessoa
      veio (perfil, busca, visão, página). Ver `DA_LISTA` na página do post. */
   voltarPara?: string;
+  /* O modo gravação deste post, ou `undefined` quando não há roteiro pra ler.
+
+     Mora no TOPO, e não ao lado do Roteiro, porque no celular em tela dividida
+     a barra do roteiro está a 857px de rolagem (medido em 02/09/2026) — um
+     atalho que só aparece depois de rolar a tela toda não é atalho. O topo é
+     fixo, então ele está à mão em qualquer ponto da página. */
+  hrefGravar?: string;
 }) {
   const [titulo, setTitulo] = useState(post.titulo);
   const [status, setStatus] = useState<Status>(post.status as Status);
@@ -116,6 +124,11 @@ export default function PostShell({
 
           <div className="painel-topo-acoes">
             <IndicadorSalvo estado={estado} hora={hora} />
+            {hrefGravar && (
+              <Link href={hrefGravar} className="conteudo-botao-gravar">
+                Gravar
+              </Link>
+            )}
             <Link href={voltarPara} className="conteudo-botao-claro">
               ‹ Conteúdo
             </Link>
