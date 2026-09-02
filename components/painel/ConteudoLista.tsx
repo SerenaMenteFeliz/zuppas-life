@@ -111,6 +111,7 @@ export default function ConteudoLista({
   paginacao,
   termo,
   sufixo,
+  hrefLimparRecorte,
 }: {
   posts: PostResumo[];
   /** Coluna ordenada agora, ou `null` no estado padrão. */
@@ -124,17 +125,38 @@ export default function ConteudoLista({
   termo?: string;
   /** Query do recorte atual, pendurada no link do post pro voltar preservar. */
   sufixo: string;
+  /** Esta tela sem nenhum filtro nem busca. Serve pra sair de um recorte que
+      esvaziou a lista sem ter que desligar filtro por filtro. */
+  hrefLimparRecorte: string;
 }) {
   const router = useRouter();
 
-  if (posts.length === 0) {
-    return (
-      <div className="glass-card conteudo-lista-vazia">
-        {termo
-          ? "Nenhum post com “" + termo + "” no título."
-          : "Nenhum post nesta lista ainda."}
-      </div>
-    );
+  /* O que está recortando a lista agora, em texto e na ordem das colunas.
+     Vazio significa que a lista mostra tudo que existe. */
+  const cortes: string[] = [];
+  if (termo) cortes.push("título com “" + termo + "”");
+  for (const c of COLUNAS) {
+    const f = filtros[c.id];
+    if (!f?.ativo) continue;
+    cortes.push(c.rotulo + ": " + (f.opcoes.find((o) => o.valor === f.ativo)?.rotulo ?? f.ativo));
+  }
+
+  /* Lista vazia SEM recorte é a base vazia mesmo: não há o que comparar, então
+     fica só a frase e a página explica a esteira em cima.
+
+     Vazia COM recorte era um beco sem saída (achado do Yan, 02/09/2026):
+     filtrar Formato por um valor que ninguém usa, "Imagem", trocava a tabela
+     inteira por um card solto. Os funis de filtro moram no CABEÇALHO da
+     tabela, então sumir com a tabela sumia com o único controle capaz de
+     desligar o filtro, e nada na tela dizia qual era ele. Saída: voltar pela
+     URL, ou seja, nenhuma.
+
+     A regra que faltava é a irmã da de 01/09 ("filtro só age onde o controle
+     dele aparece"): **o controle tem que continuar aparecendo enquanto o filtro
+     age**, inclusive quando o resultado dele é zero. Aliás sobretudo aí, que é
+     quando a pessoa mais precisa desfazer. */
+  if (posts.length === 0 && cortes.length === 0) {
+    return <div className="glass-card conteudo-lista-vazia">Nenhum post nesta lista ainda.</div>;
   }
 
   return (
@@ -217,6 +239,20 @@ export default function ConteudoLista({
           </tr>
         </thead>
         <tbody>
+          {/* Uma linha só, atravessando a tabela: a mensagem nasce EMBAIXO do
+              cabeçalho, então os funis ficam à vista e o funil aceso mostra
+              sozinho qual coluna esvaziou a lista. O link é o atalho pra quem
+              ligou mais de um e não quer desligar um por um. */}
+          {posts.length === 0 && (
+            <tr>
+              <td colSpan={COLUNAS.length} className="conteudo-lista-vazia-linha">
+                Nenhum post com este recorte ({cortes.join(" · ")}).{" "}
+                <a href={hrefLimparRecorte} className="conteudo-lista-vazia-limpar">
+                  Limpar o recorte
+                </a>
+              </td>
+            </tr>
+          )}
           {posts.map((p) => {
             const perfil = perfilPorId(p.perfil);
             const status = STATUS_INFO[p.status as Status];

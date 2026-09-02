@@ -2901,29 +2901,15 @@ textarea {
   border-radius: var(--raio-lg);
 }
 
-/* Ponto que acende no botão de visão clicado (ver LinkVisao.tsx). Fica DENTRO
-   do botão porque o esqueleto da página não diz qual dos três foi apertado. */
-.pn-carregando-ponto {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 0.35rem;
-  vertical-align: middle;
-  background: currentColor;
-  border-radius: 9999px;
-  animation: pn-pulsa 0.7s ease-in-out infinite alternate;
-}
+/* O ponto pulsante do botão de visão saiu em 02/09/2026 (decisão do Yan). Ele
+   marcava qual dos três foi clicado enquanto a página carregava; na prática a
+   troca é rápida o bastante pra ele só piscar do lado do rótulo. O esqueleto do
+   `loading.tsx` continua cobrindo a área de conteúdo. */
 
-@keyframes pn-pulsa {
-  from { opacity: 0.25; }
-  to { opacity: 1; }
-}
-
-/* Quem pediu menos movimento não deve ganhar duas animações em loop só por
-   abrir uma tela. O sinal continua existindo, parado. */
+/* Quem pediu menos movimento não deve ganhar animação em loop só por abrir uma
+   tela. O sinal continua existindo, parado. */
 @media (prefers-reduced-motion: reduce) {
-  .pn-esqueleto,
-  .pn-carregando-ponto {
+  .pn-esqueleto {
     animation: none;
   }
 }
@@ -2993,6 +2979,24 @@ textarea {
   padding: var(--esp-5);
   font-size: var(--txt-sm);
   color: var(--ink-soft);
+}
+
+/* A mesma frase, só que dentro da tabela, quando o que esvaziou a lista foi um
+   filtro. Mora ali pra que o cabeçalho com os funis fique na tela junto. */
+.conteudo-lista-vazia-linha {
+  padding: var(--esp-5) !important;
+  font-size: var(--txt-sm);
+  color: var(--ink-soft);
+  text-align: left;
+}
+
+/* A saída é a única coisa acionável da linha, então ela precisa parecer
+   acionável. Herdar a cor apagada do texto ao redor, que é o que a classe de
+   ordenação faz, deixava o link com cara de continuação da frase. */
+.conteudo-lista-vazia-limpar {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* ── A Lista: altura de janela, cabeçalho grudado e linha mais densa ─────────

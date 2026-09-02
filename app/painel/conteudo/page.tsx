@@ -9,8 +9,8 @@ import ConteudoLista, {
   type Paginacao,
 } from "@/components/painel/ConteudoLista";
 import FiltroPerfil from "@/components/painel/FiltroPerfil";
-import LinkVisao from "@/components/painel/LinkVisao";
 import PainelTopo from "@/components/painel/PainelTopo";
+import Link from "next/link";
 import { listarPosts } from "@/lib/conteudo";
 import {
   deslocarMes,
@@ -402,14 +402,14 @@ export default async function ConteudoPage({
           <>
             <nav className="conteudo-visoes">
               {VISOES.map((v) => (
-                <LinkVisao
+                <Link
                   key={v.id}
                   href={link({ v: v.id })}
-                  ativo={v.id === visao}
+                  aria-current={v.id === visao ? "page" : undefined}
                   className={"conteudo-visao" + (v.id === visao ? " conteudo-visao-ativa" : "")}
                 >
                   {v.rotulo}
-                </LinkVisao>
+                </Link>
               ))}
             </nav>
 
@@ -528,6 +528,16 @@ export default async function ConteudoPage({
             paginacao={paginacao}
             sufixo={sufixo}
             termo={termo || undefined}
+            /* A saída de emergência da lista vazia por filtro. Vai tudo junto,
+               busca inclusive: quem clica em "limpar" quer a lista inteira de
+               volta, não um recorte um pouco menor. */
+            hrefLimparRecorte={link({
+              perfil: undefined,
+              q: undefined,
+              formato: undefined,
+              pilar: undefined,
+              status: undefined,
+            })}
           />
         )}
       </div>
