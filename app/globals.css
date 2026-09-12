@@ -1255,26 +1255,20 @@ button.painel-badge-escolhido:hover {
    Yan, 12/09/2026: primeiro ~400px, depois ~200px).
 
    Quatro colunas: etapa (número + nome), contagem (barra + número + % do
-   início), passagem, perda. A sobra vai só pras duas taxas, que centralizam o
-   valor. A contagem é fixa: mais estreita até 1600px, porque num notebook de
-   1280px sobram ~535px ao lado do preview e, se ela crescesse junto com a
-   etapa, nomes como "Virada de esperança" saíam cortados. */
+   início), passagem, perda. Etapa, passagem e perda têm a largura do próprio
+   conteúdo, o espaço entre as colunas é um só (`column-gap`), e quem absorve a
+   sobra é a barra de leads, que cresce com a tela (Yan, 12/09/2026: "pra
+   manter sempre um espaço igual entre elas"). Num notebook de 1280px sobram
+   ~535px ao lado do preview, e a contagem ainda fica acima do mínimo. */
 .funil-lista-telas {
   display: grid;
-  grid-template-columns: minmax(8rem, max-content) 9.5rem minmax(4.75rem, 1fr) minmax(4rem, 1fr);
-  column-gap: var(--esp-4);
+  grid-template-columns: minmax(8rem, max-content) minmax(9.5rem, 1fr) max-content max-content;
+  column-gap: var(--esp-5);
   align-content: start;
 }
 
 .funil-lista-telas > * {
   grid-column: 1 / -1;
-}
-
-@media (min-width: 1600px) {
-  .funil-lista-telas {
-    grid-template-columns: minmax(8rem, max-content) 13rem minmax(4.75rem, 1fr) minmax(4rem, 1fr);
-    column-gap: var(--esp-5);
-  }
 }
 
 .funil-linha {
