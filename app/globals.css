@@ -1249,12 +1249,14 @@ button.painel-badge-escolhido:hover {
 
 .funil-linha {
   display: grid;
-  /* Mínimos apertados de propósito: num notebook de 1280px sobram ~525px ao
-     lado do preview, e com folga maior a coluna "Perde" (a mais importante)
-     era a que saía cortada. Em tela larga a barra (`1fr`) absorve a sobra. */
-  grid-template-columns: 1.25rem minmax(6.5rem, 11rem) minmax(2.5rem, 1fr) 2.5rem 3.5rem 3.5rem 3.5rem;
+  /* Quatro colunas: etapa (número + nome), contagem (barra + número + % do
+     início), passagem, perda. A etapa é quem absorve a sobra em tela larga; a
+     contagem tem teto, porque com a barra em `1fr` ela ficava larga demais
+     (Yan, 11/09/2026). Num notebook de 1280px sobram ~525px ao lado do
+     preview, e os mínimos cabem ali com a coluna de perda inteira. */
+  grid-template-columns: minmax(8rem, 1fr) minmax(9.5rem, 13rem) 4.75rem 4rem;
   align-items: center;
-  gap: var(--esp-2);
+  gap: var(--esp-3);
   min-height: 36px;
   padding: 0 var(--esp-3);
   border-radius: var(--raio-sm);
@@ -1281,20 +1283,39 @@ button.funil-linha-ativa:hover {
   color: var(--ink-soft);
 }
 
-/* O cabeçalho de "Pessoas" cobre a barra e o número juntos. */
-.funil-linha-cabeca > span:nth-child(3) {
-  grid-column: span 2;
+/* "Etapa" alinha com o nome, não com o número da tela. */
+.funil-linha-cabeca > span:first-child {
+  padding-left: calc(1.25rem + var(--esp-2));
 }
 
-.funil-linha-cabeca > span:nth-child(4) {
-  display: none;
-}
-
-.funil-linha-cabeca > span:nth-child(n + 5) {
+.funil-linha-cabeca > span:nth-child(n + 3) {
   text-align: right;
 }
 
+.funil-linha-etapa {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  min-width: 0;
+}
+
 .funil-linha-n {
+  flex: none;
+  width: 1.25rem;
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.funil-linha-contagem {
+  display: grid;
+  grid-template-columns: minmax(2rem, 1fr) 2.25rem 3rem;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.funil-linha-doinicio {
   font-size: var(--txt-xs);
   color: var(--ink-soft);
   text-align: right;
@@ -1420,16 +1441,15 @@ button.funil-linha-ativa:hover {
   background: var(--accent-wash-strong);
 }
 
-/* Colunas de apoio somem antes da tela ficar apertada: no celular sobra a
-   leitura principal (etapa, barra, pessoas, perda), que é a pergunta da tela. */
+/* No celular a passagem sai (é 100% menos a perda, então nada se perde) e
+   sobra a leitura principal: etapa, contagem e perda. */
 @media (max-width: 640px) {
   .funil-linha {
-    grid-template-columns: 1.25rem minmax(6rem, 1fr) minmax(2.5rem, 5rem) 2.5rem 3.75rem;
+    grid-template-columns: minmax(6rem, 1fr) minmax(7.5rem, 9rem) 3.5rem;
     gap: var(--esp-2);
   }
 
-  .funil-linha > :nth-child(5),
-  .funil-linha > :nth-child(6) {
+  .funil-linha > :nth-child(3) {
     display: none;
   }
 }

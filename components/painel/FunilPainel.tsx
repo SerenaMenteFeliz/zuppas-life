@@ -17,8 +17,17 @@ import type { SemanaLeads } from "@/lib/painel-funis";
    onde a sequência afina, e o olho acha a queda antes de ler número. O preview
    continua (pedido do Yan: "o preview tem que manter"), fixo à direita.
 
-   Nenhuma métrica do card antigo saiu: pessoas, % do início, passagem pra
-   próxima e perda estão todas na linha, em colunas. */
+   Nenhuma métrica do card antigo saiu: contagem, % do início, passagem pra
+   próxima e perda estão todas na linha. A % do início mora ao lado da
+   contagem, não em coluna própria (Yan, 11/09/2026): a barra já desenha
+   exatamente essa proporção, então a coluna separada repetia a barra em
+   número e custava largura. */
+
+/** Cabeçalho da coluna de contagem. Cada linha conta quem VIU aquela tela, e
+    não quem deixou e-mail: o card "Leads" do topo (126 em 11/09/2026) é o
+    lead no sentido do banco, e esta coluna mostra 384 na abertura. O Yan
+    escolheu "Leads" sabendo da diferença (11/09/2026). */
+const ROTULO_CONTAGEM = "Leads";
 
 /** A partir de quanto a perda entre duas telas ganha cor. Com o funil de
     11/09, marca 4 das 19 linhas (abertura, nome, captura, resultado), que são
@@ -78,13 +87,10 @@ export function FunilTelas({
     <div className="funil-duplo">
       <div className="glass-card funil-lista">
         <div className="funil-linha funil-linha-cabeca" aria-hidden>
-          <span />
           <span>Etapa</span>
-          <span>Pessoas</span>
-          <span />
-          <span>Do início</span>
-          <span>Passa</span>
-          <span>Perde</span>
+          <span>{ROTULO_CONTAGEM}</span>
+          <span>Passagem</span>
+          <span>Perda</span>
         </div>
 
         {etapas.map((etapa, i) => {
@@ -107,13 +113,19 @@ export function FunilTelas({
               onClick={() => selecionar(i)}
               onKeyDown={(e) => aoTeclar(e, i)}
             >
-              <span className="funil-linha-n">{i + 1}</span>
-              <span className="funil-linha-nome">{etapa.label}</span>
-              <span className="funil-linha-barra" aria-hidden>
-                <span style={{ width: `${(etapa.views / maior) * 100}%` }} />
+              <span className="funil-linha-etapa">
+                <span className="funil-linha-n">{i + 1}</span>
+                <span className="funil-linha-nome">{etapa.label}</span>
               </span>
-              <span className="funil-linha-num">{etapa.views}</span>
-              <span className="funil-linha-apoio">{pct((etapa.views / topo) * 100)}</span>
+              <span className="funil-linha-contagem">
+                <span className="funil-linha-barra" aria-hidden>
+                  <span style={{ width: `${(etapa.views / maior) * 100}%` }} />
+                </span>
+                <span className="funil-linha-num">{etapa.views}</span>
+                <span className="funil-linha-doinicio" title="do início">
+                  {pct((etapa.views / topo) * 100)}
+                </span>
+              </span>
               <span className="funil-linha-apoio">{passagem === null ? "—" : pct(passagem)}</span>
               <span
                 className={`funil-linha-perda${perda !== null && perda >= PERDA_FORTE ? " funil-linha-perda-forte" : ""}`}

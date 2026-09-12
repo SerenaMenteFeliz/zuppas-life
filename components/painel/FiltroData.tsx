@@ -7,8 +7,8 @@ import { hojeISO, somarDias } from "@/lib/datas";
 /* Filtro de período pro painel de funis (28/08/2026, pedido do Yan: "zuppas
    life ainda não tem filtro por data"). Mesmo padrão do FiltroPerfil: o valor
    vive na URL (`?de=&ate=`), então voltar e compartilhar o link continuam
-   funcionando. Sem `de`/`ate`, toda consulta cai no padrão de 90 dias — ver
-   `faixaPostHog`/`faixaHogQL`/`faixaSupabaseQS` em `lib/painel-funis.ts`.
+   funcionando. Sem `de`/`ate`, toda consulta cai no padrão de 90 dias (ver
+   `faixaPostHog`/`faixaHogQL`/`faixaSupabaseQS` em `lib/painel-funis.ts`).
 
    Atalhos de 7/30/90 dias desde 11/09/2026. Antes, sem filtro, os dois campos
    ficavam vazios e a tela não dizia em lugar nenhum qual período mostrava; o
