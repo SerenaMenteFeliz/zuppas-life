@@ -1,7 +1,7 @@
 import "server-only";
 import type { EtapaContagem, EtapaGaleria } from "@/components/painel/Funil";
 import { carregarCatalogo, type LivroBiblioteca } from "@/lib/catalogo-biblioteca";
-import { somarDias } from "@/lib/datas";
+import { hojeISO, inicioDaSemana, somarDias } from "@/lib/datas";
 
 /* Filtro de datas (28/08/2026, pedido do Yan: "zuppas life ainda não tem
    filtro por data"). `RangeDatas` trafega em ISO (`AAAA-MM-DD`), igual todo
@@ -29,6 +29,9 @@ function faixaHogQL(range?: RangeDatas): { clausula: string; valores: Record<str
   if (range.de) {
     partes.push("timestamp >= toDateTime({desde})");
     valores.desde = range.de;
+  } else {
+    // Só `ate`: mesmo início padrão do `faixaPostHog` (-90d), senão virava "desde sempre".
+    partes.push("timestamp > now() - INTERVAL 90 DAY");
   }
   if (range.ate) {
     partes.push("timestamp < toDateTime({ateExclusivo})");
@@ -37,11 +40,17 @@ function faixaHogQL(range?: RangeDatas): { clausula: string; valores: Record<str
   return { clausula: partes.join(" AND "), valores };
 }
 
-/** Mesmo range, em querystring do PostgREST (Supabase) sobre uma coluna timestamptz. */
+/** Mesmo range, em querystring do PostgREST (Supabase) sobre uma coluna timestamptz.
+
+    Sem filtro, cai nos mesmos 90 dias da PostHog (11/09/2026). Antes devolvia
+    "sem limite", então a mesma tela misturava 90 dias de comportamento com
+    dinheiro e leads desde sempre, e o filtro passou a exibir "90 dias" aceso
+    como padrão: o rótulo tem que ser verdade pras duas fontes. */
 function faixaSupabaseQS(range: RangeDatas | undefined, coluna: string): string {
-  if (!range?.de && !range?.ate) return "";
+  if (!range?.de && !range?.ate) return `&${coluna}=gte.${somarDias(hojeISO(), -90)}`;
   const partes: string[] = [];
-  if (range.de) partes.push(`${coluna}=gte.${range.de}`);
+  // Só `ate`: o início continua sendo o padrão de 90 dias, igual à PostHog.
+  partes.push(`${coluna}=gte.${range.de ?? somarDias(hojeISO(), -90)}`);
   if (range.ate) partes.push(`${coluna}=lt.${somarDias(range.ate, 1)}`);
   return partes.length ? `&${partes.join("&")}` : "";
 }
@@ -242,22 +251,33 @@ const QUIZ_STEP_LABELS = [
   "Resultado completo",
 ];
 
+/* Pessoas ÚNICAS por tela no período inteiro (11/09/2026).
+
+   Antes era TrendsQuery com `math: "dau"` e `interval: "day"`, e o `count` que
+   ela devolve é a SOMA dos únicos de cada dia: quem abriu o quiz em três dias
+   diferentes contava três vezes. Medido na troca: a Abertura mostrava 403 onde
+   havia 384 pessoas. O `consultarMaterialViewed` abaixo já tinha trocado pra
+   HogQL pelo mesmo motivo em 04/08; as 18 telas tinham ficado pra trás. */
 async function consultarStepsQuiz(range?: RangeDatas): Promise<EtapaGaleria[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
+
+  const { clausula, valores } = faixaHogQL(range);
 
   const resp = await fetch(`${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       query: {
-        kind: "TrendsQuery",
-        // math: "dau" (achado 04/08) — sem isso a contagem é de EVENTO bruto,
-        // não de pessoa única, e cliques duplos infla a etapa visualmente.
-        series: [{ kind: "EventsNode", event: "quiz_step_viewed", math: "dau" }],
-        breakdownFilter: { breakdown_type: "event", breakdown: "step_index" },
-        dateRange: faixaPostHog(range),
-        interval: "day",
+        kind: "HogQLQuery",
+        query: `
+          SELECT toInt(properties.step_index) AS tela, count(DISTINCT person_id) AS pessoas
+          FROM events
+          WHERE event = {evento}
+            AND ${clausula}
+          GROUP BY tela
+        `,
+        values: { evento: "quiz_step_viewed", ...valores },
       },
     }),
     cache: "no-store",
@@ -265,13 +285,12 @@ async function consultarStepsQuiz(range?: RangeDatas): Promise<EtapaGaleria[] | 
 
   if (!resp.ok) return null;
   const data = await resp.json().catch(() => null);
-  const results = Array.isArray(data?.results) ? data.results : null;
-  if (!results) return null;
+  const linhas = Array.isArray(data?.results) ? data.results : null;
+  if (!linhas) return null;
 
   const porIndice = new Map<number, number>();
-  for (const r of results as { breakdown_value?: string; count?: number }[]) {
-    const idx = Number(r.breakdown_value);
-    if (!Number.isNaN(idx)) porIndice.set(idx, r.count ?? 0);
+  for (const [tela, pessoas] of linhas as [number | null, number][]) {
+    if (typeof tela === "number") porIndice.set(tela, pessoas ?? 0);
   }
 
   return QUIZ_STEP_LABELS.map((label, idx) => ({ label, views: porIndice.get(idx) ?? 0 }));
@@ -436,6 +455,103 @@ export async function carregarDetalheFunil(id: string, range?: RangeDatas): Prom
   }
 
   return { etapas: [], previewUrls: [], vazio: "Funil não encontrado." };
+}
+
+
+/* ─────────────────────────── LEADS DO MÉTODO CÁLICE ───────────────────────
+
+   O que o banco sabe de cada lead e nenhuma tela lia até 11/09/2026: de onde a
+   pessoa veio (`utm_*`) e o arquétipo que o quiz deu (`quiz_result`). Os dois
+   são gravados em todo opt-in por `metodocalice-site/api/subscribe.js`.
+
+   A unidade é a PESSOA, e a linha que vale é o PRIMEIRO opt-in dela no período:
+   133 linhas eram 126 pessoas quando isto foi escrito, porque quem refaz o quiz
+   grava outra linha. Contar linha faria origem e arquétipo somarem mais que o
+   total de leads, e o total bater com a lista de funis é o que dá confiança no
+   resto. */
+
+type LeadCalice = {
+  contact_id: string;
+  signed_at: string;
+  utm_source: string | null;
+  utm_content: string | null;
+  quiz_result: string | null;
+};
+
+/** `atual`: é a semana de hoje, ainda enchendo. `completa`: os 7 dias dela
+    estão dentro do período filtrado e já passaram. Só semana completa entra em
+    média: com o filtro de 7 dias, a semana anterior chegava cortada em 2 dias
+    e puxava a "média semanal" pra 4. */
+export type SemanaLeads = { inicio: string; count: number; atual: boolean; completa: boolean };
+
+export type LeadsCalice = {
+  total: number;
+  porSemana: SemanaLeads[];
+  porOrigem: EtapaContagem[];
+  porResultado: EtapaContagem[];
+};
+
+const ROTULOS_ARQUETIPO: Record<string, string> = {
+  controlador: "Controlador",
+  aprovador: "Aprovador",
+  sabotador: "Sabotador",
+  ausente: "Ausente",
+};
+
+function contar(itens: string[]): EtapaContagem[] {
+  const mapa = new Map<string, number>();
+  for (const item of itens) mapa.set(item, (mapa.get(item) ?? 0) + 1);
+  return [...mapa.entries()].sort((a, b) => b[1] - a[1]).map(([label, count]) => ({ label, count }));
+}
+
+export async function carregarLeadsCalice(range?: RangeDatas): Promise<LeadsCalice | null> {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+
+  const filtro = faixaSupabaseQS(range, "signed_at");
+  const linhas = await supabaseSelect<LeadCalice>(
+    `lead_events?select=contact_id,signed_at,utm_source,utm_content,quiz_result&product=eq.metodo-calice&order=signed_at.asc${filtro}`
+  );
+
+  // `order=signed_at.asc` faz a primeira ocorrência de cada pessoa ser o primeiro opt-in.
+  const porPessoa = new Map<string, LeadCalice>();
+  for (const l of linhas) if (!porPessoa.has(l.contact_id)) porPessoa.set(l.contact_id, l);
+  const leads = [...porPessoa.values()];
+
+  /* Semana começando na segunda, no fuso de Ubatuba (mesma régua do resto do
+     app, ver `lib/datas.ts`). Vai da primeira semana com lead até a semana de
+     hoje ou do fim do filtro, preenchendo semana vazia com zero: semana sem
+     lead é dado, e pular ela desenharia uma linha contínua que não existiu. */
+  const contagem = new Map<string, number>();
+  for (const l of leads) {
+    const semana = inicioDaSemana(hojeISO(new Date(l.signed_at)));
+    contagem.set(semana, (contagem.get(semana) ?? 0) + 1);
+  }
+  const hoje = hojeISO();
+  const primeiroDia = range?.de ?? somarDias(hoje, -90);
+  const ultimoDia = range?.ate && range.ate < hoje ? range.ate : hoje;
+  const semanaAtual = inicioDaSemana(hoje);
+  const porSemana: SemanaLeads[] = [];
+  const primeira = [...contagem.keys()].sort()[0];
+  if (primeira) {
+    for (let s = primeira; s <= inicioDaSemana(ultimoDia); s = somarDias(s, 7)) {
+      porSemana.push({
+        inicio: s,
+        count: contagem.get(s) ?? 0,
+        atual: s === semanaAtual,
+        completa: s >= primeiroDia && somarDias(s, 6) <= ultimoDia && s !== semanaAtual,
+      });
+    }
+  }
+
+  return {
+    total: leads.length,
+    porSemana,
+    // Mesma régua do `rotuloOrigem` da Biblioteca: perfil, senão canal, senão "direto".
+    porOrigem: contar(leads.map((l) => l.utm_content || l.utm_source || "direto")),
+    porResultado: contar(
+      leads.map((l) => (l.quiz_result ? ROTULOS_ARQUETIPO[l.quiz_result] ?? l.quiz_result : "sem resultado"))
+    ),
+  };
 }
 
 

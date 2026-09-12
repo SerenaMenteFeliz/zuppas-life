@@ -760,6 +760,10 @@ body {
      cor do perfil da Ge no calendário, então apagar post pintado com ele lia
      como "coisa da Ge", não como "cuidado". */
   --perigo: #c2372f;
+  /* Queda de funil (11/09/2026). Não é `--perigo`, que é só pra ação
+     destrutiva, nem `--terracotta`, que já é a cor da Ge: perda de 36% numa
+     tela é alerta de leitura, não botão de apagar nem perfil de ninguém. */
+  --queda: #c4611f;
   --accent-wash: rgba(109, 79, 224, 0.08);
   --accent-wash-strong: rgba(109, 79, 224, 0.14);
   /* Altura da faixa de topo E do bloco de marca da sidebar. Os dois leem a
@@ -1027,6 +1031,23 @@ body {
   background: color-mix(in srgb, var(--sage) 16%, transparent);
 }
 
+/* Badge usado como botão de escolha (atalho de período). */
+button.painel-badge {
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+button.painel-badge:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+
+.painel-badge-escolhido,
+button.painel-badge-escolhido:hover {
+  color: var(--accent);
+  background: var(--accent-wash-strong);
+}
+
 .painel-badge-pendente {
   color: var(--terracotta);
   background: color-mix(in srgb, var(--terracotta) 16%, transparent);
@@ -1185,6 +1206,232 @@ body {
 .painel-card-ativo {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* ── Detalhe de funil em duas colunas (11/09/2026) ──────────────────────────
+   Lista de telas à esquerda, preview fixo à direita. Ver o cabeçalho de
+   `components/painel/FunilPainel.tsx` pro porquê. As colunas da linha são uma
+   grade só, repetida no cabeçalho, pra que os números fiquem alinhados em
+   coluna e dê pra ler "Perde" de cima a baixo como uma régua. */
+.funil-duplo {
+  display: grid;
+  gap: var(--esp-5);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .funil-duplo {
+    grid-template-columns: minmax(0, 1fr) 390px;
+  }
+
+  /* Fixo enquanto a lista rola. O `top` desconta a faixa do topo, que também é
+     sticky dentro do mesmo `.painel-main`. */
+  .funil-duplo-preview {
+    position: sticky;
+    top: calc(var(--painel-topo-altura) + var(--esp-4));
+  }
+}
+
+.funil-duplo-preview {
+  scroll-margin-top: calc(var(--painel-topo-altura) + var(--esp-4));
+}
+
+.funil-preview {
+  width: 100%;
+  height: min(760px, calc(100dvh - var(--painel-topo-altura) - 2.5rem));
+}
+
+.funil-lista {
+  display: flex;
+  flex-direction: column;
+  padding: var(--esp-2);
+}
+
+.funil-linha {
+  display: grid;
+  /* Mínimos apertados de propósito: num notebook de 1280px sobram ~525px ao
+     lado do preview, e com folga maior a coluna "Perde" (a mais importante)
+     era a que saía cortada. Em tela larga a barra (`1fr`) absorve a sobra. */
+  grid-template-columns: 1.25rem minmax(6.5rem, 11rem) minmax(2.5rem, 1fr) 2.5rem 3.5rem 3.5rem 3.5rem;
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: 36px;
+  padding: 0 var(--esp-3);
+  border-radius: var(--raio-sm);
+  font-size: var(--txt-sm);
+  text-align: left;
+  color: var(--ink);
+  transition: background-color 0.12s ease;
+}
+
+button.funil-linha:hover {
+  background: var(--accent-wash);
+}
+
+.funil-linha-ativa,
+button.funil-linha-ativa:hover {
+  background: var(--accent-wash-strong);
+}
+
+.funil-linha-cabeca {
+  min-height: 28px;
+  font-size: var(--txt-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+/* O cabeçalho de "Pessoas" cobre a barra e o número juntos. */
+.funil-linha-cabeca > span:nth-child(3) {
+  grid-column: span 2;
+}
+
+.funil-linha-cabeca > span:nth-child(4) {
+  display: none;
+}
+
+.funil-linha-cabeca > span:nth-child(n + 5) {
+  text-align: right;
+}
+
+.funil-linha-n {
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.funil-linha-nome {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.funil-linha-ativa .funil-linha-nome {
+  font-weight: 600;
+}
+
+.funil-linha-barra {
+  display: block;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--accent-wash);
+  overflow: hidden;
+}
+
+.funil-linha-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.funil-linha-ativa .funil-linha-barra > span {
+  background: var(--accent);
+}
+
+.funil-linha-num {
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.funil-linha-apoio,
+.funil-linha-perda {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.funil-linha-perda-forte {
+  font-weight: 600;
+  color: var(--queda);
+}
+
+.funil-lista-rodape {
+  margin: var(--esp-2) var(--esp-3) var(--esp-1);
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+}
+
+/* Distribuição (origem, arquétipo): mesma barra, sem as colunas de passagem. */
+.funil-dist {
+  display: grid;
+  grid-template-columns: minmax(6rem, 9rem) minmax(3rem, 1fr) 2.5rem 3.75rem;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: 34px;
+  padding: 0 var(--esp-3);
+  font-size: var(--txt-sm);
+}
+
+/* Faixa de números do topo do detalhe. */
+.funil-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--esp-3);
+}
+
+.funil-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  padding: var(--esp-4);
+}
+
+.funil-kpi-rotulo {
+  font-size: var(--txt-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.funil-kpi-valor {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.funil-kpi-apoio {
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+}
+
+/* Largura explícita: as barras são `flex: 1` sem base, e dentro de uma linha
+   `justify-between` o contêiner encolhia pra zero e elas sumiam. */
+.funil-semanas {
+  display: flex;
+  flex: 0 1 11rem;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 3px;
+  height: 2rem;
+}
+
+.funil-semana {
+  flex: 1;
+  max-width: 14px;
+  border-radius: 3px 3px 1px 1px;
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.funil-semana-parcial {
+  background: var(--accent-wash-strong);
+}
+
+/* Colunas de apoio somem antes da tela ficar apertada: no celular sobra a
+   leitura principal (etapa, barra, pessoas, perda), que é a pergunta da tela. */
+@media (max-width: 640px) {
+  .funil-linha {
+    grid-template-columns: 1.25rem minmax(6rem, 1fr) minmax(2.5rem, 5rem) 2.5rem 3.75rem;
+    gap: var(--esp-2);
+  }
+
+  .funil-linha > :nth-child(5),
+  .funil-linha > :nth-child(6) {
+    display: none;
+  }
 }
 
 /* ── Acessibilidade ────────────────────────────────────────────────────────
