@@ -1247,21 +1247,40 @@ button.painel-badge-escolhido:hover {
   padding: var(--esp-2);
 }
 
+/* A lista de telas é UMA grade, e cada linha herda as colunas dela
+   (`subgrid`). É o que deixa a coluna da etapa ter exatamente a largura do
+   nome mais longo (`max-content`) sem desalinhar as linhas: com cada linha
+   sendo uma grade própria, a largura só podia ser fixa ou proporcional, e
+   qualquer uma das duas deixava um vão entre o nome e a barra (dois prints do
+   Yan, 12/09/2026: primeiro ~400px, depois ~200px).
+
+   Quatro colunas: etapa (número + nome), contagem (barra + número + % do
+   início), passagem, perda. A sobra vai só pras duas taxas, que centralizam o
+   valor. A contagem é fixa: mais estreita até 1600px, porque num notebook de
+   1280px sobram ~535px ao lado do preview e, se ela crescesse junto com a
+   etapa, nomes como "Virada de esperança" saíam cortados. */
+.funil-lista-telas {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 9.5rem minmax(4.75rem, 1fr) minmax(4rem, 1fr);
+  column-gap: var(--esp-4);
+  align-content: start;
+}
+
+.funil-lista-telas > * {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1600px) {
+  .funil-lista-telas {
+    grid-template-columns: minmax(8rem, max-content) 13rem minmax(4.75rem, 1fr) minmax(4rem, 1fr);
+    column-gap: var(--esp-5);
+  }
+}
+
 .funil-linha {
   display: grid;
-  /* Quatro colunas: etapa (número + nome), contagem (barra + número + % do
-     início), passagem, perda. A contagem tem teto, porque com a barra em `1fr`
-     ela ficava larga demais (Yan, 11/09/2026). A sobra se divide entre etapa
-     (1fr) e as duas colunas de taxa (0,6fr cada), que centralizam o valor: com
-     a etapa levando a sobra inteira, abria um vão de ~400px entre o nome e a
-     barra em tela larga (print do Yan, 12/09/2026). Num notebook de 1280px
-     sobram ~535px ao lado do preview: ali a contagem fica no mínimo e a etapa
-     leva o resto. Tudo em `fr` de propósito: trilho com teto fixo (`13rem`)
-     cresce ANTES do `fr` e cortava 4 nomes de etapa no notebook. Com a
-     largura do painel travada em 1400px, 0,7fr dá no máximo ~210px. */
-  grid-template-columns: minmax(8rem, 1.2fr) minmax(9.5rem, 0.7fr) minmax(4.75rem, 0.55fr) minmax(4rem, 0.55fr);
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: var(--esp-3);
   min-height: 36px;
   padding: 0 var(--esp-3);
   border-radius: var(--raio-sm);
@@ -1452,9 +1471,9 @@ button.funil-linha-ativa:hover {
 /* No celular a passagem sai (é 100% menos a perda, então nada se perde) e
    sobra a leitura principal: etapa, contagem e perda. */
 @media (max-width: 640px) {
-  .funil-linha {
+  .funil-lista-telas {
     grid-template-columns: minmax(6rem, 1fr) minmax(7.5rem, 9rem) 3.5rem;
-    gap: var(--esp-2);
+    column-gap: var(--esp-2);
   }
 
   .funil-linha > :nth-child(3) {

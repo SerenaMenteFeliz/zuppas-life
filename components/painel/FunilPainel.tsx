@@ -85,7 +85,7 @@ export function FunilTelas({
 
   return (
     <div className="funil-duplo">
-      <div className="glass-card funil-lista">
+      <div className="glass-card funil-lista funil-lista-telas">
         <div className="funil-linha funil-linha-cabeca" aria-hidden>
           <span>Etapa</span>
           <span>{ROTULO_CONTAGEM}</span>
