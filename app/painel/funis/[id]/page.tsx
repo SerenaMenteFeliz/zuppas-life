@@ -262,7 +262,6 @@ function DetalheCalice({
       )}
 
       <section className="mb-8">
-        <Rotulo>Onde perde gente</Rotulo>
         <FunilTelas etapas={telas} previewUrls={detalhe.previewUrls} urlInicial={urlPublica} vazio={detalhe.vazio} />
       </section>
 
