@@ -2,6 +2,7 @@ import "server-only";
 import type { EtapaContagem, EtapaGaleria } from "@/components/painel/Funil";
 import { carregarCatalogo, type LivroBiblioteca } from "@/lib/catalogo-biblioteca";
 import { hojeISO, inicioDaSemana, somarDias } from "@/lib/datas";
+import { URL_QUIZ_CALICE, VARIANTE_LEGADO, type VarianteQuiz } from "@/lib/quiz-variantes";
 
 /* Filtro de datas (28/08/2026, pedido do Yan: "zuppas life ainda não tem
    filtro por data"). `RangeDatas` trafega em ISO (`AAAA-MM-DD`), igual todo
@@ -178,12 +179,21 @@ export async function carregarResumoProdutos(): Promise<ResumoProduto[]> {
   });
 }
 
+/** Filtro de propriedade de evento no formato da FunnelsQuery. */
+export type FiltroEvento = { key: string; value: string[]; operator: "exact" | "is_not"; type: "event" };
+
 /* Query API (HogQL) — a conta não tem acesso ao endpoint legado
    /insights/funnel/ ("Legacy insight endpoints are not available for this
-   user"), então é FunnelsQuery via /query/ mesmo. */
+   user"), então é FunnelsQuery via /query/ mesmo.
+
+   `filtroInicio` filtra só a PRIMEIRA etapa (12/09/2026, variantes do quiz):
+   o funil exige a mesma pessoa nas etapas seguintes, então filtrar a entrada
+   já recorta a coorte inteira. Filtrar as outras não daria: `purchase` vem do
+   serena-app e nunca vai saber a variante do quiz. */
 export async function consultarFunilPostHog(
   eventos: string[],
-  range?: RangeDatas
+  range?: RangeDatas,
+  filtroInicio?: FiltroEvento[]
 ): Promise<EtapaContagem[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
@@ -194,7 +204,11 @@ export async function consultarFunilPostHog(
     body: JSON.stringify({
       query: {
         kind: "FunnelsQuery",
-        series: eventos.map((event) => ({ kind: "EventsNode", event })),
+        series: eventos.map((event, i) => ({
+          kind: "EventsNode",
+          event,
+          ...(i === 0 && filtroInicio?.length ? { properties: filtroInicio } : {}),
+        })),
         dateRange: faixaPostHog(range),
       },
     }),
@@ -225,40 +239,45 @@ const ROTULOS_EVENTO: Record<string, string> = {
   purchase: "Comprou",
 };
 
-/* Ordem exata das 18 telas do quiz (metodocalice-site/quiz/index.html),
-   traçada linha a linha pela ordem real de stepsEl.appendChild(...) no
-   código — não é suposição, é a sequência em que o DOM monta os steps. Se o
-   quiz ganhar/perder uma tela, esse array (e só ele) precisa ser
-   atualizado. */
-const QUIZ_STEP_LABELS = [
-  "Abertura (hook)",
-  "Nome",
-  "Pergunta 1",
-  "Pergunta 2",
-  "Pausa",
-  "Pergunta 3",
-  "Pergunta 4",
-  "Pergunta 5",
-  "Pausa",
-  "Pergunta 6",
-  "Pergunta 7",
-  "Pausa",
-  "Pergunta 8",
-  "Virada de esperança",
-  "Calculando",
-  "Revelação parcial",
-  "Captura de e-mail",
-  "Resultado completo",
+/* As telas do quiz não moram aqui desde 12/09/2026: vêm de `quiz/variantes.json`
+   do site, lido em `lib/quiz-variantes.ts`. Até essa data havia uma lista com a
+   ordem das 18 telas escrita à mão, que mentiria em silêncio no dia em que uma
+   tela entrasse ou saísse.
+
+   O que sobra aqui é a ordem em que os eventos ANTIGOS gravaram as telas. Até
+   12/09/2026 o `quiz_step_viewed` só levava a posição (`step_index`); dali em
+   diante leva o `step_id`. Isto não é cópia do quiz atual: é um fato sobre
+   eventos que já aconteceram e não mudam mais, então continua certo mesmo que
+   o V1 seja editado. */
+const TELAS_ANTES_DAS_VARIANTES = [
+  "abertura", "nome", "p1", "p2", "pausa-1", "p3", "p4", "p5", "pausa-2",
+  "p6", "p7", "pausa-3", "p8", "virada", "calculando", "revelacao", "captura", "resultado",
 ];
 
-/* Pessoas ÚNICAS por tela no período inteiro (11/09/2026).
+/** A tela de um `quiz_step_viewed`: o `step_id` quando o evento traz, senão a
+    posição traduzida pela ordem antiga. As duas caem na MESMA chave, então
+    quem viu a tela antes e depois de 12/09 conta uma vez só. */
+const TELA_DO_EVENTO = `coalesce(properties.step_id, arrayElement([${TELAS_ANTES_DAS_VARIANTES.map((id) => `'${id}'`).join(", ")}], toInt(properties.step_index) + 1))`;
+
+/** Eventos de uma variante. Evento sem `quiz_variant` é de antes de existir
+    variante, então é do V1. Usa o placeholder `{variante}`. */
+function filtroVarianteHogQL(varianteId: string): string {
+  return varianteId === VARIANTE_LEGADO
+    ? "(properties.quiz_variant = {variante} OR properties.quiz_variant IS NULL)"
+    : "properties.quiz_variant = {variante}";
+}
+
+/* Pessoas ÚNICAS por tela no período inteiro (11/09/2026), agora por variante.
 
    Antes era TrendsQuery com `math: "dau"` e `interval: "day"`, e o `count` que
    ela devolve é a SOMA dos únicos de cada dia: quem abriu o quiz em três dias
    diferentes contava três vezes. Medido na troca: a Abertura mostrava 403 onde
    havia 384 pessoas. O `consultarMaterialViewed` abaixo já tinha trocado pra
-   HogQL pelo mesmo motivo em 04/08; as 18 telas tinham ficado pra trás. */
-async function consultarStepsQuiz(range?: RangeDatas): Promise<EtapaGaleria[] | null> {
+   HogQL pelo mesmo motivo em 04/08; as 18 telas tinham ficado pra trás.
+
+   Conta por id de tela e devolve na ordem do JSON. Tela que saiu da variante
+   some da lista; tela nova aparece com zero até alguém passar por ela. */
+async function consultarStepsQuiz(variante: VarianteQuiz, range?: RangeDatas): Promise<EtapaGaleria[] | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
   if (!key) return null;
 
@@ -271,13 +290,14 @@ async function consultarStepsQuiz(range?: RangeDatas): Promise<EtapaGaleria[] | 
       query: {
         kind: "HogQLQuery",
         query: `
-          SELECT toInt(properties.step_index) AS tela, count(DISTINCT person_id) AS pessoas
+          SELECT ${TELA_DO_EVENTO} AS tela, count(DISTINCT person_id) AS pessoas
           FROM events
           WHERE event = {evento}
+            AND ${filtroVarianteHogQL(variante.id)}
             AND ${clausula}
           GROUP BY tela
         `,
-        values: { evento: "quiz_step_viewed", ...valores },
+        values: { evento: "quiz_step_viewed", variante: variante.id, ...valores },
       },
     }),
     cache: "no-store",
@@ -288,23 +308,25 @@ async function consultarStepsQuiz(range?: RangeDatas): Promise<EtapaGaleria[] | 
   const linhas = Array.isArray(data?.results) ? data.results : null;
   if (!linhas) return null;
 
-  const porIndice = new Map<number, number>();
-  for (const [tela, pessoas] of linhas as [number | null, number][]) {
-    if (typeof tela === "number") porIndice.set(tela, pessoas ?? 0);
+  const porTela = new Map<string, number>();
+  for (const [tela, pessoas] of linhas as [string | null, number][]) {
+    if (typeof tela === "string") porTela.set(tela, pessoas ?? 0);
   }
 
-  return QUIZ_STEP_LABELS.map((label, idx) => ({ label, views: porIndice.get(idx) ?? 0 }));
+  return variante.telas.map((t) => ({ label: t.rotulo, views: porTela.get(t.id) ?? 0, id: t.id, tipo: t.tipo }));
 }
 
 /* Entrega do material gratuito "O Código Invisível" — fecha a ponta que as
    18 telas do quiz não cobrem. HogQLQuery (não TrendsQuery) por dois
    achados de 04/08: (1) contagem única de verdade pro período inteiro, não
    "dias com pelo menos 1 pessoa"; (2) exige JOIN com quem passou pelo
-   Resultado completo (step_index = último), senão visita de aparelho
-   diferente do quiz original contava como pessoa nova sem ligação. */
-async function consultarMaterialViewed(range?: RangeDatas): Promise<number | null> {
+   Resultado completo (a última tela da variante), senão visita de aparelho
+   diferente do quiz original contava como pessoa nova sem ligação. O JOIN
+   com a variante é o que separa o material do V1 do material do V2. */
+async function consultarMaterialViewed(variante: VarianteQuiz, range?: RangeDatas): Promise<number | null> {
   const key = process.env.POSTHOG_PERSONAL_API_KEY;
-  if (!key) return null;
+  const ultima = variante.telas[variante.telas.length - 1]?.id;
+  if (!key || !ultima) return null;
 
   const { clausula, valores } = faixaHogQL(range);
 
@@ -323,14 +345,16 @@ async function consultarMaterialViewed(range?: RangeDatas): Promise<number | nul
               SELECT DISTINCT person_id
               FROM events
               WHERE event = {quizEvent}
-                AND properties.step_index = {stepIndex}
+                AND ${filtroVarianteHogQL(variante.id)}
+                AND ${TELA_DO_EVENTO} = {ultima}
                 AND ${clausula}
             )
         `,
         values: {
           matEvent: "material_viewed",
           quizEvent: "quiz_step_viewed",
-          stepIndex: QUIZ_STEP_LABELS.length - 1,
+          variante: variante.id,
+          ultima,
           ...valores,
         },
       },
@@ -397,32 +421,54 @@ export type DetalheFunil = {
 };
 
 /* Dispatcher por id de funil — cada tipo de funil consulta a PostHog de um
-   jeito diferente (quiz tem 18 telas navegáveis por step_index; landing é
-   página única, "etapas" são estágios conceituais do mesmo pageview) e
-   monta a URL de preview correspondente. */
-export async function carregarDetalheFunil(id: string, range?: RangeDatas): Promise<DetalheFunil> {
+   jeito diferente (quiz tem telas navegáveis, definidas por variante em
+   `quiz/variantes.json`; landing é página única, "etapas" são estágios
+   conceituais do mesmo pageview) e monta a URL de preview correspondente.
+   `variante` só vale pro quiz, e sem ela o quiz não tem telas pra mostrar. */
+export async function carregarDetalheFunil(
+  id: string,
+  range?: RangeDatas,
+  variante?: VarianteQuiz | null
+): Promise<DetalheFunil> {
   if (id === "metodo-calice-quiz") {
+    if (!variante) {
+      return {
+        etapas: [],
+        previewUrls: [],
+        vazio: "Não consegui ler as telas do quiz no site (quiz/variantes.json do metodocalice-site).",
+      };
+    }
+
     const [stepsQuiz, materialViews] = await Promise.all([
-      consultarStepsQuiz(range),
-      consultarMaterialViewed(range),
+      consultarStepsQuiz(variante, range),
+      consultarMaterialViewed(variante, range),
     ]);
 
     if (stepsQuiz === null) {
       return { etapas: [], previewUrls: [], vazio: "Não consegui consultar a PostHog agora." };
     }
 
-    // Card extra (19º) anexado só quando material também veio — "Resultado
+    // Etapa extra anexada só quando material também veio — "Resultado
     // completo" (última tela do quiz) ganha passagem/perda de verdade, e
-    // responde "quantos chegaram no material?" na mesma galeria.
+    // responde "quantos chegaram no material?" na mesma lista.
     const etapas = materialViews !== null ? [...stepsQuiz, { label: "Material entregue", views: materialViews }] : stepsQuiz;
 
-    const previewUrls = etapas.map((_, i) =>
-      i < QUIZ_STEP_LABELS.length
-        ? `https://metodocalice.serenamentefeliz.com/quiz?preview=1&preview_step=${i}`
-        : "https://metodocalice.serenamentefeliz.com/material?preview=1&r=aprovador"
+    // Preview pelo id da tela e não pela posição: se o JSON mudar entre esta
+    // carga e o clique, a posição apontaria pra tela vizinha.
+    const previewUrls = etapas.map((e) =>
+      e.id
+        ? `${URL_QUIZ_CALICE}/quiz?preview=1&v=${variante.id}&preview_step=${e.id}`
+        : `${URL_QUIZ_CALICE}/material?preview=1&r=aprovador`
     );
 
-    return { etapas, previewUrls, vazio: "Sem visita registrada ainda nesse funil." };
+    return {
+      etapas,
+      previewUrls,
+      vazio:
+        variante.status === "ativa"
+          ? "Sem visita registrada ainda nesse funil."
+          : `Nenhuma visita no ${variante.nome} ainda: ele está em ${variante.status} e só abre por ?v=${variante.id}.`,
+    };
   }
 
   if (id === "lar-interior-landing") {
@@ -484,11 +530,16 @@ type LeadCalice = {
     e puxava a "média semanal" pra 4. */
 export type SemanaLeads = { inicio: string; count: number; atual: boolean; completa: boolean };
 
+/** `semVariante`: o banco ainda não tem `lead_events.quiz_variant` (migration
+    0004 do metodocalice-site, aplicada à mão). "todas" = mostrando os leads
+    de todas as variantes juntos, que é o que dá pra fazer no V1; "indisponivel"
+    = outra variante, que sem a coluna não tem como separar. */
 export type LeadsCalice = {
   total: number;
   porSemana: SemanaLeads[];
   porOrigem: EtapaContagem[];
   porResultado: EtapaContagem[];
+  semVariante?: "todas" | "indisponivel";
 };
 
 const ROTULOS_ARQUETIPO: Record<string, string> = {
@@ -504,12 +555,39 @@ function contar(itens: string[]): EtapaContagem[] {
   return [...mapa.entries()].sort((a, b) => b[1] - a[1]).map(([label, count]) => ({ label, count }));
 }
 
-export async function carregarLeadsCalice(range?: RangeDatas): Promise<LeadsCalice | null> {
+/** Leads de uma variante do quiz. Linha sem `quiz_variant` é de antes de
+    existir variante, então conta no V1 (mesma régua dos eventos). Se a coluna
+    ainda não existe, o PostgREST devolve 42703 e cai no `semVariante`. */
+async function selecionarLeadsCalice(
+  base: string,
+  varianteId: string | undefined
+): Promise<{ linhas: LeadCalice[]; semVariante?: LeadsCalice["semVariante"] }> {
+  if (!varianteId) return { linhas: await supabaseSelect<LeadCalice>(base) };
+
+  const filtro =
+    varianteId === VARIANTE_LEGADO
+      ? `&or=(quiz_variant.eq.${varianteId},quiz_variant.is.null)`
+      : `&quiz_variant=eq.${encodeURIComponent(varianteId)}`;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${base}${filtro}`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+    cache: "no-store",
+  });
+  if (resp.ok) return { linhas: await resp.json() };
+
+  const erro = await resp.json().catch(() => null);
+  if (erro?.code !== "42703") return { linhas: [] };
+  if (varianteId !== VARIANTE_LEGADO) return { linhas: [], semVariante: "indisponivel" };
+  return { linhas: await supabaseSelect<LeadCalice>(base), semVariante: "todas" };
+}
+
+export async function carregarLeadsCalice(range?: RangeDatas, varianteId?: string): Promise<LeadsCalice | null> {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
 
   const filtro = faixaSupabaseQS(range, "signed_at");
-  const linhas = await supabaseSelect<LeadCalice>(
-    `lead_events?select=contact_id,signed_at,utm_source,utm_content,quiz_result&product=eq.metodo-calice&order=signed_at.asc${filtro}`
+  const { linhas, semVariante } = await selecionarLeadsCalice(
+    `lead_events?select=contact_id,signed_at,utm_source,utm_content,quiz_result&product=eq.metodo-calice&order=signed_at.asc${filtro}`,
+    varianteId
   );
 
   // `order=signed_at.asc` faz a primeira ocorrência de cada pessoa ser o primeiro opt-in.
@@ -551,6 +629,7 @@ export async function carregarLeadsCalice(range?: RangeDatas): Promise<LeadsCali
     porResultado: contar(
       leads.map((l) => (l.quiz_result ? ROTULOS_ARQUETIPO[l.quiz_result] ?? l.quiz_result : "sem resultado"))
     ),
+    semVariante,
   };
 }
 

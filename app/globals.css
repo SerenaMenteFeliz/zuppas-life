@@ -1053,6 +1053,13 @@ button.painel-badge-escolhido:hover {
   background: color-mix(in srgb, var(--terracotta) 16%, transparent);
 }
 
+/* Toggle de variante do quiz (FiltroVariante): o status ("no ar", "50%",
+   "rascunho") vem menor e mais claro que o nome, pra o olho ler V1/V2 primeiro. */
+.funil-variante-status {
+  font-weight: 500;
+  opacity: 0.7;
+}
+
 /* ── Carrossel de etapas (GaleriaFunil) ──────────────────────────────────
    Scroll horizontal com trilho fino em vez da barra padrão do sistema —
    webkit + Firefox (scrollbar-width/-color não têm equivalente ::-webkit

@@ -5,6 +5,7 @@ import { FunilPreview } from "@/components/painel/FunilPreview";
 import { BarrasSemana, Distribuicao, FunilTelas } from "@/components/painel/FunilPainel";
 import { RankingLivros } from "@/components/painel/RankingLivros";
 import FiltroData from "@/components/painel/FiltroData";
+import FiltroVariante from "@/components/painel/FiltroVariante";
 import PainelTopo from "@/components/painel/PainelTopo";
 import {
   FUNIS,
@@ -16,9 +17,17 @@ import {
   carregarVendasBiblioteca,
   carregarLeadsCalice,
   type DetalheFunil,
+  type FiltroEvento,
   type LeadsCalice,
   type RangeDatas,
 } from "@/lib/painel-funis";
+import {
+  VARIANTE_LEGADO,
+  carregarVariantesQuiz,
+  escolherVariante,
+  opcoesVariante,
+  type VarianteQuiz,
+} from "@/lib/quiz-variantes";
 
 /* Detalhe de um funil (05/08): header com voltar/labels/link pro funil de
    verdade, preview ao vivo grande em cima, carrossel de etapas embaixo
@@ -34,10 +43,10 @@ export default async function FunilDetalhePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ de?: string; ate?: string }>;
+  searchParams: Promise<{ de?: string; ate?: string; variante?: string }>;
 }) {
   const { id } = await params;
-  const { de, ate } = await searchParams;
+  const { de, ate, variante: variantePedida } = await searchParams;
   const range: RangeDatas = { de, ate };
   const meta = FUNIS.find((f) => f.id === id);
   if (!meta) notFound();
@@ -45,20 +54,27 @@ export default async function FunilDetalhePage({
   const ehBiblioteca = meta.produtoSlug === "biblioteca-oculta";
   const ehCalice = meta.produtoSlug === "metodo-calice";
 
-  const [detalhe, visaoGeral, biblioteca, vendas, origem, leadsCalice] = await Promise.all([
-    carregarDetalheFunil(id, range),
-    ehCalice
-      ? consultarFunilPostHog(["quiz_started", "quiz_completed", "lead_submitted", "purchase"], range)
-      : ehBiblioteca
-        ? consultarFunilBiblioteca(range)
-        : Promise.resolve(null),
-    ehBiblioteca ? carregarLivrosBiblioteca(range) : Promise.resolve(null),
-    ehBiblioteca ? carregarVendasBiblioteca(range) : Promise.resolve(null),
-    ehBiblioteca ? consultarOrigemBiblioteca(range) : Promise.resolve(null),
-    ehCalice ? carregarLeadsCalice(range) : Promise.resolve(null),
-  ]);
-
   if (ehCalice) {
+    /* As variantes vêm do site do quiz (`quiz/variantes.json`) e tudo abaixo
+       é recortado pela escolhida: telas, visão geral, material e leads. */
+    const variantes = await carregarVariantesQuiz();
+    const variante = variantes ? escolherVariante(variantes, variantePedida) : null;
+    const padrao = variantes ? escolherVariante(variantes) : null;
+
+    const [detalhe, visaoGeral, leadsCalice] = await Promise.all([
+      carregarDetalheFunil(id, range, variante),
+      consultarFunilPostHog(
+        ["quiz_started", "quiz_completed", "lead_submitted", "purchase"],
+        range,
+        variante && variantes ? filtroVisaoGeral(variante, variantes) : undefined
+      ),
+      carregarLeadsCalice(range, variante?.id),
+    ]);
+
+    // Variante que não é a padrão abre com ?v=, senão o botão levaria pra outra.
+    const urlFunil =
+      variante && padrao && variante.id !== padrao.id ? `${meta.urlPublica}?v=${variante.id}` : meta.urlPublica;
+
     return (
       <>
         <PainelTopo
@@ -66,22 +82,40 @@ export default async function FunilDetalhePage({
           voltar={{ href: "/painel/funis", rotulo: "Todos os funis" }}
           controles={
             <>
+              {variantes && variante && padrao && variantes.length > 1 && (
+                <FiltroVariante opcoes={opcoesVariante(variantes)} atual={variante.id} padrao={padrao.id} />
+              )}
               <FiltroData />
               <span className="painel-badge">{meta.tipo}</span>
             </>
           }
           acoes={
-            <a href={meta.urlPublica} target="_blank" rel="noreferrer" className="conteudo-botao-claro">
+            <a href={urlFunil} target="_blank" rel="noreferrer" className="conteudo-botao-claro">
               Abrir funil ↗
             </a>
           }
         />
         <div className="painel-conteudo">
-          <DetalheCalice detalhe={detalhe} visaoGeral={visaoGeral} leads={leadsCalice} urlPublica={meta.urlPublica} />
+          {variante && variante.status !== "ativa" && (
+            <p className="mb-6 text-xs" style={{ color: "var(--ink-soft)" }}>
+              <b>{variante.nome} está em {variante.status}</b>: não recebe tráfego, só abre por{" "}
+              <code>?v={variante.id}</code>. Os números dele são de quem abriu por esse link.
+              {variante.descricao ? ` ${variante.descricao}.` : ""}
+            </p>
+          )}
+          <DetalheCalice detalhe={detalhe} visaoGeral={visaoGeral} leads={leadsCalice} urlPublica={urlFunil} />
         </div>
       </>
     );
   }
+
+  const [detalhe, visaoGeral, biblioteca, vendas, origem] = await Promise.all([
+    carregarDetalheFunil(id, range),
+    ehBiblioteca ? consultarFunilBiblioteca(range) : Promise.resolve(null),
+    ehBiblioteca ? carregarLivrosBiblioteca(range) : Promise.resolve(null),
+    ehBiblioteca ? carregarVendasBiblioteca(range) : Promise.resolve(null),
+    ehBiblioteca ? consultarOrigemBiblioteca(range) : Promise.resolve(null),
+  ]);
 
   return (
     <>
@@ -208,8 +242,12 @@ function DetalheCalice({
 }) {
   const telas = detalhe.etapas;
   const abertura = telas[0]?.views ?? 0;
-  // Tela 18 ("Resultado completo") só aparece depois de a pessoa deixar o e-mail.
-  const deixouEmail = telas[17]?.views ?? 0;
+  // A tela logo depois da captura só aparece pra quem deixou o e-mail. Achada
+  // pelo tipo e não pela posição: numa variante com outra ordem, a posição 18
+  // seria outra tela.
+  const iCaptura = telas.findIndex((t) => t.tipo === "captura");
+  const deixouEmail = iCaptura >= 0 ? telas[iCaptura + 1]?.views ?? 0 : 0;
+  const leadsIndisponiveis = leads?.semVariante === "indisponivel";
   const semanas = leads?.porSemana ?? [];
   const completas = semanas.filter((s) => s.completa);
   const mediaSemana = completas.length
@@ -222,7 +260,7 @@ function DetalheCalice({
       <section className="mb-8 funil-kpis">
         <div className="glass-card funil-kpi">
           <span className="funil-kpi-rotulo">Leads</span>
-          <span className="funil-kpi-valor">{leads ? leads.total : "—"}</span>
+          <span className="funil-kpi-valor">{leads && !leadsIndisponiveis ? leads.total : "—"}</span>
           <span className="funil-kpi-apoio">pessoas únicas, contadas no banco</span>
         </div>
         <div className="glass-card funil-kpi">
@@ -232,7 +270,9 @@ function DetalheCalice({
             <BarrasSemana semanas={semanas} />
           </div>
           <span className="funil-kpi-apoio">
-            {mediaSemana === null
+            {leadsIndisponiveis
+              ? "depende da variante no banco (ver abaixo)"
+              : mediaSemana === null
               ? "o período não tem uma semana inteira"
               : `média de ${completas.length} semana${completas.length === 1 ? "" : "s"} inteira${completas.length === 1 ? "" : "s"}`}
             {atual ? ` · esta semana até agora: ${atual.count}` : ""}
@@ -248,6 +288,17 @@ function DetalheCalice({
           </span>
         </div>
       </section>
+
+      {leads?.semVariante && (
+        <p className="-mt-4 mb-8 text-xs" style={{ color: "var(--ink-soft)" }}>
+          {leadsIndisponiveis
+            ? "Os leads desta variante ainda não aparecem: "
+            : "Leads, origem e resultado abaixo somam todas as variantes: "}
+          o banco ainda não guarda a variante do lead. Falta aplicar a migration{" "}
+          <code>0004_add_quiz_variant.sql</code> do metodocalice-site no Supabase. As telas e a visão
+          geral já vêm separadas por variante.
+        </p>
+      )}
 
       {visaoGeral && (
         <section className="mb-8">
@@ -265,7 +316,7 @@ function DetalheCalice({
         <FunilTelas etapas={telas} previewUrls={detalhe.previewUrls} urlInicial={urlPublica} vazio={detalhe.vazio} />
       </section>
 
-      {leads && (
+      {leads && !leadsIndisponiveis && (
         <section className="grid gap-6 lg:grid-cols-2">
           <div>
             <Rotulo>De onde vêm os leads</Rotulo>
@@ -285,6 +336,19 @@ function DetalheCalice({
       )}
     </>
   );
+}
+
+/* A visão geral recorta pela variante na PRIMEIRA etapa (`quiz_started`), ver
+   `consultarFunilPostHog`. No V1, evento sem variante também conta (é de antes
+   de 12/09/2026), e na FunnelsQuery o jeito de dizer isso é "não é nenhuma das
+   outras": o `is_not` inclui evento sem a propriedade. Medido em 12/09/2026,
+   quando nenhum evento tinha variante ainda: 249 inícios com e sem o filtro. */
+function filtroVisaoGeral(variante: VarianteQuiz, variantes: VarianteQuiz[]): FiltroEvento[] | undefined {
+  if (variante.id !== VARIANTE_LEGADO) {
+    return [{ key: "quiz_variant", value: [variante.id], operator: "exact", type: "event" }];
+  }
+  const outras = variantes.filter((v) => v.id !== VARIANTE_LEGADO).map((v) => v.id);
+  return outras.length ? [{ key: "quiz_variant", value: outras, operator: "is_not", type: "event" }] : undefined;
 }
 
 function emReais(centavos: number) {

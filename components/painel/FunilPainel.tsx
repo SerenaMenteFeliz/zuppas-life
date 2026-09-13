@@ -53,9 +53,11 @@ export function FunilTelas({
   const linhas = useRef<(HTMLButtonElement | null)[]>([]);
   const preview = useRef<HTMLElement | null>(null);
 
-  if (etapas.length === 0 || etapas.every((e) => e.views === 0)) {
-    return <Vazio>{vazio}</Vazio>;
-  }
+  if (etapas.length === 0) return <Vazio>{vazio}</Vazio>;
+  /* Tela sem visita nenhuma continua listada, com preview (12/09/2026): uma
+     variante em rascunho não tem tráfego, e é justamente nela que se quer ver
+     as telas antes de soltar. Antes a lista inteira virava o aviso de vazio. */
+  const semVisita = etapas.every((e) => e.views === 0);
 
   const topo = etapas[0].views || 1;
   const maior = Math.max(...etapas.map((e) => e.views), 1);
@@ -137,7 +139,7 @@ export function FunilTelas({
         })}
 
         <p className="funil-lista-rodape">
-          ↑ e ↓ andam pelas telas. Perda de {PERDA_FORTE}% ou mais fica em destaque.
+          {semVisita ? `${vazio} ` : ""}↑ e ↓ andam pelas telas. Perda de {PERDA_FORTE}% ou mais fica em destaque.
         </p>
       </div>
 

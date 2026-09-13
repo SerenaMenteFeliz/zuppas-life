@@ -13,7 +13,8 @@ import { Vazio } from "@/components/ui";
    do Server Component pai. */
 
 export type EtapaContagem = { label: string; count: number };
-export type EtapaGaleria = { label: string; views: number };
+/** `id`/`tipo` só existem nas telas do quiz, que vêm de `quiz/variantes.json`. */
+export type EtapaGaleria = { label: string; views: number; id?: string; tipo?: string };
 
 /* Gallery view de uma linha só — um card por etapa, rolagem horizontal.
    Views totais, % do início (taxa de visualização), % de passagem pra
