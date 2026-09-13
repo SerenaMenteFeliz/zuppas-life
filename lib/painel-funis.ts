@@ -448,9 +448,9 @@ export async function carregarDetalheFunil(
       return { etapas: [], previewUrls: [], vazio: "Não consegui consultar a PostHog agora." };
     }
 
-    // Etapa extra anexada só quando material também veio — "Resultado
-    // completo" (última tela do quiz) ganha passagem/perda de verdade, e
-    // responde "quantos chegaram no material?" na mesma lista.
+    // Etapa extra anexada só quando o material também veio. Com ela, o
+    // "Resultado completo" (última tela do quiz) ganha passagem e perda de
+    // verdade, e a lista responde "quantos chegaram no material?".
     const etapas = materialViews !== null ? [...stepsQuiz, { label: "Material entregue", views: materialViews }] : stepsQuiz;
 
     // Preview pelo id da tela e não pela posição: se o JSON mudar entre esta
