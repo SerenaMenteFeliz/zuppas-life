@@ -807,12 +807,24 @@ body {
   --txt-sm: 0.78rem;
   --txt-md: 0.875rem;
   --txt-lg: 1.05rem;
+  /* O NÚMERO de um KPI, e só ele (18/09/2026). É o único texto do painel que
+     precisa ser lido do outro lado da mesa, e a escala original parava em
+     `--txt-lg`, que é título de seção. Sem este degrau os números grandes
+     nasciam soltos: havia `1.6rem` no KPI do funil, `text-2xl` (1.5rem) no
+     card de etapa e `text-lg` (1.125rem) na lista de funis, três tamanhos
+     para a mesma coisa. Não usar como título. */
+  --txt-xl: 1.5rem;
 
   --esp-1: 0.25rem;
   --esp-2: 0.5rem;
   --esp-3: 0.75rem;
   --esp-4: 1rem;
   --esp-5: 1.5rem;
+  /* Degrau de SEPARAÇÃO entre blocos de uma tela, não de respiro interno
+     (18/09/2026). Entrou porque a aba de Funis separava seção com `mb-8` do
+     Tailwind, que é 2rem e não existia na escala: o valor já estava em uso,
+     só estava escrito fora daqui. Ver `.painel-secao`. */
+  --esp-6: 2rem;
 
   --raio-xs: 6px;
   --raio-sm: 8px;
@@ -1016,7 +1028,7 @@ body {
   gap: 0.35rem;
   padding: 0.2rem 0.6rem;
   border-radius: 9999px;
-  font-size: 0.7rem;
+  font-size: var(--txt-xs);
   font-weight: 600;
   background: var(--glass);
   color: var(--ink-soft);
@@ -1191,8 +1203,8 @@ button.painel-badge-escolhido:hover {
 
 .painel-preview-header {
   flex: none;
-  padding: 0.75rem 1rem;
-  font-size: 0.8rem;
+  padding: var(--esp-3) var(--esp-4);
+  font-size: var(--txt-sm);
   font-weight: 600;
   color: var(--ink);
   border-bottom: 1px solid var(--line);
@@ -1213,6 +1225,311 @@ button.painel-badge-escolhido:hover {
 .painel-card-ativo {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* ── Blocos padrão de uma tela do painel (18/09/2026) ────────────────
+   Três peças, e toda tela do painel devia ser feita delas: a seção (rótulo +
+   conteúdo + nota), a nota de rodapé e a métrica.
+
+   Por que existem: a aba de Funis tinha **três desenhos diferentes para
+   "rótulo em cima, número embaixo"** (`MetricaInline` na lista, `Numero` no
+   detalhe da Biblioteca e `.funil-kpi` no do Cálice), e o título de seção
+   usava `.tv-rotulo`, que é classe do tema da TV da família e cresce com a
+   largura da janela (`clamp`). Nenhum deles estava errado sozinho; juntos são
+   o que faz a tela parecer montada em dias diferentes, o mesmo diagnóstico
+   que criou a escala em 30/08/2026.
+
+   A nota tem dois tons de propósito. Na tela antiga, "esta coluna vem do
+   utm_content" e "este número está errado até a migration rodar" eram o mesmo
+   cinza de 12px na mesma posição: um é legenda, o outro é cuidado, e ler os
+   dois com o mesmo peso significa não ler nenhum. */
+
+.painel-secao {
+  margin-bottom: var(--esp-6);
+}
+
+.painel-secao:last-child {
+  margin-bottom: 0;
+}
+
+/* Linha do rótulo: título à esquerda e, quando houver, um controle da própria
+   seção empurrado pro canto. */
+.painel-secao-cabeca {
+  display: flex;
+  align-items: baseline;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-3);
+}
+
+.painel-secao-cabeca > :last-child:not(:first-child) {
+  margin-left: auto;
+}
+
+/* Mesmo tamanho e mesmo espacejamento do cabeçalho da lista de telas
+   (`.funil-linha-cabeca`), pra que título de seção e título de coluna sejam
+   visivelmente a mesma família de rótulo. */
+.painel-rotulo {
+  font-size: var(--txt-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+/* Largura de leitura, e não a largura do painel: a nota antiga corria os
+   1400px inteiros e virava uma faixa cinza que ninguém termina. */
+.painel-nota {
+  max-width: 76ch;
+  margin-top: var(--esp-3);
+  font-size: var(--txt-xs);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+/* Aviso: o número acima mente de um jeito conhecido. Usa `--queda`, que já é
+   a cor de "olha isto" no funil, e não `--perigo`, que é só de ação
+   destrutiva. */
+.painel-nota-atencao {
+  padding: var(--esp-3);
+  border-left: 2px solid var(--queda);
+  border-radius: 0 var(--raio-sm) var(--raio-sm) 0;
+  background: color-mix(in srgb, var(--queda) 7%, transparent);
+  color: var(--ink);
+}
+
+/* Duas seções lado a lado, que é como as duas distribuições do Cálice (origem
+   e arquétipo) aparecem. A margem de baixo das seções zera aqui: dentro de uma
+   grade quem separa é o `gap`, e manter as duas coisas somava um vazio de 2rem
+   embaixo de uma coluna só. */
+.painel-duplas {
+  display: grid;
+  gap: var(--esp-5);
+  margin-bottom: var(--esp-6);
+}
+
+.painel-duplas:last-child {
+  margin-bottom: 0;
+}
+
+.painel-duplas > .painel-secao {
+  margin-bottom: 0;
+}
+
+@media (min-width: 1024px) {
+  .painel-duplas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Rótulo + número + uma linha dizendo DE ONDE o número vem. A terceira linha
+   não é enfeite: o detalhe do Cálice mostra três contagens de lead na mesma
+   tela (144 no banco, 119 no funil ordenado da PostHog, 185 na tela de
+   captura), todas certas para definições diferentes. Sem a origem colada em
+   cada uma, a tela parece se contradizer. */
+.painel-metrica {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.painel-metrica-rotulo {
+  font-size: var(--txt-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.painel-metrica-valor {
+  font-family: var(--font-display);
+  font-size: var(--txt-xl);
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.painel-metrica-apoio {
+  font-size: var(--txt-xs);
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+/* ── Lista de funis (18/09/2026) ──────────────────────────────────
+   Eram três cards soltos, cada um com o rótulo da métrica repetido em cima do
+   próprio número: doze rótulos minúsculos numa tela de três linhas. E como o
+   badge de tipo tem largura variável ("Quiz", "Landing", "Catálogo"), os nomes
+   dos produtos começavam em três x diferentes e as colunas de número também
+   não fechavam.
+
+   Agora é uma grade só, com as linhas herdando as colunas (`subgrid`), mesma
+   técnica da lista de telas: o rótulo da coluna é dito uma vez no cabeçalho e
+   os números podem ser lidos de cima a baixo. */
+.funis-tabela {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) repeat(4, minmax(4.5rem, max-content)) 0.75rem;
+  align-content: start;
+  column-gap: var(--esp-5);
+  padding: var(--esp-2);
+}
+
+.funis-tabela > * {
+  grid-column: 1 / -1;
+}
+
+.funis-linha {
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: 56px;
+  padding: 0 var(--esp-3);
+  border-radius: var(--raio-md);
+  color: var(--ink);
+  transition: background-color 0.12s ease;
+}
+
+a.funis-linha:hover {
+  background: var(--accent-wash);
+}
+
+.funis-linha-cabeca {
+  min-height: 28px;
+  font-size: var(--txt-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.funis-linha-cabeca > span:nth-child(n + 3) {
+  text-align: right;
+}
+
+.funis-produto {
+  min-width: 0;
+  font-size: var(--txt-md);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.funis-url {
+  display: block;
+  overflow: hidden;
+  font-size: var(--txt-xs);
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
+}
+
+.funis-num {
+  text-align: right;
+  font-size: var(--txt-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* O tipo do funil é texto de coluna, não `.painel-badge`. A pílula existe pra
+   se destacar sobre o lavanda do fundo do painel; dentro de um `glass-card`
+   branco ela some, e sobra um cinza pálido com forma de botão. Numa tabela
+   quem diz o que o valor é é o cabeçalho da coluna. */
+.funis-tipo {
+  font-size: var(--txt-xs);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.funis-seta {
+  text-align: right;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 860px) {
+  .funis-tabela {
+    grid-template-columns: minmax(0, 1fr) repeat(2, minmax(3.5rem, max-content));
+    column-gap: var(--esp-3);
+  }
+
+  /* No celular sobram nome, leads e conversão. Tipo, 7 dias, compras e a seta
+     saem, e nenhum deles é o motivo de abrir a lista. */
+  .funis-linha > :nth-child(1),
+  .funis-linha > :nth-child(4),
+  .funis-linha > :nth-child(5),
+  .funis-linha > :nth-child(7) {
+    display: none;
+  }
+}
+
+/* ── Resumo de funil em fileira (18/09/2026) ────────────────────────
+   O "quiz para lead para compra" do Cálice. Substitui o `FunilEtapas` nesta
+   tela, que desenhava a mesma coisa numa linguagem diferente da lista de telas
+   logo abaixo: caixas com número em serifa e uma seta com a porcentagem solta
+   entre elas. Duas leituras do mesmo funil, uma em cima da outra, com
+   gramáticas visuais distintas.
+
+   Aqui cada etapa ganha a MESMA barra proporcional da lista de telas, então o
+   afinamento do funil se lê igual nos dois blocos. A passagem continua na
+   etapa de ORIGEM, convenção de 04/08/2026.
+
+   `FunilEtapas` segue vivo e intocado: Biblioteca e Lar Interior ainda o usam
+   e não migraram. */
+.funil-resumo {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: var(--esp-4) var(--esp-2);
+}
+
+.funil-resumo-etapa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: 0 var(--esp-4);
+  border-left: 1px solid var(--line);
+}
+
+.funil-resumo-etapa:first-child {
+  border-left: 0;
+}
+
+.funil-resumo-topo {
+  display: flex;
+  align-items: baseline;
+  gap: var(--esp-2);
+}
+
+.funil-resumo-valor {
+  font-family: var(--font-display);
+  font-size: var(--txt-xl);
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.funil-resumo-doinicio {
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Altura reservada mesmo na última etapa, que não tem passagem: sem isso a
+   última coluna sobe e a fileira deixa de ter uma linha de base só. */
+.funil-resumo-passagem {
+  min-height: 1.1em;
+  font-size: var(--txt-xs);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 760px) {
+  .funil-resumo {
+    grid-auto-flow: row;
+    gap: var(--esp-3);
+  }
+
+  .funil-resumo-etapa {
+    padding: 0 var(--esp-3);
+    border-left: 0;
+  }
 }
 
 /* ── Detalhe de funil em duas colunas (11/09/2026) ──────────────────────────
@@ -1414,37 +1731,18 @@ button.funil-linha-ativa:hover {
   text-align: right;
 }
 
-/* Faixa de números do topo do detalhe. */
-.funil-kpis {
+/* Faixa de números do topo de uma tela. Era `.funil-kpi*`, com rótulo, valor
+   e apoio próprios e um `1.6rem` solto no valor; virou a `.painel-metrica`
+   genérica em 18/09/2026, e o que sobra aqui é só o arranjo (quantos cabem na
+   linha) e o respiro do card. */
+.painel-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
   gap: var(--esp-3);
 }
 
-.funil-kpi {
-  display: flex;
-  flex-direction: column;
-  gap: var(--esp-1);
+.painel-kpi {
   padding: var(--esp-4);
-}
-
-.funil-kpi-rotulo {
-  font-size: var(--txt-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-soft);
-}
-
-.funil-kpi-valor {
-  font-family: var(--font-display);
-  font-size: 1.6rem;
-  font-weight: 600;
-  line-height: 1.1;
-}
-
-.funil-kpi-apoio {
-  font-size: var(--txt-xs);
-  color: var(--ink-soft);
 }
 
 /* Largura explícita: as barras são `flex: 1` sem base, e dentro de uma linha
@@ -1673,7 +1971,7 @@ textarea {
 
 .painel-topo-titulo-texto {
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: var(--txt-lg);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -1704,11 +2002,23 @@ textarea {
   background: var(--line);
 }
 
+/* O tipo do funil, colado no nome dele dentro do h1. Precisa de `vertical-align`
+   próprio porque o título é serifado e maior que a pílula: sem isto, a pílula
+   senta na linha de base do texto e parece caída. */
+.painel-topo-tipo {
+  margin-left: var(--esp-2);
+  /* A fonte precisa ser dita: dentro do h1 a pílula herdaria a serifada do
+     título, e o mesmo badge apareceria em duas famílias na mesma tela. */
+  font-family: var(--font-app-ui), system-ui, sans-serif;
+  vertical-align: 0.12em;
+  background: var(--accent-wash);
+}
+
 /* Migalha do detalhe: some do fluxo do texto e vira a linha de cima do
    título, pra faixa continuar com a mesma altura das telas de lista. */
 .painel-topo-volta {
   display: block;
-  font-size: 0.68rem;
+  font-size: var(--txt-xs);
   line-height: 1.2;
   color: var(--ink-soft);
 }

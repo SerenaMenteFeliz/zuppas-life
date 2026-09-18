@@ -162,6 +162,52 @@ export function FunilTelas({
   );
 }
 
+/** O funil de cima da tela: poucas etapas, uma fileira só.
+
+    Substitui o `FunilEtapas` no detalhe do Cálice (18/09/2026). O problema não
+    era o `FunilEtapas` estar feio, era a mesma tela desenhar o mesmo objeto
+    (uma sequência que afina) de dois jeitos: em cima, caixas com número em
+    serifa grande e uma seta com a porcentagem solta entre elas; embaixo, a
+    lista com barra proporcional. Aqui cada etapa ganha a barra da lista, então
+    os dois blocos dizem "afinou aqui" com o mesmo traço.
+
+    A passagem fica na etapa de ORIGEM, mesma convenção do resto do arquivo
+    (04/08/2026): "67% seguiram" descreve o que aconteceu DEPOIS desta etapa. */
+export function ResumoFunil({ etapas, vazio }: { etapas: EtapaContagem[]; vazio: string }) {
+  if (etapas.length === 0 || etapas.every((e) => e.count === 0)) return <Vazio>{vazio}</Vazio>;
+
+  const base = etapas[0].count || 1;
+
+  return (
+    <div className="glass-card funil-resumo">
+      {etapas.map((etapa, i) => {
+        const proxima = i < etapas.length - 1 ? etapas[i + 1].count : null;
+        const passagem = proxima !== null && etapa.count > 0 ? (proxima / etapa.count) * 100 : null;
+        const doInicio = (etapa.count / base) * 100;
+
+        return (
+          <div key={`${etapa.label}-${i}`} className="funil-resumo-etapa">
+            <span className="painel-metrica-rotulo">{etapa.label}</span>
+            <span className="funil-resumo-topo">
+              <span className="funil-resumo-valor">{etapa.count}</span>
+              {/* A primeira etapa também diz "100% do início", e não "(base)": a
+                  coluna inteira passa a ser a mesma frase, e aí dá pra ler os
+                  quatro números em sequência sem trocar de gramática no meio. */}
+              <span className="funil-resumo-doinicio">{pct(doInicio)} do início</span>
+            </span>
+            <span className="funil-linha-barra" aria-hidden>
+              <span style={{ width: `${doInicio}%` }} />
+            </span>
+            <span className="funil-resumo-passagem">
+              {passagem === null ? "" : `${pct(passagem)} seguiram`}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Distribuição de uma coisa entre categorias (origem, arquétipo), no mesmo
     desenho de barra da lista de telas, pra tela inteira falar uma língua só. */
 export function Distribuicao({ itens, vazio }: { itens: EtapaContagem[]; vazio: string }) {

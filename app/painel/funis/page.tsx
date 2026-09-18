@@ -1,12 +1,30 @@
 import Link from "next/link";
 import PainelTopo from "@/components/painel/PainelTopo";
-import { Rotulo, Vazio } from "@/components/ui";
+import { Nota } from "@/components/painel/Bloco";
+import { Vazio } from "@/components/ui";
 import { FUNIS, carregarResumoProdutos } from "@/lib/painel-funis";
 
-/* Lista de funis — porta de entrada do painel (05/08, antes disso era uma
+/* Lista de funis, porta de entrada do painel (05/08, antes disso era uma
    página só com tudo empilhado). Cada linha é um funil (FUNIS em
-   lib/painel-funis.ts), clicar leva pro detalhe em /painel/funis/[id], que
-   tem o preview ao vivo + o carrossel de etapas que viviam soltos aqui. */
+   lib/painel-funis.ts), clicar leva pro detalhe em /painel/funis/[id], que tem
+   o preview ao vivo e a lista de telas.
+
+   Virou tabela em 18/09/2026. Eram três cards empilhados, cada um repetindo o
+   rótulo da métrica em cima do próprio número, e o badge de tipo (de largura
+   variável) empurrava o nome de cada produto pra um x diferente. Numa tela de
+   três linhas, doze rótulos minúsculos e nenhuma coluna fechando. O desenho
+   certo pra "os mesmos campos, repetidos por item" é uma tabela, e ela também
+   deixa comparar dois funis lendo a coluna de cima a baixo, que é o gesto real
+   nesta tela. Ver `.funis-tabela` em app/globals.css.
+
+   Sem rótulo de seção de propósito: a tela tem um bloco só, o topo já diz
+   "Funis" e o cabeçalho da tabela já nomeia cada coluna. "Todos os funis"
+   acima disso era a terceira vez que a mesma coisa era dita.
+
+   `leads7d` já era calculado em `carregarResumoProdutos` desde que a lista
+   existe e nunca tinha aparecido em tela. Virou a coluna "7 dias": é o único
+   número daqui que diz se o funil está VIVO, e os outros três são acumulados
+   desde sempre. */
 
 export const dynamic = "force-dynamic";
 
@@ -19,66 +37,58 @@ export default async function FunisPage() {
       <PainelTopo titulo="Funis" />
 
       <div className="painel-conteudo">
-      {semDados ? (
-        <Vazio>
-          Sem dado ainda — confere se SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY estão
-          setadas nesse projeto (Vercel → zuppas-life → env vars).
-        </Vazio>
-      ) : (
-        <section>
-          <Rotulo>Todos os funis</Rotulo>
-          <div className="flex flex-col gap-3">
-            {FUNIS.map((f) => {
-              const resumo = resumos.find((r) => r.produtoSlug === f.produtoSlug);
-              return (
-                <Link
-                  key={f.id}
-                  href={`/painel/funis/${f.id}`}
-                  className="glass-card painel-card-clicavel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="painel-badge">{f.tipo}</span>
-                    <div>
-                      <p className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-                        {f.produto}
-                      </p>
-                      <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                        {f.urlPublica.replace(/^https?:\/\//, "")}
-                      </p>
-                    </div>
-                  </div>
+        {semDados ? (
+          <Vazio>
+            Sem dado ainda. Confere se SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY estão setadas nesse
+            projeto (Vercel, zuppas-life, env vars).
+          </Vazio>
+        ) : (
+          <>
+            <div className="glass-card funis-tabela">
+              <div className="funis-linha funis-linha-cabeca" aria-hidden>
+                <span>Tipo</span>
+                <span>Funil</span>
+                <span>Leads</span>
+                <span>7 dias</span>
+                <span>Compras</span>
+                <span>Conversão</span>
+                <span />
+              </div>
 
-                  <div className="flex items-center gap-6">
-                    <MetricaInline
-                      rotulo={f.produtoSlug === "biblioteca-oculta" ? "Pedidos" : "Leads"}
-                      valor={resumo?.totalLeads ?? 0}
-                    />
-                    <MetricaInline rotulo="Compras" valor={resumo?.totalCompras ?? 0} />
-                    <MetricaInline rotulo="Conversão" valor={`${(resumo?.conversao ?? 0).toFixed(1)}%`} />
-                    <span aria-hidden style={{ color: "var(--ink-soft)" }}>
+              {FUNIS.map((f) => {
+                const resumo = resumos.find((r) => r.produtoSlug === f.produtoSlug);
+
+                return (
+                  <Link key={f.id} href={`/painel/funis/${f.id}`} className="funis-linha">
+                    <span className="funis-tipo">{f.tipo}</span>
+
+                    <span className="funis-produto">
+                      {f.produto}
+                      <span className="funis-url">{f.urlPublica.replace(/^https?:\/\//, "")}</span>
+                    </span>
+
+                    <span className="funis-num">{resumo?.totalLeads ?? 0}</span>
+                    <span className="funis-num">{resumo?.leads7d ?? 0}</span>
+                    <span className="funis-num">{resumo?.totalCompras ?? 0}</span>
+                    <span className="funis-num">{(resumo?.conversao ?? 0).toFixed(1)}%</span>
+
+                    <span className="funis-seta" aria-hidden>
                       ›
                     </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <Nota>
+              Tudo aqui é acumulado de todo o período, menos &quot;7 dias&quot;. O filtro de datas
+              vive dentro de cada funil. Na Biblioteca Oculta, &quot;leads&quot; é pedido criado (ela
+              tem tabela própria e não passa por lead_events) e as cortesias ficam de fora dos dois
+              números.
+            </Nota>
+          </>
+        )}
       </div>
     </>
-  );
-}
-
-function MetricaInline({ rotulo, valor }: { rotulo: string; valor: number | string }) {
-  return (
-    <div className="text-right">
-      <p className="text-[0.62rem] uppercase tracking-widest" style={{ color: "var(--ink-soft)" }}>
-        {rotulo}
-      </p>
-      <p className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-        {valor}
-      </p>
-    </div>
   );
 }

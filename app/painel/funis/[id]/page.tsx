@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { Rotulo } from "@/components/ui";
+import { Secao, Nota, Kpi } from "@/components/painel/Bloco";
 import { FunilEtapas, type EtapaContagem } from "@/components/painel/Funil";
 import { FunilPreview } from "@/components/painel/FunilPreview";
-import { BarrasSemana, Distribuicao, FunilTelas } from "@/components/painel/FunilPainel";
+import { BarrasSemana, Distribuicao, FunilTelas, ResumoFunil } from "@/components/painel/FunilPainel";
 import { RankingLivros } from "@/components/painel/RankingLivros";
 import FiltroData from "@/components/painel/FiltroData";
 import FiltroVariante from "@/components/painel/FiltroVariante";
@@ -34,7 +35,14 @@ import {
    como seletor — ver FunilPreview.tsx. Método Cálice ganha uma faixa extra
    ("visão geral") acima do preview, porque é o único funil com um resumo
    de aquisição→compra que não é "etapa do quiz" (mistura evento de site
-   com evento de compra no serena-app). */
+   com evento de compra no serena-app).
+
+   O Cálice foi padronizado em 18/09/2026 e é o único que já usa as peças de
+   components/painel/Bloco.tsx (Secao, Nota, Kpi). Biblioteca e Lar Interior
+   seguem no desenho antigo (Rotulo do tema da família, parágrafos de nota
+   soltos, FunilEtapas) até serem migrados, que é decisão do Yan e não deste
+   arquivo. Enquanto os dois mundos convivem, a regra é: nada do desenho novo
+   entra numa seção que os outros dois também renderizam. */
 
 export const dynamic = "force-dynamic";
 
@@ -78,15 +86,21 @@ export default async function FunilDetalhePage({
     return (
       <>
         <PainelTopo
-          titulo={meta.produto}
+          titulo={<TituloFunil produto={meta.produto} tipo={meta.tipo} />}
           voltar={{ href: "/painel/funis", rotulo: "Todos os funis" }}
           controles={
             <>
               {variantes && variante && padrao && variantes.length > 1 && (
-                <FiltroVariante opcoes={opcoesVariante(variantes)} atual={variante.id} padrao={padrao.id} />
+                <>
+                  <FiltroVariante opcoes={opcoesVariante(variantes)} atual={variante.id} padrao={padrao.id} />
+                  {/* Os dois grupos usam `.painel-badge` e, encostados, os
+                      cinco chips liam como um controle só: "V1 V2 7 dias 30
+                      dias 90 dias". Qual variante e qual período são perguntas
+                      diferentes. */}
+                  <span aria-hidden className="painel-topo-divisor" />
+                </>
               )}
               <FiltroData />
-              <span className="painel-badge">{meta.tipo}</span>
             </>
           }
           acoes={
@@ -97,11 +111,16 @@ export default async function FunilDetalhePage({
         />
         <div className="painel-conteudo">
           {variante && variante.status !== "ativa" && (
-            <p className="mb-6 text-xs" style={{ color: "var(--ink-soft)" }}>
-              <b>{variante.nome} está em {variante.status}</b>: não recebe tráfego, só abre por{" "}
-              <code>?v={variante.id}</code>. Os números dele são de quem abriu por esse link.
-              {variante.descricao ? ` ${variante.descricao}.` : ""}
-            </p>
+            <div className="painel-secao">
+              <Nota tom="atencao">
+                <b>
+                  {variante.nome} está em {variante.status}
+                </b>
+                : não recebe tráfego, só abre por <code>?v={variante.id}</code>. Os números desta
+                tela são só de quem abriu por esse link.
+                {variante.descricao ? ` ${variante.descricao}.` : ""}
+              </Nota>
+            </div>
           )}
           <DetalheCalice detalhe={detalhe} visaoGeral={visaoGeral} leads={leadsCalice} urlPublica={urlFunil} />
         </div>
@@ -120,14 +139,9 @@ export default async function FunilDetalhePage({
   return (
     <>
       <PainelTopo
-        titulo={meta.produto}
+        titulo={<TituloFunil produto={meta.produto} tipo={meta.tipo} />}
         voltar={{ href: "/painel/funis", rotulo: "Todos os funis" }}
-        controles={
-          <>
-            <FiltroData />
-            <span className="painel-badge">{meta.tipo}</span>
-          </>
-        }
+        controles={<FiltroData />}
         acoes={
           <a
             href={meta.urlPublica}
@@ -224,11 +238,11 @@ export default async function FunilDetalhePage({
   );
 }
 
-/* Detalhe do Método Cálice redesenhado em 11/09/2026: números de cima, funil
-   de telas com preview ao lado, e o que o banco sabe dos leads embaixo. Todas
-   as métricas da versão anterior continuam (visão geral inteira, e em cada
-   tela pessoas, % do início, passagem e perda). Biblioteca e Lar Interior
-   seguem no layout antigo até migrarem. */
+/* Detalhe do Método Cálice redesenhado em 11/09/2026 (números de cima, funil
+   de telas com preview ao lado, o que o banco sabe dos leads embaixo) e
+   padronizado em 18/09/2026, quando as três maneiras diferentes de desenhar
+   "rótulo + número" viraram uma só e as notas de rodapé ganharam dois tons.
+   Nenhuma métrica saiu em nenhuma das duas passadas. */
 function DetalheCalice({
   detalhe,
   visaoGeral,
@@ -257,82 +271,92 @@ function DetalheCalice({
 
   return (
     <>
-      <section className="mb-8 funil-kpis">
-        <div className="glass-card funil-kpi">
-          <span className="funil-kpi-rotulo">Leads</span>
-          <span className="funil-kpi-valor">{leads && !leadsIndisponiveis ? leads.total : "—"}</span>
-          <span className="funil-kpi-apoio">pessoas únicas, contadas no banco</span>
-        </div>
-        <div className="glass-card funil-kpi">
-          <span className="funil-kpi-rotulo">Leads por semana</span>
-          <div className="flex items-end justify-between gap-3">
-            <span className="funil-kpi-valor">{mediaSemana ?? "—"}</span>
+      {/* Faixa de números: é o resumo da tela, então não leva rótulo de seção
+          (seria "resumo" em cima de três rótulos). O aviso da variante no banco
+          vem colado nela porque é exatamente o primeiro número que ele afeta. */}
+      <div className="painel-secao">
+        <div className="painel-kpis">
+          <Kpi
+            rotulo="Leads"
+            valor={leads && !leadsIndisponiveis ? leads.total : "—"}
+            apoio="pessoas únicas, contadas no banco"
+          />
+          <Kpi
+            rotulo="Leads por semana"
+            valor={mediaSemana ?? "—"}
+            apoio={
+              <>
+                {leadsIndisponiveis
+                  ? "depende da variante no banco (ver abaixo)"
+                  : mediaSemana === null
+                  ? "o período não tem uma semana inteira"
+                  : `média de ${completas.length} semana${completas.length === 1 ? "" : "s"} inteira${
+                      completas.length === 1 ? "" : "s"
+                    }`}
+                {atual ? ` · esta semana até agora: ${atual.count}` : ""}
+              </>
+            }
+          >
             <BarrasSemana semanas={semanas} />
-          </div>
-          <span className="funil-kpi-apoio">
-            {leadsIndisponiveis
-              ? "depende da variante no banco (ver abaixo)"
-              : mediaSemana === null
-              ? "o período não tem uma semana inteira"
-              : `média de ${completas.length} semana${completas.length === 1 ? "" : "s"} inteira${completas.length === 1 ? "" : "s"}`}
-            {atual ? ` · esta semana até agora: ${atual.count}` : ""}
-          </span>
+          </Kpi>
+          <Kpi
+            rotulo="Abriu o quiz → deixou e-mail"
+            valor={
+              abertura
+                ? `${((deixouEmail / abertura) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`
+                : "—"
+            }
+            apoio={`${deixouEmail} de ${abertura} pessoas que viram a abertura`}
+          />
         </div>
-        <div className="glass-card funil-kpi">
-          <span className="funil-kpi-rotulo">Abriu o quiz → deixou e-mail</span>
-          <span className="funil-kpi-valor">
-            {abertura ? `${((deixouEmail / abertura) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"}
-          </span>
-          <span className="funil-kpi-apoio">
-            {deixouEmail} de {abertura} pessoas que viram a abertura
-          </span>
-        </div>
-      </section>
 
-      {leads?.semVariante && (
-        <p className="-mt-4 mb-8 text-xs" style={{ color: "var(--ink-soft)" }}>
-          {leadsIndisponiveis
-            ? "Os leads desta variante ainda não aparecem: "
-            : "Leads, origem e resultado abaixo somam todas as variantes: "}
-          o banco ainda não guarda a variante do lead. Falta aplicar a migration{" "}
-          <code>0004_add_quiz_variant.sql</code> do metodocalice-site no Supabase. As telas e a visão
-          geral já vêm separadas por variante.
-        </p>
-      )}
+        {leads?.semVariante && (
+          <Nota tom="atencao">
+            {leadsIndisponiveis
+              ? "Os leads desta variante ainda não aparecem: "
+              : "Leads, origem e resultado desta tela somam todas as variantes: "}
+            o banco ainda não guarda a variante do lead. Falta aplicar a migration{" "}
+            <code>0004_add_quiz_variant.sql</code> do metodocalice-site no Supabase. As telas e a
+            visão geral já vêm separadas por variante.
+          </Nota>
+        )}
+      </div>
 
       {visaoGeral && (
-        <section className="mb-8">
-          <Rotulo>Visão geral: quiz → lead → compra</Rotulo>
-          <FunilEtapas etapas={visaoGeral} vazio="Sem evento suficiente ainda pra montar esse funil." />
-          <p className="mt-2 text-xs" style={{ color: "var(--ink-soft)" }}>
-            Aqui a mesma pessoa precisa cumprir as etapas em ordem, e o &quot;início&quot; é o clique pra
-            começar, depois da abertura. Por isso os números ficam um pouco abaixo das telas logo abaixo,
-            que contam quem viu cada tela. O número exato de leads é o do banco, no alto.
-          </p>
-        </section>
+        <Secao
+          titulo="Visão geral: quiz → lead → compra"
+          nota={
+            <Nota>
+              Aqui a mesma pessoa precisa cumprir as etapas em ordem, e o &quot;início&quot; é o
+              clique pra começar, depois da abertura. Por isso os números ficam um pouco abaixo dos
+              das telas, que contam quem viu cada tela. O número exato de leads é o do banco, no
+              alto.
+            </Nota>
+          }
+        >
+          <ResumoFunil etapas={visaoGeral} vazio="Sem evento suficiente ainda pra montar esse funil." />
+        </Secao>
       )}
 
-      <section className="mb-8">
+      <Secao titulo="Telas do quiz">
         <FunilTelas etapas={telas} previewUrls={detalhe.previewUrls} urlInicial={urlPublica} vazio={detalhe.vazio} />
-      </section>
+      </Secao>
 
       {leads && !leadsIndisponiveis && (
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div>
-            <Rotulo>De onde vêm os leads</Rotulo>
+        <div className="painel-duplas">
+          <Secao
+            titulo="De onde vêm os leads"
+            nota={<Nota>Perfil (utm_content) quando existe, senão canal (utm_source), senão &quot;direto&quot;.</Nota>}
+          >
             <Distribuicao itens={leads.porOrigem} vazio="Nenhum lead no período." />
-            <p className="mt-2 text-xs" style={{ color: "var(--ink-soft)" }}>
-              Perfil (utm_content) quando existe, senão canal (utm_source), senão &quot;direto&quot;.
-            </p>
-          </div>
-          <div>
-            <Rotulo>Resultado do quiz</Rotulo>
+          </Secao>
+          <Secao
+            titulo="Resultado do quiz"
+            nota={<Nota>O arquétipo que o quiz deu a cada lead, no primeiro opt-in dela.</Nota>}
+          >
             <Distribuicao itens={leads.porResultado} vazio="Nenhum lead no período." />
-            <p className="mt-2 text-xs" style={{ color: "var(--ink-soft)" }}>
-              O arquétipo que o quiz deu a cada lead, no primeiro opt-in dela.
-            </p>
-          </div>
-        </section>
+          </Secao>
+        </div>
       )}
     </>
   );
@@ -349,6 +373,18 @@ function filtroVisaoGeral(variante: VarianteQuiz, variantes: VarianteQuiz[]): Fi
   }
   const outras = variantes.filter((v) => v.id !== VARIANTE_LEGADO).map((v) => v.id);
   return outras.length ? [{ key: "quiz_variant", value: outras, operator: "is_not", type: "event" }] : undefined;
+}
+
+/* O tipo do funil ("Quiz", "Landing", "Catálogo") vivia no fim da linha de
+   controles, depois dos campos de data, com a mesma pílula dos filtros. Não é
+   controle: ninguém clica nele e ele não muda o que a tela mostra. É o que o
+   funil É, então mora colado no nome dele (18/09/2026). */
+function TituloFunil({ produto, tipo }: { produto: string; tipo: string }) {
+  return (
+    <>
+      {produto} <span className="painel-badge painel-topo-tipo">{tipo}</span>
+    </>
+  );
 }
 
 function emReais(centavos: number) {
