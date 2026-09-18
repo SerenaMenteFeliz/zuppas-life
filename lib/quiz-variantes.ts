@@ -69,6 +69,17 @@ export async function carregarVariantesQuiz(): Promise<VarianteQuiz[] | null> {
   return variantes.length ? variantes : null;
 }
 
+/** A variante vende dentro do quiz, em vez de capturar e-mail?
+
+    Vale pela TELA e não por uma flag à parte, porque a tela é o fato: uma
+    variante com `tipo: "oferta"` termina num paywall e nunca chama o
+    `api/subscribe`, então nenhum `lead_submitted` existe pra ela. O painel
+    precisa saber disso pra não desenhar um funil que morre na terceira etapa
+    e parecer queda de conversão. */
+export function temOferta(variante: VarianteQuiz): boolean {
+  return variante.telas.some((t) => t.tipo === "oferta");
+}
+
 /** A pedida na URL, senão a primeira ativa, senão a primeira da lista. */
 export function escolherVariante(variantes: VarianteQuiz[], pedida?: string): VarianteQuiz {
   return (

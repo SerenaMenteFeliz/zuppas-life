@@ -2,7 +2,7 @@ import "server-only";
 import type { EtapaContagem, EtapaGaleria } from "@/components/painel/Funil";
 import { carregarCatalogo, type LivroBiblioteca } from "@/lib/catalogo-biblioteca";
 import { hojeISO, inicioDaSemana, somarDias } from "@/lib/datas";
-import { URL_QUIZ_CALICE, VARIANTE_LEGADO, type VarianteQuiz } from "@/lib/quiz-variantes";
+import { URL_QUIZ_CALICE, VARIANTE_LEGADO, temOferta, type VarianteQuiz } from "@/lib/quiz-variantes";
 
 /* Filtro de datas (28/08/2026, pedido do Yan: "zuppas life ainda não tem
    filtro por data"). `RangeDatas` trafega em ISO (`AAAA-MM-DD`), igual todo
@@ -236,6 +236,11 @@ const ROTULOS_EVENTO: Record<string, string> = {
   quiz_started: "Início do quiz",
   quiz_completed: "Quiz concluído",
   lead_submitted: "Virou lead",
+  // Variante que vende dentro do quiz (sem captura) não produz
+  // `lead_submitted` nenhum: quem não compra não deixa nada. Ver
+  // `eventosVisaoGeral` no detalhe do funil.
+  offer_viewed: "Chegou na oferta",
+  offer_cta_clicked: "Clicou em comprar",
   purchase: "Comprou",
 };
 
@@ -439,9 +444,15 @@ export async function carregarDetalheFunil(
       };
     }
 
+    // Variante que termina em paywall não entrega material nenhum: a última
+    // tela dela é a oferta. Consultar `material_viewed` ali traria as visitas
+    // ao material de OUTRAS variantes e anexaria uma 17ª etapa que não existe
+    // nesse funil (vista em 18/09/2026, "Etapa 1 de 17" num quiz de 16 telas).
+    const vendeNoQuiz = temOferta(variante);
+
     const [stepsQuiz, materialViews] = await Promise.all([
       consultarStepsQuiz(variante, range),
-      consultarMaterialViewed(variante, range),
+      vendeNoQuiz ? Promise.resolve(null) : consultarMaterialViewed(variante, range),
     ]);
 
     if (stepsQuiz === null) {

@@ -27,6 +27,7 @@ import {
   carregarVariantesQuiz,
   escolherVariante,
   opcoesVariante,
+  temOferta,
   type VarianteQuiz,
 } from "@/lib/quiz-variantes";
 
@@ -69,14 +70,18 @@ export default async function FunilDetalhePage({
     const variante = variantes ? escolherVariante(variantes, variantePedida) : null;
     const padrao = variantes ? escolherVariante(variantes) : null;
 
+    const vendeNoQuiz = !!variante && temOferta(variante);
+
     const [detalhe, visaoGeral, leadsCalice] = await Promise.all([
       carregarDetalheFunil(id, range, variante),
       consultarFunilPostHog(
-        ["quiz_started", "quiz_completed", "lead_submitted", "purchase"],
+        eventosVisaoGeral(vendeNoQuiz),
         range,
         variante && variantes ? filtroVisaoGeral(variante, variantes) : undefined
       ),
-      carregarLeadsCalice(range, variante?.id),
+      // Variante que vende no quiz não gera lead: pedir do banco devolveria os
+      // leads das OUTRAS variantes e a tela mostraria número de outra gente.
+      vendeNoQuiz ? Promise.resolve(null) : carregarLeadsCalice(range, variante?.id),
     ]);
 
     // Variante que não é a padrão abre com ?v=, senão o botão levaria pra outra.
@@ -122,7 +127,13 @@ export default async function FunilDetalhePage({
               </Nota>
             </div>
           )}
-          <DetalheCalice detalhe={detalhe} visaoGeral={visaoGeral} leads={leadsCalice} urlPublica={urlFunil} />
+          <DetalheCalice
+            detalhe={detalhe}
+            visaoGeral={visaoGeral}
+            leads={leadsCalice}
+            urlPublica={urlFunil}
+            vendeNoQuiz={vendeNoQuiz}
+          />
         </div>
       </>
     );
@@ -248,11 +259,14 @@ function DetalheCalice({
   visaoGeral,
   leads,
   urlPublica,
+  vendeNoQuiz,
 }: {
   detalhe: DetalheFunil;
   visaoGeral: EtapaContagem[] | null;
   leads: LeadsCalice | null;
   urlPublica: string;
+  /** A variante termina em paywall, sem captura de e-mail. */
+  vendeNoQuiz: boolean;
 }) {
   const telas = detalhe.etapas;
   const abertura = telas[0]?.views ?? 0;
@@ -261,6 +275,12 @@ function DetalheCalice({
   // seria outra tela.
   const iCaptura = telas.findIndex((t) => t.tipo === "captura");
   const deixouEmail = iCaptura >= 0 ? telas[iCaptura + 1]?.views ?? 0 : 0;
+  // Na variante que vende no quiz, a tela de oferta é o fim do funil: quem
+  // chega nela é quem viu o preço. Não dá pra reaproveitar `deixouEmail`
+  // porque não existe tela depois dela pra contar.
+  const chegouNaOferta = telas.find((t) => t.tipo === "oferta")?.views ?? 0;
+  const pct = (parte: number, todo: number) =>
+    todo ? `${((parte / todo) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—";
   const leadsIndisponiveis = leads?.semVariante === "indisponivel";
   const semanas = leads?.porSemana ?? [];
   const completas = semanas.filter((s) => s.completa);
@@ -276,39 +296,61 @@ function DetalheCalice({
           vem colado nela porque é exatamente o primeiro número que ele afeta. */}
       <div className="painel-secao">
         <div className="painel-kpis">
-          <Kpi
-            rotulo="Leads"
-            valor={leads && !leadsIndisponiveis ? leads.total : "—"}
-            apoio="pessoas únicas, contadas no banco"
-          />
-          <Kpi
-            rotulo="Leads por semana"
-            valor={mediaSemana ?? "—"}
-            apoio={
-              <>
-                {leadsIndisponiveis
-                  ? "depende da variante no banco (ver abaixo)"
-                  : mediaSemana === null
-                  ? "o período não tem uma semana inteira"
-                  : `média de ${completas.length} semana${completas.length === 1 ? "" : "s"} inteira${
-                      completas.length === 1 ? "" : "s"
-                    }`}
-                {atual ? ` · esta semana até agora: ${atual.count}` : ""}
-              </>
-            }
-          >
-            <BarrasSemana semanas={semanas} />
-          </Kpi>
-          <Kpi
-            rotulo="Abriu o quiz → deixou e-mail"
-            valor={
-              abertura
-                ? `${((deixouEmail / abertura) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`
-                : "—"
-            }
-            apoio={`${deixouEmail} de ${abertura} pessoas que viram a abertura`}
-          />
+          {vendeNoQuiz ? (
+            <>
+              <Kpi
+                rotulo="Chegou na oferta"
+                valor={chegouNaOferta}
+                apoio="pessoas que viram o preço, contadas na PostHog"
+              />
+              <Kpi
+                rotulo="Abriu o quiz → viu o preço"
+                valor={pct(chegouNaOferta, abertura)}
+                apoio={`${chegouNaOferta} de ${abertura} pessoas que viram a abertura`}
+              />
+            </>
+          ) : (
+            <>
+              <Kpi
+                rotulo="Leads"
+                valor={leads && !leadsIndisponiveis ? leads.total : "—"}
+                apoio="pessoas únicas, contadas no banco"
+              />
+              <Kpi
+                rotulo="Leads por semana"
+                valor={mediaSemana ?? "—"}
+                apoio={
+                  <>
+                    {leadsIndisponiveis
+                      ? "depende da variante no banco (ver abaixo)"
+                      : mediaSemana === null
+                      ? "o período não tem uma semana inteira"
+                      : `média de ${completas.length} semana${completas.length === 1 ? "" : "s"} inteira${
+                          completas.length === 1 ? "" : "s"
+                        }`}
+                    {atual ? ` · esta semana até agora: ${atual.count}` : ""}
+                  </>
+                }
+              >
+                <BarrasSemana semanas={semanas} />
+              </Kpi>
+              <Kpi
+                rotulo="Abriu o quiz → deixou e-mail"
+                valor={pct(deixouEmail, abertura)}
+                apoio={`${deixouEmail} de ${abertura} pessoas que viram a abertura`}
+              />
+            </>
+          )}
         </div>
+
+        {vendeNoQuiz && (
+          <Nota>
+            Esta variante <b>não captura e-mail</b>: ela termina no paywall, e quem não compra sai
+            sem deixar nada. Por isso não há lead, origem nem arquétipo aqui, e a ausência é o
+            desenho, não uma falha de captura. Quem compra entra na base pelo checkout, que pede
+            nome e e-mail.
+          </Nota>
+        )}
 
         {leads?.semVariante && (
           <Nota tom="atencao">
@@ -360,6 +402,23 @@ function DetalheCalice({
       )}
     </>
   );
+}
+
+/* Duas variantes, dois funis, e o erro caro seria usar um só.
+
+   A variante com captura termina em `lead_submitted`, que o `api/subscribe` do
+   metodocalice-site dispara do servidor. A variante que vende no quiz nunca
+   chama esse endpoint, então o mesmo funil morreria na terceira etapa e leria
+   como despencou a conversão, quando na verdade o evento não existe.
+
+   `offer_cta_clicked` é a última coisa que a gente vê: o checkout mora em outro
+   domínio (serena-app), e `purchase` só se liga à mesma pessoa se a identidade
+   atravessar. Enquanto não atravessar, tratar a etapa `purchase` desta variante
+   como piso, não como verdade. */
+function eventosVisaoGeral(vendeNoQuiz: boolean): string[] {
+  return vendeNoQuiz
+    ? ["quiz_started", "quiz_completed", "offer_viewed", "offer_cta_clicked", "purchase"]
+    : ["quiz_started", "quiz_completed", "lead_submitted", "purchase"];
 }
 
 /* A visão geral recorta pela variante na PRIMEIRA etapa (`quiz_started`), ver
