@@ -29,6 +29,30 @@ import type { SemanaLeads } from "@/lib/painel-funis";
     escolheu "Leads" sabendo da diferença (11/09/2026). */
 const ROTULO_CONTAGEM = "Leads";
 
+/** O que cada tela FAZ, dito embaixo do nome dela (18/09/2026, pedido do Yan).
+
+    O nome diz o que tem naquela tela ("Receber elogio"); a tag diz o papel
+    dela. Juntas, dá pra ler a FORMA do funil de cima a baixo sem abrir
+    nenhuma tela: quantas seleções seguidas, onde entra uma transição pra
+    segurar a pessoa, e onde está o paywall.
+
+    Os quatro primeiros são o vocabulário do V2, dito pelo Yan. `entrada` e
+    `resultado` existem só pelas telas que o V1 tem e o V2 não: enfiar uma
+    captura de e-mail em "transição" seria mentira, e deixar a linha sem tag
+    faria parecer que faltou dado. Tela sem tipo (o "Material entregue", que é
+    etapa anexada e não tela do quiz) não recebe tag nenhuma. */
+const TAG_POR_TIPO: Record<string, string> = {
+  abertura: "start quiz",
+  pergunta: "seleção",
+  pausa: "transição",
+  calculando: "transição",
+  revelacao: "transição",
+  oferta: "paywall",
+  nome: "entrada",
+  captura: "entrada",
+  resultado: "resultado",
+};
+
 /** A partir de quanto a perda entre duas telas ganha cor. Com o funil de
     11/09, marca 4 das 19 linhas (abertura, nome, captura, resultado), que são
     exatamente as que mudam alguma coisa se forem melhoradas. */
@@ -117,7 +141,12 @@ export function FunilTelas({
             >
               <span className="funil-linha-etapa">
                 <span className="funil-linha-n">{i + 1}</span>
-                <span className="funil-linha-nome">{etapa.label}</span>
+                <span className="funil-linha-titulo">
+                  <span className="funil-linha-nome">{etapa.label}</span>
+                  {etapa.tipo && TAG_POR_TIPO[etapa.tipo] && (
+                    <span className="funil-linha-tag">{TAG_POR_TIPO[etapa.tipo]}</span>
+                  )}
+                </span>
               </span>
               <span className="funil-linha-contagem">
                 <span className="funil-linha-barra" aria-hidden>

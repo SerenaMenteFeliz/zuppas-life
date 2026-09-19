@@ -1599,7 +1599,10 @@ a.funis-linha:hover {
   display: grid;
   grid-template-columns: subgrid;
   align-items: center;
-  min-height: 36px;
+  /* 44px e não 36px desde 18/09/2026: a coluna da etapa passou a ter duas
+     linhas (nome e tag do tipo). O cabeçalho tem altura própria e não segue
+     esta. */
+  min-height: 44px;
   padding: 0 var(--esp-3);
   border-radius: var(--raio-sm);
   font-size: var(--txt-sm);
@@ -1660,10 +1663,33 @@ button.funil-linha-ativa:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* Nome em cima, tag embaixo. A coluna da etapa continua `max-content`, então
+   a largura dela passa a ser a do mais largo entre os dois. */
+.funil-linha-titulo {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .funil-linha-nome {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* A tag é o papel da tela, não um estado dela: menor, mais clara e em caixa
+   baixa, pra o olho ler o nome primeiro e só cair na tag quando estiver
+   procurando a forma do funil. Sem pílula de propósito: são 16 linhas
+   seguidas, e 16 pílulas viram textura. */
+.funil-linha-tag {
+  overflow: hidden;
+  font-size: var(--txt-xs);
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
 }
 
 .funil-linha-ativa .funil-linha-nome {
