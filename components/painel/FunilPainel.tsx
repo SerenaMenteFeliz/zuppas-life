@@ -36,11 +36,13 @@ const ROTULO_CONTAGEM = "Leads";
     nenhuma tela: quantas seleções seguidas, onde entra uma transição pra
     segurar a pessoa, e onde está o paywall.
 
-    Os quatro primeiros são o vocabulário do V2, dito pelo Yan. `entrada` e
-    `resultado` existem só pelas telas que o V1 tem e o V2 não: enfiar uma
-    captura de e-mail em "transição" seria mentira, e deixar a linha sem tag
-    faria parecer que faltou dado. Tela sem tipo (o "Material entregue", que é
-    etapa anexada e não tela do quiz) não recebe tag nenhuma. */
+    Os quatro primeiros são o vocabulário do V2, dito pelo Yan. As outras três
+    existem pelas telas que o V1 tem e o V2 não. `captura` é a tela de e-mail, e
+    é o nome que o Yan deu a ela em 18/09/2026: não é "entrada" genérica, é o
+    momento em que a pessoa vira lead, e o funil inteiro do V1 existe em função
+    dele. A tela de nome fica em `entrada` porque ela não captura ninguém: serve
+    pra personalizar o texto das telas seguintes. Tela sem tipo (o "Material
+    entregue", que é etapa anexada e não tela do quiz) não recebe tag. */
 const TAG_POR_TIPO: Record<string, string> = {
   abertura: "start quiz",
   pergunta: "seleção",
@@ -49,7 +51,7 @@ const TAG_POR_TIPO: Record<string, string> = {
   revelacao: "transição",
   oferta: "paywall",
   nome: "entrada",
-  captura: "entrada",
+  captura: "captura",
   resultado: "resultado",
 };
 
