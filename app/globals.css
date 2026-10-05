@@ -5397,13 +5397,12 @@ textarea {
 }
 
 /* ── Quadro da semana (04/10/2026) ─────────────────────────────────────────
-   A semana da casa numa grade só: linha por obrigação, segunda a domingo.
-   A mesma grade (components/quadro/Grade.tsx) serve a TV e a aba de marcar;
-   o que muda são as variáveis de tamanho da classe de fora.
-
    Na TV os tamanhos são em pixel de uma TV Full HD, porque o palco é sempre
    1920x1080 e só a escala muda (components/quadro/Palco.tsx). Calibrado pra
-   leitura a uns 3 metros: rótulo de linha a 34px, inicial a 44px. */
+   leitura a uns 3 metros: item a 29px, o "agora" a 54px.
+
+   Desenho: esquerda na altura toda é HOJE por período; direita em cima é
+   AGORA; direita embaixo é a SEMANA. */
 
 .quadro-pagina {
   height: calc(100dvh - 92px);
@@ -5429,240 +5428,369 @@ textarea {
 }
 
 .quadro-tv {
-  --q-rotulo: 400px;
-  --q-fonte-rotulo: 34px;
-  --q-fonte-partes: 19px;
-  --q-inicial: 46px;
-  --q-inicial-fonte: 24px;
-  --q-inicial-p: 38px;
-  --q-inicial-p-fonte: 20px;
-  --q-dia-nome: 22px;
-  --q-dia-num: 40px;
-  --q-gap: 8px;
-  --q-raio: 16px;
+  --q-inicial: 38px;
+  --q-inicial-fonte: 19px;
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 48px 64px 36px;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 28px;
+  padding: 40px;
 }
 
-.quadro-tv-topo {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 28px;
+.qt-hoje {
+  grid-row: 1 / span 2;
+  min-height: 0;
+  overflow: hidden;
+  padding: 30px 38px;
 }
 
-.quadro-tv-titulo {
-  font-family: var(--font-display), Georgia, serif;
-  font-size: 60px;
-  line-height: 1;
+.qt-agora,
+.qt-semana {
+  min-height: 0;
+  overflow: hidden;
+  padding: 28px 34px;
 }
 
-.quadro-tv-sub {
-  margin-top: 10px;
-  font-size: 24px;
+.qt-aviso {
+  position: absolute;
+  right: 48px;
+  bottom: 12px;
+  font-size: 18px;
+  color: var(--terracotta);
+}
+
+.qt-rotulo {
+  margin-bottom: 18px;
+  font-size: 22px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: var(--ink-soft);
 }
 
-.quadro-tv-hora {
-  text-align: right;
+.qt-rotulo-fino {
+  margin-left: 12px;
+  letter-spacing: 0.04em;
+  text-transform: none;
 }
 
-.quadro-tv-relogio {
+.qt-hora {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+/* Hoje */
+
+.qt-hoje-dentro {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.qt-hoje-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.qt-relogio {
   font-family: var(--font-display), Georgia, serif;
-  font-size: 72px;
+  font-size: 88px;
   line-height: 1;
   letter-spacing: -0.02em;
 }
 
-.quadro-tv-corpo {
-  flex: 1;
-  min-height: 0;
-}
-
-.quadro-tv-rodape {
-  display: flex;
-  align-items: center;
-  gap: 40px;
-  margin-top: 22px;
-  font-size: 20px;
+.qt-data {
+  font-size: 28px;
   color: var(--ink-soft);
 }
 
-.quadro-tv-erro {
-  margin-left: auto;
-  color: var(--terracotta);
-}
-
-.quadro-legenda {
-  display: inline-flex;
-  align-items: center;
+.qt-periodos {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-.quadro-legenda .quadro-inicial,
-.quadro-legenda .quadro-vazio {
-  width: 30px;
-  height: 30px;
-  font-size: 16px;
+.qt-periodo {
+  padding: 12px 18px;
+  border-radius: 16px;
+  border-left: 5px solid transparent;
 }
 
-.quadro-legenda-faltou {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--terracotta) 26%, transparent);
+.qt-periodo-atual {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-left-color: var(--accent);
 }
 
-.quadro-marcar {
-  --q-rotulo: 230px;
-  --q-fonte-rotulo: 15px;
-  --q-fonte-partes: 11px;
-  --q-inicial: 30px;
-  --q-inicial-fonte: 14px;
-  --q-inicial-p: 22px;
-  --q-inicial-p-fonte: 11px;
-  --q-dia-nome: 11px;
-  --q-dia-num: 18px;
-  --q-gap: 6px;
-  --q-raio: 12px;
-  overflow-x: auto;
-}
-
-.quadro-marcar .quadro-grade {
-  min-width: 900px;
-  grid-auto-rows: minmax(58px, auto);
-}
-
-.quadro-grade {
-  display: grid;
-  grid-template-columns: var(--q-rotulo) repeat(7, minmax(0, 1fr));
-  grid-template-rows: auto;
-  grid-auto-rows: minmax(0, 1fr);
-  gap: var(--q-gap);
-  height: 100%;
-}
-
-.quadro-linha {
-  display: contents;
-}
-
-.quadro-dia {
+.qt-periodo-topo {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 6px 0 10px;
-  border-radius: var(--q-raio);
+  gap: 14px;
+  margin-bottom: 6px;
+  font-size: 21px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--ink-soft);
 }
 
-.quadro-dia-nome {
-  font-size: var(--q-dia-nome);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.quadro-dia-num {
-  font-family: var(--font-display), Georgia, serif;
-  font-size: var(--q-dia-num);
-  line-height: 1.1;
+.qt-periodo-nome {
   color: var(--ink);
 }
 
-.quadro-dia-hoje {
+.qt-periodo-agora {
+  padding: 2px 12px;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 17px;
+}
+
+.qt-periodo-conta {
+  margin-left: auto;
+  letter-spacing: 0.04em;
+}
+
+.qt-item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 3px 0;
+  font-size: 29px;
+  line-height: 1.25;
+}
+
+.qt-item .qt-hora {
+  width: 92px;
+  flex: none;
+  font-size: 26px;
+}
+
+.qt-titulo {
+  flex: 1;
+  min-width: 0;
+}
+
+.qt-soltos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  margin-top: 6px;
+  font-size: 25px;
+}
+
+.qt-solto {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.qt-soltos .quadro-inicial,
+.qt-soltos .quadro-vazio {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+}
+
+.qt-feito {
+  opacity: 0.45;
+}
+
+.qt-agendado .qt-titulo,
+.qt-solto.qt-agendado,
+.qt-proximo.qt-agendado .qt-proximo-titulo,
+.qt-depois.qt-agendado {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.qt-linha-agora {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+  color: var(--terracotta);
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.qt-linha-agora::after {
+  content: "";
+  flex: 1;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--terracotta);
+}
+
+/* Agora */
+
+.qt-proximo-falta {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 54px;
+  line-height: 1.05;
+}
+
+.qt-proximo-titulo {
+  margin-top: 10px;
+  font-size: 36px;
+  line-height: 1.2;
+}
+
+.qt-depois {
+  margin-top: 14px;
+  font-size: 27px;
+  color: var(--ink-soft);
+}
+
+/* Semana */
+
+.qt-semana-dentro {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.qt-semana-grade {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 112px repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.qt-semana-dia {
+  text-align: center;
+  font-size: 17px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 4px 0;
+  border-radius: 10px;
+}
+
+.qt-semana-dia b {
+  display: block;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 26px;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.qt-semana-hoje {
   background: var(--accent);
   color: var(--accent-foreground);
 }
 
-.quadro-dia-hoje .quadro-dia-num {
+.qt-semana-hoje b {
   color: var(--accent-foreground);
 }
 
-.quadro-rotulo {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding-right: 16px;
-  font-size: var(--q-fonte-rotulo);
+.qt-semana-faixa {
+  align-self: center;
+  font-size: 17px;
   line-height: 1.15;
-}
-
-.quadro-rotulo-partes {
-  margin-top: 4px;
-  font-size: var(--q-fonte-partes);
   color: var(--ink-soft);
 }
 
-.quadro-celula {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.qt-semana-celula {
   min-width: 0;
-  border-radius: var(--q-raio);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 10px;
   background: var(--glass);
   border: 1px solid var(--glass-border);
+  overflow: hidden;
 }
 
-.quadro-celula-hoje {
+.qt-semana-celula-hoje {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
-.quadro-feito {
-  background: color-mix(in srgb, var(--sage) 22%, var(--glass));
+.qt-semana-faltou {
+  background: color-mix(in srgb, var(--terracotta) 22%, transparent);
 }
 
-.quadro-faltou {
-  background: color-mix(in srgb, var(--terracotta) 26%, transparent);
-  border-color: transparent;
-}
-
-.quadro-na {
-  background: transparent;
-  border-color: transparent;
-}
-
-.quadro-na.quadro-celula-hoje {
-  box-shadow: none;
-}
-
-.quadro-na-ponto {
-  font-size: var(--q-dia-num);
-  color: var(--line);
-}
-
-.quadro-slots {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.quadro-slot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-}
-
-.quadro-slot-botao {
-  cursor: pointer;
-  padding: 3px;
-  transition: background-color 0.15s ease;
-}
-
-.quadro-slot-botao:hover {
+.qt-barra {
+  display: block;
+  height: 10px;
+  border-radius: 10px;
   background: var(--line);
+  overflow: hidden;
 }
+
+.qt-barra > span {
+  display: block;
+  height: 100%;
+  background: var(--sage);
+}
+
+.qt-semana-agendado {
+  align-self: flex-start;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.qt-agenda {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.qt-agenda .qt-rotulo {
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+
+.qt-agenda-item {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 3px 0;
+  font-size: 25px;
+}
+
+.qt-agenda-item .qt-titulo {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.qt-agenda-dia {
+  width: 64px;
+  flex: none;
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.qt-agenda-item .qt-hora {
+  width: 80px;
+  flex: none;
+  font-size: 22px;
+}
+
+/* Marcas (TV e Marcar) */
 
 .quadro-iniciais {
   display: inline-flex;
+  flex: none;
 }
 
 .quadro-iniciais > * + * {
-  margin-left: -10px;
+  margin-left: -8px;
 }
 
 .quadro-inicial,
@@ -5671,10 +5799,10 @@ textarea {
   align-items: center;
   justify-content: center;
   flex: none;
-  width: var(--q-inicial, 28px);
-  height: var(--q-inicial, 28px);
+  width: var(--q-inicial, 26px);
+  height: var(--q-inicial, 26px);
   border-radius: 9999px;
-  font-size: var(--q-inicial-fonte, 13px);
+  font-size: var(--q-inicial-fonte, 12px);
   font-weight: 700;
   color: #fff;
 }
@@ -5689,22 +5817,89 @@ textarea {
 
 .quadro-vazio {
   border: 2px dashed var(--ink-soft);
-  opacity: 0.45;
-}
-
-.quadro-slots-varios .quadro-inicial,
-.quadro-slots-varios .quadro-vazio {
-  width: var(--q-inicial-p);
-  height: var(--q-inicial-p);
-  font-size: var(--q-inicial-p-fonte);
-}
-
-.quadro-slots-varios .quadro-iniciais > * + * {
-  display: none;
+  opacity: 0.5;
 }
 
 .quadro-mais {
   margin-left: 4px;
-  font-size: var(--q-inicial-p-fonte, 12px);
+  font-size: 12px;
   color: var(--ink-soft);
+}
+
+/* Marcar */
+
+.marcar-dia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.marcar-dia b {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.2rem;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.marcar-dia-hoje {
+  border-color: var(--accent);
+}
+
+.marcar-dia-ativo {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.marcar-dia-ativo b {
+  color: var(--accent-foreground);
+}
+
+.marcar-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  transition: background-color 0.15s ease;
+}
+
+.marcar-item:hover:not(:disabled) {
+  background: var(--line);
+}
+
+.marcar-item:disabled {
+  cursor: default;
+}
+
+.marcar-feito > span:not(.quadro-iniciais) {
+  opacity: 0.55;
+}
+
+.marcar-agendado {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.marcar-hora {
+  width: 3rem;
+  flex: none;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.marcar-tag {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
