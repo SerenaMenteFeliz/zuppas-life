@@ -5395,3 +5395,316 @@ textarea {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Quadro da semana (04/10/2026) ─────────────────────────────────────────
+   A semana da casa numa grade só: linha por obrigação, segunda a domingo.
+   A mesma grade (components/quadro/Grade.tsx) serve a TV e a aba de marcar;
+   o que muda são as variáveis de tamanho da classe de fora.
+
+   Na TV os tamanhos são em pixel de uma TV Full HD, porque o palco é sempre
+   1920x1080 e só a escala muda (components/quadro/Palco.tsx). Calibrado pra
+   leitura a uns 3 metros: rótulo de linha a 34px, inicial a 44px. */
+
+.quadro-pagina {
+  height: calc(100dvh - 92px);
+}
+
+.quadro-pagina-tv {
+  height: 100dvh;
+}
+
+.quadro-moldura {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0b0d0a;
+}
+
+.quadro-palco {
+  flex: none;
+  transform-origin: center;
+}
+
+.quadro-tv {
+  --q-rotulo: 400px;
+  --q-fonte-rotulo: 34px;
+  --q-fonte-partes: 19px;
+  --q-inicial: 46px;
+  --q-inicial-fonte: 24px;
+  --q-inicial-p: 38px;
+  --q-inicial-p-fonte: 20px;
+  --q-dia-nome: 22px;
+  --q-dia-num: 40px;
+  --q-gap: 8px;
+  --q-raio: 16px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 64px 36px;
+}
+
+.quadro-tv-topo {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.quadro-tv-titulo {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 60px;
+  line-height: 1;
+}
+
+.quadro-tv-sub {
+  margin-top: 10px;
+  font-size: 24px;
+  color: var(--ink-soft);
+}
+
+.quadro-tv-hora {
+  text-align: right;
+}
+
+.quadro-tv-relogio {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 72px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.quadro-tv-corpo {
+  flex: 1;
+  min-height: 0;
+}
+
+.quadro-tv-rodape {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  margin-top: 22px;
+  font-size: 20px;
+  color: var(--ink-soft);
+}
+
+.quadro-tv-erro {
+  margin-left: auto;
+  color: var(--terracotta);
+}
+
+.quadro-legenda {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quadro-legenda .quadro-inicial,
+.quadro-legenda .quadro-vazio {
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+}
+
+.quadro-legenda-faltou {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--terracotta) 26%, transparent);
+}
+
+.quadro-marcar {
+  --q-rotulo: 230px;
+  --q-fonte-rotulo: 15px;
+  --q-fonte-partes: 11px;
+  --q-inicial: 30px;
+  --q-inicial-fonte: 14px;
+  --q-inicial-p: 22px;
+  --q-inicial-p-fonte: 11px;
+  --q-dia-nome: 11px;
+  --q-dia-num: 18px;
+  --q-gap: 6px;
+  --q-raio: 12px;
+  overflow-x: auto;
+}
+
+.quadro-marcar .quadro-grade {
+  min-width: 900px;
+  grid-auto-rows: minmax(58px, auto);
+}
+
+.quadro-grade {
+  display: grid;
+  grid-template-columns: var(--q-rotulo) repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: var(--q-gap);
+  height: 100%;
+}
+
+.quadro-linha {
+  display: contents;
+}
+
+.quadro-dia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0 10px;
+  border-radius: var(--q-raio);
+  color: var(--ink-soft);
+}
+
+.quadro-dia-nome {
+  font-size: var(--q-dia-nome);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.quadro-dia-num {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: var(--q-dia-num);
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.quadro-dia-hoje {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.quadro-dia-hoje .quadro-dia-num {
+  color: var(--accent-foreground);
+}
+
+.quadro-rotulo {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-right: 16px;
+  font-size: var(--q-fonte-rotulo);
+  line-height: 1.15;
+}
+
+.quadro-rotulo-partes {
+  margin-top: 4px;
+  font-size: var(--q-fonte-partes);
+  color: var(--ink-soft);
+}
+
+.quadro-celula {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  border-radius: var(--q-raio);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+}
+
+.quadro-celula-hoje {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.quadro-feito {
+  background: color-mix(in srgb, var(--sage) 22%, var(--glass));
+}
+
+.quadro-faltou {
+  background: color-mix(in srgb, var(--terracotta) 26%, transparent);
+  border-color: transparent;
+}
+
+.quadro-na {
+  background: transparent;
+  border-color: transparent;
+}
+
+.quadro-na.quadro-celula-hoje {
+  box-shadow: none;
+}
+
+.quadro-na-ponto {
+  font-size: var(--q-dia-num);
+  color: var(--line);
+}
+
+.quadro-slots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.quadro-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+}
+
+.quadro-slot-botao {
+  cursor: pointer;
+  padding: 3px;
+  transition: background-color 0.15s ease;
+}
+
+.quadro-slot-botao:hover {
+  background: var(--line);
+}
+
+.quadro-iniciais {
+  display: inline-flex;
+}
+
+.quadro-iniciais > * + * {
+  margin-left: -10px;
+}
+
+.quadro-inicial,
+.quadro-vazio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--q-inicial, 28px);
+  height: var(--q-inicial, 28px);
+  border-radius: 9999px;
+  font-size: var(--q-inicial-fonte, 13px);
+  font-weight: 700;
+  color: #fff;
+}
+
+.quadro-inicial {
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.quadro-inicial-eu {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink);
+}
+
+.quadro-vazio {
+  border: 2px dashed var(--ink-soft);
+  opacity: 0.45;
+}
+
+.quadro-slots-varios .quadro-inicial,
+.quadro-slots-varios .quadro-vazio {
+  width: var(--q-inicial-p);
+  height: var(--q-inicial-p);
+  font-size: var(--q-inicial-p-fonte);
+}
+
+.quadro-slots-varios .quadro-iniciais > * + * {
+  display: none;
+}
+
+.quadro-mais {
+  margin-left: 4px;
+  font-size: var(--q-inicial-p-fonte, 12px);
+  color: var(--ink-soft);
+}

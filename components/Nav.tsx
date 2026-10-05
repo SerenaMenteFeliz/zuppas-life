@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Casa, Estrela, Semana, Sol, Tela } from "./icones";
+import { Casa, Check, Estrela, Pauta, Semana, Sol, Tela } from "./icones";
 
 /* Navegação do app.
 
    Cinco destinos, todos visíveis, nenhum atrás de menu. A TV não entra na
    barra do celular porque ninguém abre a TV pelo telefone; ela fica no rodapé
-   das telas de casa, que é onde alguém vai procurar. */
+   das telas de casa, que é onde alguém vai procurar.
+
+   04/10/2026: Quadro e Marcar entraram no fim da barra, provisórios. São a
+   reestruturação da rotina (semana da casa na TV, marcação no desktop) e
+   convivem com as abas antigas até elas serem aposentadas. Os nomes também
+   são provisórios. */
 
 const DESTINOS = [
   { href: "/", rotulo: "Hoje", Icone: Sol },
@@ -16,6 +21,8 @@ const DESTINOS = [
   { href: "/casa", rotulo: "A casa", Icone: Casa },
   { href: "/akiane", rotulo: "Akiane", Icone: Estrela },
   { href: "/tv", rotulo: "TV", Icone: Tela },
+  { href: "/quadro", rotulo: "Quadro", Icone: Pauta },
+  { href: "/marcar", rotulo: "Marcar", Icone: Check },
 ];
 
 export default function Nav() {
@@ -25,7 +32,12 @@ export default function Nav() {
      barra de menu numa parede é só ruído que ninguém vai tocar. O painel
      interno (/painel) tem a própria sidebar (ver components/painel/Sidebar)
      e não é conteúdo de família — a barra da casa não pertence lá. */
-  if (caminho.startsWith("/tv") || caminho.startsWith("/painel")) return null;
+  if (
+    caminho.startsWith("/tv") ||
+    caminho.startsWith("/quadro/tv") ||
+    caminho.startsWith("/painel")
+  )
+    return null;
 
   return (
     <nav className="nav-barra">
